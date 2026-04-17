@@ -5,4 +5,5 @@ export const API_ENDPOINTS = {
   adminUsers: `${API_BASE_URL}/api/admin/usuarios`,
   adminRoles: `${API_BASE_URL}/api/admin/roles`,
   adminDepartments: `${API_BASE_URL}/api/admin/departamentos`,
+  politicas: `${API_BASE_URL}/api/politicas`,
 } as const;

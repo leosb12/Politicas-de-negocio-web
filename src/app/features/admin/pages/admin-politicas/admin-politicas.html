@@ -1,0 +1,177 @@
+<section class="politicas-page">
+
+  <!-- ── Header ─────────────────────────────── -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1 class="page-title flex items-center gap-2">
+        <lucide-icon name="settings-2" [size]="32" class="text-indigo-400"></lucide-icon>
+        Políticas de Negocio
+      </h1>
+      <p class="page-subtitle">Diseña, gestiona y activa flujos de trabajo para tu organización</p>
+    </div>
+    <button class="btn-primary flex items-center gap-2" (click)="openModal()" id="btn-nueva-politica">
+      <lucide-icon name="plus" [size]="18"></lucide-icon>
+      Nueva Política
+    </button>
+  </div>
+
+  <!-- ── Stats Bar ───────────────────────────── -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <span class="stat-num">{{ politicas().length }}</span>
+      <span class="stat-label">Total</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num activa">{{ countEstado('ACTIVA') }}</span>
+      <span class="stat-label">Activas</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num borrador">{{ countEstado('BORRADOR') }}</span>
+      <span class="stat-label">Borradores</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num pausada">{{ countEstado('PAUSADA') }}</span>
+      <span class="stat-label">Pausadas</span>
+    </div>
+
+    <!-- Search -->
+    <div class="search-box relative flex items-center">
+      <lucide-icon name="search" [size]="18" class="search-icon text-slate-400 absolute left-3"></lucide-icon>
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Buscar política..."
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+        id="input-buscar-politica"
+      />
+    </div>
+  </div>
+
+  <!-- ── Loading ─────────────────────────────── -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Cargando políticas…</p>
+    </div>
+  }
+
+  <!-- ── Empty ───────────────────────────────── -->
+  @if (!loading() && filteredPoliticas().length === 0) {
+    <div class="empty-state">
+      <div class="empty-icon text-indigo-300 flex justify-center mb-4"><lucide-icon name="clipboard-list" [size]="48"></lucide-icon></div>
+      <h3>No hay políticas aún</h3>
+      <p>Crea tu primera política de negocio para empezar a diseñar flujos</p>
+      <button class="btn-primary" (click)="openModal()">Crear primera política</button>
+    </div>
+  }
+
+  <!-- ── Grid de Tarjetas ─────────────────────── -->
+  @if (!loading() && filteredPoliticas().length > 0) {
+    <div class="politicas-grid">
+      @for (p of filteredPoliticas(); track trackById($index, p)) {
+        <article class="politica-card" (click)="openCanvas(p.id)" [id]="'card-' + p.id">
+          <div class="card-glow"></div>
+
+          <div class="card-top flex justify-between items-start">
+            <div class="card-icon-wrap bg-indigo-50 p-2 rounded-lg">
+              <lucide-icon name="refresh-cw" [size]="20" class="text-indigo-500"></lucide-icon>
+            </div>
+            <span class="estado-badge flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold" [ngClass]="getEstadoClass(p.estado)">
+              @if (p.estado === 'ACTIVA') { <lucide-icon name="check-circle-2" [size]="14"></lucide-icon> }
+              @if (p.estado === 'BORRADOR') { <lucide-icon name="pencil" [size]="14"></lucide-icon> }
+              @if (p.estado === 'PAUSADA') { <lucide-icon name="pause-circle" [size]="14"></lucide-icon> }
+              {{ getEstadoLabel(p.estado) }}
+            </span>
+          </div>
+
+          <div class="card-body">
+            <h3 class="card-title">{{ p.nombre }}</h3>
+            <p class="card-desc">{{ p.descripcion || 'Sin descripción' }}</p>
+          </div>
+
+          <div class="card-footer">
+            <div class="card-meta flex gap-4 text-sm text-slate-500">
+              <span class="meta-item flex items-center gap-1.5">
+                <lucide-icon name="circle-dot" [size]="14" class="text-indigo-400"></lucide-icon>
+                {{ p.nodos?.length ?? 0 }} nodos
+              </span>
+              <span class="meta-item flex items-center gap-1.5">
+                <lucide-icon name="link" [size]="14" class="text-indigo-400"></lucide-icon>
+                {{ p.conexiones?.length ?? 0 }} conexiones
+              </span>
+            </div>
+            <div class="card-date">{{ formatDate(p.fechaActualizacion) }}</div>
+          </div>
+
+          <div class="card-action-hint">
+            <span>Abrir Canvas →</span>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+</section>
+
+<!-- ── Modal Crear Política ──────────────────────── -->
+@if (showModal()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()" id="modal-nueva-politica">
+
+      <div class="modal-header flex justify-between items-center mb-6">
+        <h2 class="modal-title flex items-center gap-2 text-xl font-bold text-slate-800">
+          <lucide-icon name="sparkles" [size]="24" class="text-indigo-500"></lucide-icon>
+          Nueva Política de Negocio
+        </h2>
+        <button class="modal-close text-slate-400 hover:text-slate-600 transition-colors" (click)="closeModal()" id="btn-cerrar-modal">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label" for="input-nombre">Nombre de la política *</label>
+          <input
+            id="input-nombre"
+            type="text"
+            class="field-input"
+            placeholder="Ej. Instalación de Medidor"
+            [(ngModel)]="form.nombre"
+            (keyup.enter)="createPolitica()"
+          />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="input-descripcion">Descripción</label>
+          <textarea
+            id="input-descripcion"
+            class="field-input field-textarea"
+            placeholder="Describe el propósito de esta política…"
+            [(ngModel)]="form.descripcion"
+            rows="3"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-ghost" (click)="closeModal()" [disabled]="saving()">
+          Cancelar
+        </button>
+        <button
+          class="btn-primary flex items-center gap-2"
+          (click)="createPolitica()"
+          [disabled]="saving()"
+          id="btn-confirmar-crear"
+        >
+          @if (saving()) {
+            <span class="btn-spinner"></span> Creando…
+          } @else {
+            <lucide-icon name="rocket" [size]="18"></lucide-icon> Crear y Diseñar
+          }
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

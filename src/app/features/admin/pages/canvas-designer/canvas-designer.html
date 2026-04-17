@@ -1,0 +1,799 @@
+<div class="designer-shell">
+
+  <!-- ════ TOP BAR ════════════════════════════════════════════ -->
+  <header class="top-bar">
+    <div class="top-left">
+      <button class="btn-back flex items-center gap-1.5" (click)="goBack()" id="btn-volver">
+        <lucide-icon name="arrow-left" [size]="16"></lucide-icon> Volver
+      </button>
+      @if (politica()) {
+        <div class="policy-info">
+          <h1 class="policy-name">{{ politica()!.nombre }}</h1>
+          <span class="estado-chip" [ngClass]="'chip-' + politica()!.estado.toLowerCase()">
+            {{ politica()!.estado }}
+          </span>
+        </div>
+      }
+    </div>
+
+    <div class="top-center">
+      <!-- Zoom controls -->
+      <button class="icon-btn" (click)="zoomOut()" title="Alejar" id="btn-zoom-out"><lucide-icon name="zoom-out" [size]="18"></lucide-icon></button>
+      <span class="zoom-label">{{ (zoom() * 100).toFixed(0) }}%</span>
+      <button class="icon-btn" (click)="zoomIn()" title="Acercar" id="btn-zoom-in"><lucide-icon name="zoom-in" [size]="18"></lucide-icon></button>
+      <button class="icon-btn" (click)="resetView()" title="Resetear vista" id="btn-reset-view"><lucide-icon name="focus" [size]="18"></lucide-icon></button>
+    </div>
+
+    <div class="top-right">
+      <!-- State buttons -->
+      @if (politicaEstado !== 'ACTIVA') {
+        <button class="btn-activate flex items-center gap-1.5" (click)="changeEstado('ACTIVA')" id="btn-activar">
+          <lucide-icon name="play-circle" [size]="16"></lucide-icon> Activar
+        </button>
+      }
+      @if (politicaEstado === 'ACTIVA') {
+        <button class="btn-pause flex items-center gap-1.5" (click)="changeEstado('PAUSADA')" id="btn-pausar">
+          <lucide-icon name="pause-circle" [size]="16"></lucide-icon> Pausar
+        </button>
+      }
+      <button
+        class="btn-save flex items-center gap-1.5"
+        (click)="save()"
+        [disabled]="saving()"
+        id="btn-guardar-flujo"
+      >
+        @if (saving()) { <span class="mini-spin"></span> Guardando… }
+        @else { <lucide-icon name="save" [size]="16"></lucide-icon> Guardar Flujo }
+      </button>
+    </div>
+  </header>
+
+  <!-- ════ MAIN AREA ════════════════════════════════════════════ -->
+  <div class="main-area">
+
+    <!-- ── LEFT PALETTE ──────────────────────────────────────── -->
+    <aside class="palette">
+      <div class="palette-title">Elementos</div>
+
+      @for (item of palette; track item.tipo) {
+        <div
+          class="palette-item"
+          (click)="addNodeFromPalette(item.tipo)"
+          [id]="'palette-' + item.tipo.toLowerCase()"
+          [title]="item.description"
+        >
+          <div class="palette-icon flex justify-center items-center" [style.color]="item.color"
+               [style.border-color]="item.color + '40'">
+            <lucide-icon [name]="item.icon" [size]="20" [strokeWidth]="2.5"></lucide-icon>
+          </div>
+          <div class="palette-info">
+            <span class="palette-label">{{ item.label }}</span>
+            <span class="palette-desc">{{ item.description }}</span>
+          </div>
+        </div>
+      }
+
+      <div class="palette-hint flex items-start gap-1">
+        <lucide-icon name="lightbulb" [size]="14" class="mt-0.5 flex-shrink-0"></lucide-icon>
+        <span>Haz clic en un elemento para añadirlo al canvas</span>
+      </div>
+
+      <div class="palette-divider"></div>
+      <div class="palette-title">Carriles</div>
+      <div class="lane-controls">
+        <button
+          type="button"
+          class="btn-lane-add"
+          id="btn-anadir-carril"
+          (click)="addManualLane()"
+        >
+          <lucide-icon name="plus" [size]="14"></lucide-icon>
+          Añadir carril
+        </button>
+      </div>
+
+      <div class="palette-hint">
+        <span>Máximo un carril por departamento.</span>
+      </div>
+
+      @if (!swimlanes().length) {
+        <div class="palette-hint">
+          <span>No hay carriles añadidos todavía.</span>
+        </div>
+      }
+
+      @for (lane of swimlanes(); track lane.id) {
+        <div class="lane-chip">
+          <span class="lane-dot" [style.background]="lane.color"></span>
+          {{ lane.label }}
+        </div>
+      }
+    </aside>
+
+    <!-- ── CANVAS VIEWPORT ────────────────────────────────────── -->
+    <div
+      class="canvas-viewport"
+      [class.is-panning]="isPanning"
+      #canvasWrap
+      (mousedown)="onCanvasMouseDown($event)"
+      (wheel)="onWheel($event)"
+    >
+      @if (loading()) {
+        <div class="canvas-loading">
+          <div class="big-spinner"></div>
+          <p>Cargando diseñador…</p>
+        </div>
+      }
+
+      <!-- SVG Canvas -->
+      <svg
+        #canvasEl
+        class="canvas-svg"
+        [style.transform]="canvasTransform"
+        [style.transform-origin]="'0 0'"
+        [attr.width]="CANVAS_WIDTH"
+        [attr.height]="CANVAS_HEIGHT"
+      >
+        <!-- Defs: arrowhead marker -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                  refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#6366f1" />
+          </marker>
+          <marker id="arrowhead-hover" markerWidth="10" markerHeight="7"
+                  refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#f43f5e" />
+          </marker>
+          <!-- Grid pattern -->
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(99,102,241,0.08)" stroke-width="1"/>
+          </pattern>
+        </defs>
+
+        <!-- Background grid -->
+        <rect [attr.width]="CANVAS_WIDTH" [attr.height]="CANVAS_HEIGHT" fill="url(#grid)" />
+
+        <!-- ── SWIMLANES ─────────────────────────────────────── -->
+        @for (lane of swimlanes(); track lane.id; let i = $index) {
+          <g class="swimlane">
+            <rect
+              [attr.x]="CANVAS_ORIGIN_X"
+              [attr.y]="CANVAS_ORIGIN_Y + i * LANE_HEIGHT"
+              [attr.width]="CANVAS_WIDTH - CANVAS_ORIGIN_X"
+              [attr.height]="LANE_HEIGHT"
+              [attr.fill]="lane.color + '08'"
+              [attr.stroke]="lane.color + '25'"
+              stroke-width="1"
+              rx="0"
+            />
+            <text
+              [attr.x]="CANVAS_ORIGIN_X + 14"
+              [attr.y]="CANVAS_ORIGIN_Y + i * LANE_HEIGHT + 22"
+              [attr.fill]="lane.color"
+              font-size="13"
+              font-weight="700"
+              opacity="0.9"
+              font-family="Inter, system-ui, sans-serif"
+            >{{ lane.label }}</text>
+          </g>
+        }
+
+        <!-- ── CONNECTIONS ───────────────────────────────────── -->
+        @for (c of conexiones(); track trackByConn($index, c)) {
+          <g class="connection-group">
+            <path
+              [attr.d]="getArrowPath(c)"
+              fill="none"
+              stroke="#6366f1"
+              stroke-width="2"
+              stroke-dasharray="none"
+              opacity="0.8"
+              marker-end="url(#arrowhead)"
+            />
+            <!-- Delete button at midpoint -->
+            @if (getArrowMid(c); as mid) {
+              <g class="conn-delete" (click)="deleteConexion(c.origen, c.destino)" style="cursor:pointer">
+                <circle [attr.cx]="mid.x" [attr.cy]="mid.y" r="10" fill="#1e1b4b" stroke="#f43f5e" stroke-width="1.5" opacity="0"/>
+                <foreignObject [attr.x]="mid.x - 7" [attr.y]="mid.y - 7" width="14" height="14" opacity="0" class="conn-delete-icon">
+                  <lucide-icon name="x" [size]="14" color="#f43f5e"></lucide-icon>
+                </foreignObject>
+              </g>
+            }
+          </g>
+        }
+
+        <!-- ── Live connection line ──────────────────────────── -->
+        @if (connectState(); as cs) {
+          @if (nodos() | findNode : cs.fromNodeId; as fromNode) {
+            @if (getLiveConnectPoint(cs); as livePoint) {
+              <line
+                [attr.x1]="getNodePortPoint(fromNode, cs.fromPort).x"
+                [attr.y1]="getNodePortPoint(fromNode, cs.fromPort).y"
+                [attr.x2]="livePoint.x"
+                [attr.y2]="livePoint.y"
+                stroke="#a5b4fc"
+                stroke-width="2"
+                stroke-dasharray="8 4"
+                opacity="0.7"
+              />
+            }
+          }
+        }
+
+        <!-- ── NODES ─────────────────────────────────────────── -->
+        @for (node of nodos(); track trackById($index, node)) {
+          <g
+            class="node-group"
+            [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
+            (mousedown)="onNodeMouseDown($event, node.id)"
+            (click)="onNodeClick($event, node.id)"
+            [class.selected]="selectedNodeId() === node.id"
+            [class.connect-source]="isConnectSource(node.id)"
+            [class.connect-target]="canConnectToNode(node.id)"
+          >
+            <!-- INICIO shape: circle -->
+            @if (node.tipo === 'INICIO') {
+              <circle
+                [attr.cx]="60" [attr.cy]="25"
+                r="24"
+                [attr.fill]="nodeBg(node.tipo)"
+                [attr.stroke]="nodeColor(node.tipo)"
+                stroke-width="2.5"
+              />
+              <foreignObject x="48" y="13" width="24" height="24">
+                <lucide-icon name="play" [size]="24" [color]="nodeColor(node.tipo)" [strokeWidth]="3"></lucide-icon>
+              </foreignObject>
+            }
+
+            <!-- FIN shape: double circle -->
+            @if (node.tipo === 'FIN') {
+              <circle [attr.cx]="60" [attr.cy]="25" r="24"
+                      [attr.fill]="nodeBg(node.tipo)" [attr.stroke]="nodeColor(node.tipo)" stroke-width="2.5" />
+              <circle [attr.cx]="60" [attr.cy]="25" r="18"
+                      fill="none" [attr.stroke]="nodeColor(node.tipo)" stroke-width="1.5" opacity="0.5"/>
+              <foreignObject x="48" y="13" width="24" height="24">
+                <lucide-icon name="stop-circle" [size]="24" [color]="nodeColor(node.tipo)"></lucide-icon>
+              </foreignObject>
+            }
+
+            <!-- DECISION shape: diamond -->
+            @if (node.tipo === 'DECISION') {
+              <polygon
+                [attr.points]="'65,2 128,40 65,78 2,40'"
+                [attr.fill]="nodeBg(node.tipo)"
+                [attr.stroke]="nodeColor(node.tipo)"
+                stroke-width="2"
+              />
+              <text x="65" y="44" text-anchor="middle" [attr.fill]="nodeColor(node.tipo)"
+                    font-size="11" font-weight="600">{{ node.nombre }}</text>
+            }
+
+            <!-- FORK / JOIN: horizontal bar -->
+            @if (node.tipo === 'FORK' || node.tipo === 'JOIN') {
+              <rect x="0" y="10" width="160" height="10" rx="3"
+                    [attr.fill]="nodeColor(node.tipo)" opacity="0.9" />
+              <text x="80" y="5" text-anchor="middle" [attr.fill]="nodeColor(node.tipo)"
+                    font-size="10" font-weight="700">{{ node.tipo }}</text>
+            }
+
+            <!-- ACTIVIDAD shape: rounded rect -->
+            @if (node.tipo === 'ACTIVIDAD') {
+              <rect x="0" y="0" width="160" height="80" rx="12"
+                    [attr.fill]="nodeBg(node.tipo)"
+                    [attr.stroke]="selectedNodeId() === node.id ? '#a5b4fc' : nodeColor(node.tipo)"
+                    [attr.stroke-width]="selectedNodeId() === node.id ? '2.5' : '1.5'"
+              />
+              <rect x="0" y="0" width="160" height="6" rx="3"
+                    [attr.fill]="nodeColor(node.tipo)" />
+              <text x="80" y="28" text-anchor="middle" fill="#e2e8f0"
+                    font-size="11" font-weight="600" font-family="Inter, system-ui">
+                {{ node.nombre.length > 22 ? (node.nombre | slice:0:22) + '…' : node.nombre }}
+              </text>
+              <!-- Dept label (Swimlane) -->
+              <text x="80" y="44" text-anchor="middle" fill="#64748b"
+                    font-size="9" font-family="Inter, system-ui">
+                {{ getDeptName(node.departamentoId) }}
+              </text>
+              <foreignObject x="40" y="36" width="10" height="10">
+                <lucide-icon name="folder" [size]="10" color="#64748b"></lucide-icon>
+              </foreignObject>
+
+              <!-- Responsable Badge -->
+              <rect x="8" y="54" width="144" height="20" rx="4" fill="#312e81" opacity="0.6"/>
+              <foreignObject x="12" y="58" width="12" height="12">
+                <lucide-icon [name]="node.responsableTipo === 'USUARIO' ? 'user' : 'users'" [size]="12" color="#a5b4fc"></lucide-icon>
+              </foreignObject>
+              <text x="28" y="67" fill="#a5b4fc" font-size="9" font-family="Inter, system-ui" font-weight="500">
+                {{ getResponsableNombre(node).length > 22 ? (getResponsableNombre(node) | slice:0:22) + '…' : getResponsableNombre(node) }}
+              </text>
+
+              <!-- Form fields badge -->
+              @if (node.formulario?.length) {
+                <circle cx="148" cy="12" r="9" fill="#6366f1" />
+                <text x="148" y="16" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">
+                  {{ node.formulario.length }}
+                </text>
+              }
+            }
+
+            <!-- Connection port (right edge) -->
+            @if (node.tipo !== 'FIN') {
+              <g
+                class="node-port port-output"
+                [class.is-active]="isConnectSource(node.id)"
+                [class.is-target]="canConnectToNode(node.id)"
+                (mousedown)="onNodePortMouseDown($event, node.id, 'RIGHT')"
+                (click)="$event.stopPropagation()"
+              >
+                <circle
+                  class="port-hit"
+                  [attr.cx]="getNodeWidth(node.tipo)"
+                  [attr.cy]="getNodeHeight(node.tipo) / 2"
+                  r="14"
+                />
+                <circle
+                  class="port-ring"
+                  [attr.cx]="getNodeWidth(node.tipo)"
+                  [attr.cy]="getNodeHeight(node.tipo) / 2"
+                  r="9"
+                />
+                <circle
+                  class="port-core"
+                  [attr.cx]="getNodeWidth(node.tipo)"
+                  [attr.cy]="getNodeHeight(node.tipo) / 2"
+                  r="5"
+                />
+              </g>
+            }
+
+            <!-- Incoming port (left edge) -->
+            @if (node.tipo !== 'INICIO') {
+              <g
+                class="node-port port-input"
+                [class.is-target]="canConnectToNode(node.id)"
+                (mousedown)="onNodePortMouseDown($event, node.id, 'LEFT')"
+                (click)="$event.stopPropagation()"
+              >
+                <circle
+                  class="port-hit"
+                  cx="0"
+                  [attr.cy]="getNodeHeight(node.tipo) / 2"
+                  r="14"
+                />
+                <circle
+                  class="port-ring"
+                  cx="0"
+                  [attr.cy]="getNodeHeight(node.tipo) / 2"
+                  r="9"
+                />
+                <circle
+                  class="port-core"
+                  cx="0"
+                  [attr.cy]="getNodeHeight(node.tipo) / 2"
+                  r="5"
+                />
+              </g>
+            }
+
+            <!-- Incoming port (top edge for DECISION/FORK/JOIN) -->
+            @if (hasTopInputPort(node.tipo)) {
+              <g
+                class="node-port port-input port-input-top"
+                [class.is-target]="canConnectToNode(node.id)"
+                (mousedown)="onNodePortMouseDown($event, node.id, 'TOP')"
+                (click)="$event.stopPropagation()"
+              >
+                <circle
+                  class="port-hit"
+                  [attr.cx]="getNodeWidth(node.tipo) / 2"
+                  [attr.cy]="getNodeTopInputLocalY(node.tipo)"
+                  r="14"
+                />
+                <circle
+                  class="port-ring"
+                  [attr.cx]="getNodeWidth(node.tipo) / 2"
+                  [attr.cy]="getNodeTopInputLocalY(node.tipo)"
+                  r="9"
+                />
+                <circle
+                  class="port-core"
+                  [attr.cx]="getNodeWidth(node.tipo) / 2"
+                  [attr.cy]="getNodeTopInputLocalY(node.tipo)"
+                  r="5"
+                />
+              </g>
+            }
+
+            <!-- Incoming/Outgoing port (bottom edge for ACTIVIDAD) -->
+            @if (hasBottomPort(node.tipo)) {
+              <g
+                class="node-port port-input port-input-bottom"
+                [class.is-target]="canConnectToNode(node.id)"
+                (mousedown)="onNodePortMouseDown($event, node.id, 'BOTTOM')"
+                (click)="$event.stopPropagation()"
+              >
+                <circle
+                  class="port-hit"
+                  [attr.cx]="getNodeWidth(node.tipo) / 2"
+                  [attr.cy]="getNodeBottomInputLocalY(node.tipo)"
+                  r="14"
+                />
+                <circle
+                  class="port-ring"
+                  [attr.cx]="getNodeWidth(node.tipo) / 2"
+                  [attr.cy]="getNodeBottomInputLocalY(node.tipo)"
+                  r="9"
+                />
+                <circle
+                  class="port-core"
+                  [attr.cx]="getNodeWidth(node.tipo) / 2"
+                  [attr.cy]="getNodeBottomInputLocalY(node.tipo)"
+                  r="5"
+                />
+              </g>
+            }
+
+            <!-- Selected glow -->
+            @if (selectedNodeId() === node.id) {
+              <rect x="-4" y="-4"
+                    [attr.width]="getNodeWidth(node.tipo) + 8"
+                    [attr.height]="getNodeHeight(node.tipo) + 8"
+                    rx="14"
+                    fill="none"
+                    stroke="#a5b4fc"
+                    stroke-width="1.5"
+                    stroke-dasharray="6 3"
+                    opacity="0.6"
+              />
+            }
+          </g>
+        }
+
+      </svg>
+
+      <!-- Canvas empty hint -->
+      @if (!loading() && nodos().length === 0) {
+        <div class="canvas-empty-hint flex items-center gap-2">
+          <lucide-icon name="arrow-left" [size]="18"></lucide-icon>
+          <span>Haz clic en un elemento de la paleta para comenzar a diseñar</span>
+        </div>
+      }
+
+      @if (connectState()) {
+        <div class="connect-hint flex items-center gap-2">
+          <lucide-icon name="link" [size]="14"></lucide-icon>
+          <span>Modo conexión: haz clic en el nodo destino. Clic en fondo para cancelar.</span>
+        </div>
+      }
+    </div>
+
+    <!-- ── RIGHT SIDEBAR (Properties) ────────────────────────── -->
+    @if (showSidebar() && sidebarNode()) {
+      <aside class="sidebar" id="sidebar-propiedades">
+        <div class="sidebar-header">
+          <h3 class="sidebar-title">
+            <span [style.color]="nodeColor(sidebarNode()!.tipo)">●</span>
+            Propiedades
+          </h3>
+          <button class="sidebar-close" (click)="deselectAll()" id="btn-cerrar-sidebar">
+            <lucide-icon name="x" [size]="18"></lucide-icon>
+          </button>
+        </div>
+
+        <!-- Delete node -->
+        <button class="btn-delete-node flex justify-center items-center gap-2" (click)="deleteNode(sidebarNode()!.id)" id="btn-eliminar-nodo">
+          <lucide-icon name="trash-2" [size]="16"></lucide-icon> Eliminar nodo
+        </button>
+
+        <!-- Name -->
+        <div class="prop-group">
+          <label class="prop-label">Nombre del nodo</label>
+          <input
+            class="prop-input"
+            type="text"
+            [value]="sidebarNode()!.nombre"
+            (input)="updateNodeName(sidebarNode()!.id, $any($event.target).value)"
+            id="input-nombre-nodo"
+          />
+        </div>
+
+        <!-- Type select -->
+        <div class="prop-group">
+          <label class="prop-label">Tipo de nodo</label>
+          <select
+            class="prop-select"
+            [ngModel]="sidebarNode()!.tipo"
+            (ngModelChange)="updateNodeTipo(sidebarNode()!.id, $event)"
+            [ngModelOptions]="{ standalone: true }"
+            id="select-tipo-nodo"
+          >
+            @for (t of tiposNodoOptions; track t) {
+              <option [value]="t">{{ t }}</option>
+            }
+          </select>
+        </div>
+
+        @if (sidebarNode()!.tipo === 'ACTIVIDAD') {
+          <!-- Department -->
+          <div class="prop-group">
+            <label class="prop-label">Departamento (Carril)</label>
+            <select
+              class="prop-select"
+              [ngModel]="sidebarNode()!.departamentoId ?? ''"
+              (ngModelChange)="updateNodeDept(sidebarNode()!.id, $event)"
+              [ngModelOptions]="{ standalone: true }"
+              id="select-departamento-nodo"
+            >
+              <option value="">Sin departamento</option>
+              @for (d of departamentos(); track d.id) {
+                <option [value]="d.id">{{ d.nombre }}</option>
+              }
+              <option disabled>──────────</option>
+              <option value="CREATE_NEW">+ Crear nuevo departamento...</option>
+            </select>
+          </div>
+        }
+
+        <!-- ── RESPONSABLE REAL (only for ACTIVIDAD) ──────────── -->
+        @if (sidebarNode()!.tipo === 'ACTIVIDAD') {
+          <div class="section-sep flex items-center gap-2">
+            <lucide-icon name="user-check" [size]="14"></lucide-icon>
+            <span>Responsable de Ejecución</span>
+          </div>
+
+          <div
+            class="responsable-block"
+            [class.has-error]="
+              !sidebarNode()!.responsableTipo ||
+              (sidebarNode()!.responsableTipo === 'USUARIO' && !sidebarNode()!.responsableId) ||
+              (sidebarNode()!.responsableTipo === 'DEPARTAMENTO' && !sidebarNode()!.departamentoId)
+            "
+          >
+            <div class="prop-group" style="margin-bottom: 0.5rem">
+              <label class="prop-label">Tipo de Responsable</label>
+              <select
+                class="prop-select"
+                [ngModel]="sidebarNode()!.responsableTipo ?? ''"
+                (ngModelChange)="updateNodeResponsableTipo(sidebarNode()!.id, $event)"
+                [ngModelOptions]="{ standalone: true }"
+                id="select-responsable-tipo"
+              >
+                <option value="">-- Seleccionar --</option>
+                <option value="USUARIO">Usuario Específico</option>
+                <option value="DEPARTAMENTO">Cualquiera del Departamento</option>
+              </select>
+            </div>
+
+            @if (sidebarNode()!.responsableTipo === 'USUARIO') {
+              <div class="prop-group mb-0">
+                <label class="prop-label">Usuario responsable:</label>
+                <select
+                  class="prop-select"
+                  [ngModel]="sidebarNode()!.responsableId ?? ''"
+                  (ngModelChange)="updateNodeResponsableId(sidebarNode()!.id, $event)"
+                  [ngModelOptions]="{ standalone: true }"
+                  id="select-responsable-id"
+                >
+                  <option value="">-- Seleccionar --</option>
+                  @for (item of responsableItems(); track item.id) {
+                    <option [value]="item.id">{{ item.nombre }}</option>
+                  }
+                </select>
+              </div>
+            }
+
+            @if (sidebarNode()!.responsableTipo === 'DEPARTAMENTO') {
+              <div class="prop-group mb-0">
+                <label class="prop-label">Departamento responsable:</label>
+                <input
+                  class="prop-input"
+                  type="text"
+                  [value]="getDeptName(sidebarNode()!.departamentoId)"
+                  readonly
+                />
+              </div>
+            }
+            
+            @if (!sidebarNode()!.responsableTipo) {
+              <div class="responsable-alert mt-2 flex items-start gap-1">
+                <lucide-icon name="alert-circle" [size]="14" class="mt-0.5 text-rose-500 flex-shrink-0"></lucide-icon>
+                <span class="text-xs text-rose-600 font-medium">Selecciona un tipo de responsable.</span>
+              </div>
+            }
+
+            @if (sidebarNode()!.responsableTipo === 'USUARIO' && !sidebarNode()!.responsableId) {
+              <div class="responsable-alert mt-2 flex items-start gap-1">
+                <lucide-icon name="alert-circle" [size]="14" class="mt-0.5 text-rose-500 flex-shrink-0"></lucide-icon>
+                <span class="text-xs text-rose-600 font-medium">Selecciona un usuario responsable.</span>
+              </div>
+            }
+
+            @if (sidebarNode()!.responsableTipo === 'DEPARTAMENTO' && !sidebarNode()!.departamentoId) {
+              <div class="responsable-alert mt-2 flex items-start gap-1">
+                <lucide-icon name="alert-circle" [size]="14" class="mt-0.5 text-rose-500 flex-shrink-0"></lucide-icon>
+                <span class="text-xs text-rose-600 font-medium">Primero asigna un departamento (carril) a esta actividad.</span>
+              </div>
+            }
+          </div>
+
+          <!-- ── FORMULARIO ───────────────────────────────────── -->
+          <div class="section-sep flex items-center gap-2" style="margin-top: 1.5rem">
+            <lucide-icon name="clipboard-list" [size]="14"></lucide-icon>
+            <span>Formulario Dinámico</span>
+          </div>
+
+          <!-- Existing fields -->
+          @for (campo of sidebarNode()!.formulario; track $index) {
+            <div class="campo-row">
+              <span class="campo-name">{{ campo.campo }}</span>
+              <span class="campo-tipo">{{ campo.tipo }}</span>
+              <button class="btn-remove" (click)="removeCampo(sidebarNode()!.id, $index)"
+                      [id]="'btn-remove-campo-' + $index">
+                <lucide-icon name="x" [size]="12"></lucide-icon>
+              </button>
+            </div>
+          }
+
+          @if (!sidebarNode()!.formulario?.length) {
+            <p class="empty-hint">Aún no hay campos. Añade uno abajo.</p>
+          }
+
+          <!-- Add field -->
+          <div class="add-campo-form">
+            <input
+              class="prop-input"
+              type="text"
+              placeholder="Nombre del campo"
+              [(ngModel)]="newCampo.campo"
+              id="input-nuevo-campo"
+              (keyup.enter)="addCampo(sidebarNode()!.id)"
+            />
+            <select class="prop-select" [(ngModel)]="newCampo.tipo" id="select-tipo-campo">
+              @for (t of tipoCampoOptions; track t) {
+                <option [value]="t">{{ t }}</option>
+              }
+            </select>
+            <button class="btn-add-campo" (click)="addCampo(sidebarNode()!.id)" id="btn-agregar-campo">
+              ＋ Campo
+            </button>
+          </div>
+        }
+
+        <!-- ── CONDICIONES (only for DECISION) ──────────────── -->
+        @if (sidebarNode()!.tipo === 'DECISION') {
+          <div class="section-sep flex items-center gap-2">
+            <lucide-icon name="shuffle" [size]="14"></lucide-icon>
+            <span>Condiciones de Decisión</span>
+          </div>
+
+          @for (cond of sidebarNode()!.condiciones; track $index) {
+            <div class="campo-row">
+              <span class="campo-name">{{ cond.resultado }}</span>
+              <span class="campo-tipo">→ {{ cond.siguiente }}</span>
+              <button class="btn-remove" (click)="removeCondicion(sidebarNode()!.id, $index)"
+                      [id]="'btn-remove-cond-' + $index">
+                <lucide-icon name="x" [size]="12"></lucide-icon>
+              </button>
+            </div>
+          }
+
+          @if (!sidebarNode()!.condiciones?.length) {
+            <p class="empty-hint">Sin condiciones aún.</p>
+          }
+
+          <div class="add-campo-form">
+            <input class="prop-input" type="text" placeholder="Resultado (ej: true)"
+                   [(ngModel)]="newCondicion.resultado" id="input-resultado"
+                   (keyup.enter)="addCondicion(sidebarNode()!.id)" />
+            <input class="prop-input" type="text" placeholder="ID Nodo siguiente"
+                   [(ngModel)]="newCondicion.siguiente" id="input-siguiente"
+                   (keyup.enter)="addCondicion(sidebarNode()!.id)" />
+            <button class="btn-add-campo" (click)="addCondicion(sidebarNode()!.id)" id="btn-agregar-condicion">
+              ＋ Condición
+            </button>
+          </div>
+        }
+
+        <!-- Node ID (readonly) -->
+        <div class="prop-group" style="margin-top: auto; padding-top: 1rem;">
+          <label class="prop-label" style="color: #334155">ID interno</label>
+          <span class="node-id-label">{{ sidebarNode()!.id }}</span>
+        </div>
+
+      </aside>
+    }
+
+  </div>
+
+</div>
+
+<!-- ═══ DEPT SELECTION MODAL ═════════════════════════════════════ -->
+@if (showDeptModal()) {
+  <div class="modal-overlay" (click)="!savingDept() && closeDeptModal()">
+    <div class="modal-sm" (click)="$event.stopPropagation()" id="modal-seleccionar-dept">
+      <button
+        class="modal-close"
+        type="button"
+        id="btn-cerrar-modal-dept"
+        (click)="closeDeptModal()"
+        [disabled]="savingDept()"
+        title="Cerrar"
+      >
+        <lucide-icon name="x" [size]="16"></lucide-icon>
+      </button>
+      
+      @if (!creatingNewDept()) {
+        <h3 class="modal-sm-title">Asignar Departamento (Carril)</h3>
+        <p class="modal-sm-hint">¿A qué departamento pertenece esta actividad?</p>
+
+        <div class="dept-list">
+          <button class="dept-opt" (click)="selectDeptFromModal(null)" id="btn-dept-ninguno">
+            <span class="dept-dot" style="background: #475569"></span>
+            Sin departamento
+          </button>
+          @for (d of departamentos(); track d.id) {
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+              @if (editingDeptId() === d.id) {
+                <div style="display: flex; gap: 0.5rem; flex: 1; padding: 0.25rem;" (click)="$event.stopPropagation()">
+                  <input type="text" class="prop-input" style="flex: 1; margin: 0; padding: 0.25rem 0.5rem;" [value]="editDeptName()" (input)="editDeptName.set($any($event.target).value)" (keyup.enter)="saveEditDept($event, d.id)" autofocus />
+                  <button (click)="saveEditDept($event, d.id)" style="cursor:pointer; background:none; border:none; opacity:0.8; font-size: 1.1rem; display:flex; align-items:center;" title="Guardar">
+                    <lucide-icon name="check" [size]="18" class="text-emerald-400"></lucide-icon>
+                  </button>
+                  <button (click)="cancelEditDept($event)" style="cursor:pointer; background:none; border:none; opacity:0.8; font-size: 1.1rem; display:flex; align-items:center;" title="Cancelar">
+                    <lucide-icon name="x" [size]="18" class="text-rose-400"></lucide-icon>
+                  </button>
+                </div>
+              } @else {
+                <button class="dept-opt" (click)="selectDeptFromModal(d.id)" [id]="'btn-dept-' + d.id" style="flex: 1; margin: 0;">
+                  <span class="dept-dot" [style.background]="deptColor(d.id)"></span>
+                  {{ d.nombre }}
+                </button>
+                <div style="display: flex; gap: 0.25rem; margin-left: 0.5rem;">
+                  <button (click)="startEditDept($event, d)" style="cursor:pointer; background:none; border:none; opacity:0.6; padding: 0.25rem; display:flex; align-items:center;" title="Editar">
+                    <lucide-icon name="pencil" [size]="16" class="text-indigo-300"></lucide-icon>
+                  </button>
+                  <button (click)="deleteDept($event, d.id)" style="cursor:pointer; background:none; border:none; opacity:0.6; padding: 0.25rem; display:flex; align-items:center;" title="Eliminar">
+                    <lucide-icon name="trash-2" [size]="16" class="text-rose-400"></lucide-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+          <div style="height: 1px; background: #e2e8f0; margin: 0.5rem 0; opacity: 0.1;"></div>
+          <button class="dept-opt flex items-center gap-2" (click)="startCreateDept()" style="color: #818cf8; font-weight: 600;">
+            <lucide-icon name="plus" [size]="16"></lucide-icon> Crear nuevo departamento...
+          </button>
+        </div>
+      } @else {
+        <h3 class="modal-sm-title flex items-center gap-2">
+          <lucide-icon name="sparkles" [size]="20" class="text-indigo-400"></lucide-icon>
+          Nuevo Departamento
+        </h3>
+        <p class="modal-sm-hint">Escribe el nombre del nuevo departamento.</p>
+        
+        <div style="margin-top: 1rem;">
+          <input
+            type="text"
+            class="prop-input"
+            style="width: 100%; margin-bottom: 1rem;"
+            placeholder="Ej. Recursos Humanos"
+            [(ngModel)]="newDeptName"
+            (keyup.enter)="confirmCreateDept()"
+            [disabled]="savingDept()"
+            autofocus
+          />
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <button (click)="cancelCreateDept()" [disabled]="savingDept()" style="padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; font-weight: 600; cursor: pointer;">
+              Cancelar
+            </button>
+            <button (click)="confirmCreateDept()" [disabled]="savingDept() || !newDeptName().trim()" style="padding: 0.5rem 1rem; border-radius: 0.5rem; background: #4f46e5; color: white; font-weight: 600; cursor: pointer; border: none; display: flex; align-items: center; gap: 0.5rem;">
+              @if (savingDept()) { <span class="mini-spin"></span> }
+              Crear
+            </button>
+          </div>
+        </div>
+      }
+
+    </div>
+  </div>
+}

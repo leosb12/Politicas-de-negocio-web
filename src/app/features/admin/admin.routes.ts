@@ -40,6 +40,23 @@ export const ADMIN_ROUTES: Routes = [
             (module) => module.AdminDepartmentsPageComponent
           ),
       },
+      {
+        path: 'politicas',
+        loadComponent: () =>
+          import('./pages/admin-politicas/admin-politicas').then(
+            (module) => module.AdminPoliticasPageComponent
+          ),
+      },
     ],
   },
+  // Canvas designer — full-screen, outside the admin layout shell
+  {
+    path: 'politicas/:id/canvas',
+    canActivate: [adminOnlyGuard],
+    loadComponent: () =>
+      import('./pages/canvas-designer/canvas-designer').then(
+        (module) => module.CanvasDesignerComponent
+      ),
+  },
 ];
+

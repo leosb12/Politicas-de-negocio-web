@@ -6,8 +6,10 @@ export const adminUserHeaderInterceptor: HttpInterceptorFn = (
   request,
   next
 ) => {
-  const isAdminRequest = request.url.includes('/api/admin');
-  if (!isAdminRequest) {
+  const needsAdminHeader = 
+    request.url.includes('/api/admin') || 
+    request.url.includes('/api/politicas');
+  if (!needsAdminHeader) {
     return next(request);
   }
 

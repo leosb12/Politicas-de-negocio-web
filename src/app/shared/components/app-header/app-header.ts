@@ -8,12 +8,13 @@ import {
   RouterLinkActive,
 } from '@angular/router';
 import { filter } from 'rxjs';
+import { LucideAngularModule, Settings2 } from 'lucide-angular';
 import { Usuario } from '../../../models/usuario.model';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterLink, RouterLinkActive, LucideAngularModule],
   templateUrl: './app-header.html',
   styleUrl: './app-header.css',
 })
