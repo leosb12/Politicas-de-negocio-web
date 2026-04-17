@@ -1,0 +1,65 @@
+<div class="min-h-screen bg-slate-100">
+  <app-header />
+
+  <main class="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <section class="rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 p-6 text-white shadow-xl">
+      <p class="text-sm uppercase tracking-wide text-slate-200">Panel administrativo</p>
+      <h2 class="mt-2 text-3xl font-bold">Bienvenido, {{ usuario?.nombre }}</h2>
+      <p class="mt-2 text-sm text-slate-200">
+        Desde aqui gestionas usuarios, roles y departamentos del sistema.
+      </p>
+    </section>
+
+    <section class="grid gap-4 md:grid-cols-3">
+      <a
+        routerLink="/admin/usuarios"
+        class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <h3 class="text-lg font-bold text-slate-900">Gestion de usuarios</h3>
+        <p class="mt-2 text-sm text-slate-600">
+          Crear, editar, activar cuentas y asignar roles.
+        </p>
+      </a>
+
+      <a
+        routerLink="/admin/roles"
+        class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <h3 class="text-lg font-bold text-slate-900">Gestion de roles</h3>
+        <p class="mt-2 text-sm text-slate-600">
+          Controlar permisos y estados de los roles de negocio.
+        </p>
+      </a>
+
+      <a
+        routerLink="/admin/departamentos"
+        class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <h3 class="text-lg font-bold text-slate-900">Gestion de departamentos</h3>
+        <p class="mt-2 text-sm text-slate-600">
+          Mantener estructura organizacional y reasignaciones.
+        </p>
+      </a>
+    </section>
+
+    <section class="grid gap-4 md:grid-cols-3">
+      <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Modulo IA</p>
+        <h4 class="mt-2 text-base font-bold text-slate-900">Asistente de politicas</h4>
+        <p class="mt-2 text-sm text-slate-600">Sugerencias inteligentes para flujos y reglas de negocio.</p>
+      </article>
+
+      <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Workflow</p>
+        <h4 class="mt-2 text-base font-bold text-slate-900">Monitoreo operativo</h4>
+        <p class="mt-2 text-sm text-slate-600">Seguimiento de tareas, estados y productividad.</p>
+      </article>
+
+      <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Analitica</p>
+        <h4 class="mt-2 text-base font-bold text-slate-900">Cuellos de botella</h4>
+        <p class="mt-2 text-sm text-slate-600">Identificacion temprana de demoras y puntos de atasco.</p>
+      </article>
+    </section>
+  </main>
+</div>

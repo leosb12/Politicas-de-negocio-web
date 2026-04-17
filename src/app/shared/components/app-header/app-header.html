@@ -1,0 +1,134 @@
+<header class="border-b border-slate-200 bg-white/90 backdrop-blur">
+  <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">
+          Politicas de Negocio
+        </h1>
+        <p class="text-sm text-slate-500">Panel administrativo y operativo</p>
+      </div>
+
+      @if (session()) {
+        <div class="flex items-center gap-3">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+            <span class="font-semibold text-slate-700">{{ session()?.nombre }}</span>
+            <span class="text-slate-500"> · {{ session()?.rol }}</span>
+          </div>
+          <button
+            type="button"
+            (click)="cerrarSesion()"
+            class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+          >
+            Cerrar sesion
+          </button>
+        </div>
+      }
+    </div>
+
+    <nav class="flex flex-wrap gap-2">
+      <a
+        routerLink="/"
+        routerLinkActive
+        #homeLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }"
+        [class]="
+          homeLink.isActive
+            ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+            : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+        "
+      >
+        Inicio
+      </a>
+
+      @if (session()?.rol === 'ADMIN') {
+        <a
+          routerLink="/dashboard-admin"
+          routerLinkActive
+          #dashAdminLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            dashAdminLink.isActive
+              ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+          "
+        >
+          Dashboard admin
+        </a>
+
+        <a
+          routerLink="/admin/usuarios"
+          routerLinkActive
+          #usuariosLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            usuariosLink.isActive
+              ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+          "
+        >
+          Usuarios
+        </a>
+
+        <a
+          routerLink="/admin/roles"
+          routerLinkActive
+          #rolesLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            rolesLink.isActive
+              ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+          "
+        >
+          Roles
+        </a>
+
+        <a
+          routerLink="/admin/departamentos"
+          routerLinkActive
+          #departamentosLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            departamentosLink.isActive
+              ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+          "
+        >
+          Departamentos
+        </a>
+      }
+
+      @if (session()?.rol === 'FUNCIONARIO') {
+        <a
+          routerLink="/dashboard-funcionario"
+          routerLinkActive
+          #dashFuncLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            dashFuncLink.isActive
+              ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+          "
+        >
+          Dashboard funcionario
+        </a>
+      }
+
+      @if (!session()) {
+        <a
+          routerLink="/login"
+          routerLinkActive
+          #loginLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            loginLink.isActive
+              ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+          "
+        >
+          Login
+        </a>
+      }
+    </nav>
+  </div>
+</header>

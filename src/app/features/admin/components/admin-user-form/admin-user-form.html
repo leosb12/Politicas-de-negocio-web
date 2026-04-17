@@ -1,0 +1,127 @@
+<div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+  <section class="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <h3 class="text-lg font-bold text-slate-800">
+        {{ mode() === 'create' ? 'Crear usuario' : 'Editar usuario' }}
+      </h3>
+      <button
+        type="button"
+        (click)="closeModal()"
+        class="rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
+      >
+        Cerrar
+      </button>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="submitForm()" class="p-6 grid gap-4">
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+          <input
+            type="text"
+            formControlName="nombre"
+            class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          />
+          @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+            <p class="mt-1 text-xs text-red-600">El nombre es obligatorio.</p>
+          }
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Correo</label>
+          <input
+            type="email"
+            formControlName="correo"
+            class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          />
+          @if (form.controls.correo.touched && form.controls.correo.invalid) {
+            <p class="mt-1 text-xs text-red-600">Ingresa un correo valido.</p>
+          }
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">
+            {{ mode() === 'create' ? 'Password' : 'Password (opcional)' }}
+          </label>
+          <input
+            type="password"
+            formControlName="password"
+            class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          />
+          @if (form.controls.password.touched && form.controls.password.invalid) {
+            <p class="mt-1 text-xs text-red-600">El password debe tener al menos 6 caracteres.</p>
+          }
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Departamento Id</label>
+          <select
+            formControlName="departamentoId"
+            class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          >
+            <option value="">Sin departamento</option>
+            @for (department of availableDepartments(); track department.id) {
+              <option [value]="department.id">{{ department.nombre }}</option>
+            }
+          </select>
+          @if (availableDepartments().length === 0) {
+            <p class="mt-1 text-xs text-amber-700">
+              No hay departamentos activos disponibles.
+            </p>
+          }
+        </div>
+      </div>
+
+      @if (mode() === 'create') {
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Rol inicial</label>
+          <select
+            formControlName="rol"
+            class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          >
+            @for (role of activeRoles(); track role.id) {
+              <option [value]="role.nombre">{{ role.nombre }}</option>
+            }
+          </select>
+          @if (activeRoles().length === 0) {
+            <p class="mt-1 text-xs text-amber-700">No hay roles activos para asignar.</p>
+          }
+        </div>
+      } @else {
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          El rol se gestiona desde la tabla con la accion Asignar rol / Quitar rol.
+        </div>
+      }
+
+      <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+        <input type="checkbox" formControlName="activo" class="h-4 w-4" />
+        Usuario activo
+      </label>
+
+      @if (serverError()) {
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {{ serverError() }}
+        </div>
+      }
+
+      <footer class="pt-2 flex justify-end gap-3">
+        <button
+          type="button"
+          (click)="closeModal()"
+          class="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          [disabled]="pending()"
+          class="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+        >
+          {{ pending() ? 'Guardando...' : (mode() === 'create' ? 'Crear usuario' : 'Guardar cambios') }}
+        </button>
+      </footer>
+    </form>
+  </section>
+</div>

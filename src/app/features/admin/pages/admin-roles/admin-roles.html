@@ -1,0 +1,148 @@
+<section class="space-y-6">
+  <header class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-900">Administracion de roles</h2>
+      <p class="text-sm text-slate-500">
+        Define permisos, descripcion y ciclo de vida de cada rol.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      (click)="openCreateRole()"
+      class="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+    >
+      Crear rol
+    </button>
+  </header>
+
+  @if (error()) {
+    <div class="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <span>{{ error() }}</span>
+      <button
+        type="button"
+        (click)="loadRoles()"
+        class="rounded-lg border border-red-300 px-3 py-1 font-semibold hover:bg-red-100"
+      >
+        Reintentar
+      </button>
+    </div>
+  }
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+      Buscar por nombre o descripcion
+    </label>
+    <input
+      type="text"
+      [formControl]="searchControl"
+      placeholder="Ejemplo: ADMIN"
+      class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+    />
+  </section>
+
+  <app-data-table
+    [columns]="tableColumns"
+    [loading]="loading()"
+    [hasData]="filteredRoles().length > 0"
+    [emptyTitle]="emptyTitle()"
+    [emptyMessage]="emptyMessage()"
+    [emptyActionLabel]="roles().length === 0 ? 'Crear rol' : null"
+    (emptyAction)="openCreateRole()"
+  >
+    <div table-toolbar class="flex items-center justify-between gap-3 text-sm text-slate-600">
+      <span>Resultados: {{ filteredRoles().length }}</span>
+      <button
+        type="button"
+        (click)="loadRoles()"
+        class="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-100"
+      >
+        Actualizar
+      </button>
+    </div>
+
+    <ng-container table-body>
+      @for (role of filteredRoles(); track role.id) {
+        <tr>
+          <td class="px-4 py-3 font-semibold">{{ role.nombre }}</td>
+          <td class="px-4 py-3">{{ role.descripcion || '-' }}</td>
+          <td class="px-4 py-3">
+            <span
+              [class]="
+                role.activo
+                  ? 'inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700'
+                  : 'inline-flex rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700'
+              "
+            >
+              {{ role.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <span
+              [class]="
+                role.sistema
+                  ? 'inline-flex rounded-full bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-700'
+                  : 'inline-flex rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700'
+              "
+            >
+              {{ role.sistema ? 'Sistema' : 'Personalizado' }}
+            </span>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                (click)="openEditRole(role)"
+                [disabled]="isRoleActionBusy(role.id)"
+                class="rounded-lg border border-blue-300 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+              >
+                Editar
+              </button>
+
+              <button
+                type="button"
+                (click)="requestToggleRoleStatus(role)"
+                [disabled]="isRoleActionBusy(role.id) || (role.nombre === 'ADMIN' && role.activo)"
+                class="rounded-lg border border-amber-300 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-40"
+              >
+                {{ role.activo ? 'Desactivar' : 'Activar' }}
+              </button>
+
+              <button
+                type="button"
+                (click)="requestDeleteRole(role)"
+                [disabled]="isRoleActionBusy(role.id) || role.sistema"
+                class="rounded-lg border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+              >
+                Eliminar
+              </button>
+            </div>
+          </td>
+        </tr>
+      }
+    </ng-container>
+  </app-data-table>
+</section>
+
+@if (roleFormOpen()) {
+  <app-admin-role-form
+    [mode]="roleFormMode()"
+    [initialValue]="selectedRole()"
+    [pending]="roleFormPending()"
+    [serverError]="roleFormError()"
+    (save)="saveRole($event)"
+    (close)="closeRoleForm()"
+  />
+}
+
+@if (confirmState()) {
+  <app-confirm-dialog
+    [title]="confirmState()!.title"
+    [message]="confirmState()!.message"
+    [confirmLabel]="confirmState()!.confirmLabel"
+    [danger]="confirmState()!.danger"
+    [pending]="confirmPending()"
+    (confirmed)="confirmDialogAction()"
+    (cancelled)="closeConfirmDialog()"
+  />
+}
