@@ -25,6 +25,34 @@
     </div>
 
     <div class="top-right">
+      <div
+        class="collab-presence"
+        [class.is-offline]="collaborationConnectionState() !== 'CONNECTED'"
+      >
+        <div class="collab-presence-head">
+          <lucide-icon
+            [name]="collaborationConnectionState() === 'CONNECTED' ? 'wifi' : 'wifi-off'"
+            [size]="14"
+          ></lucide-icon>
+          <span>{{ collaborationStatusLabel() }}</span>
+          <span class="collab-presence-count">{{ connectedUsers().length }} conectados</span>
+        </div>
+        <div class="collab-presence-users">
+          @if (!connectedUsers().length) {
+            <span class="collab-user-empty">Sin usuarios conectados</span>
+          }
+
+          @for (user of connectedUsers(); track user.userId) {
+            <span class="collab-user-pill" [class.is-me]="isCurrentUser(user.userId)">
+              {{ user.nombre }}
+              @if (user.sesionesActivas > 1) {
+                <small>x{{ user.sesionesActivas }}</small>
+              }
+            </span>
+          }
+        </div>
+      </div>
+
       <!-- State buttons -->
       @if (politicaEstado !== 'ACTIVA') {
         <button class="btn-activate flex items-center gap-1.5" (click)="changeEstado('ACTIVA')" id="btn-activar">
@@ -36,15 +64,16 @@
           <lucide-icon name="pause-circle" [size]="16"></lucide-icon> Pausar
         </button>
       }
-      <button
-        class="btn-save flex items-center gap-1.5"
-        (click)="save()"
-        [disabled]="saving()"
-        id="btn-guardar-flujo"
-      >
-        @if (saving()) { <span class="mini-spin"></span> Guardando… }
-        @else { <lucide-icon name="save" [size]="16"></lucide-icon> Guardar Flujo }
-      </button>
+
+      <div class="autosave-status">
+        @if (saving()) {
+          <span class="mini-spin"></span>
+          Guardando borrador...
+        } @else {
+          <lucide-icon name="cloud-check" [size]="15"></lucide-icon>
+          Borrador guardado en vivo
+        }
+      </div>
     </div>
   </header>
 
@@ -90,6 +119,27 @@
           <lucide-icon name="plus" [size]="14"></lucide-icon>
           Añadir carril
         </button>
+        <button
+          type="button"
+          class="btn-lane-orientation"
+          [class.is-vertical]="isVerticalLaneOrientation()"
+          id="btn-toggle-orientacion-carriles"
+          (click)="toggleLaneOrientation()"
+        >
+          <lucide-icon
+            [name]="isVerticalLaneOrientation() ? 'arrow-left-right' : 'arrow-up-down'"
+            [size]="14"
+          ></lucide-icon>
+          {{ isVerticalLaneOrientation() ? 'Cambiar a horizontal' : 'Cambiar a vertical' }}
+        </button>
+      </div>
+
+      <div class="palette-hint">
+        <span>Orientación actual: {{ laneOrientationLabel }}.</span>
+      </div>
+
+      <div class="palette-hint">
+        <span>Los nuevos carriles se crean según esta orientación.</span>
       </div>
 
       <div class="palette-hint">
@@ -157,18 +207,18 @@
         @for (lane of swimlanes(); track lane.id; let i = $index) {
           <g class="swimlane">
             <rect
-              [attr.x]="CANVAS_ORIGIN_X"
-              [attr.y]="CANVAS_ORIGIN_Y + i * LANE_HEIGHT"
-              [attr.width]="CANVAS_WIDTH - CANVAS_ORIGIN_X"
-              [attr.height]="LANE_HEIGHT"
+              [attr.x]="getLaneX(i)"
+              [attr.y]="getLaneY(i)"
+              [attr.width]="getLaneWidth()"
+              [attr.height]="getLaneHeight()"
               [attr.fill]="lane.color + '08'"
               [attr.stroke]="lane.color + '25'"
               stroke-width="1"
               rx="0"
             />
             <text
-              [attr.x]="CANVAS_ORIGIN_X + 14"
-              [attr.y]="CANVAS_ORIGIN_Y + i * LANE_HEIGHT + 22"
+              [attr.x]="getLaneX(i) + 14"
+              [attr.y]="getLaneY(i) + 22"
               [attr.fill]="lane.color"
               font-size="13"
               font-weight="700"
@@ -230,6 +280,8 @@
             [class.selected]="selectedNodeId() === node.id"
             [class.connect-source]="isConnectSource(node.id)"
             [class.connect-target]="canConnectToNode(node.id)"
+            [class.soft-locked]="hasNodeEditorsFromOthers(node.id)"
+            [class.soft-collision]="hasNodeCollision(node.id)"
           >
             <!-- INICIO shape: circle -->
             @if (node.tipo === 'INICIO') {
@@ -266,6 +318,24 @@
               />
               <text x="65" y="44" text-anchor="middle" [attr.fill]="nodeColor(node.tipo)"
                     font-size="11" font-weight="600">{{ node.nombre }}</text>
+
+              @if (hasDecisionBranchConnection(node.id, 'LEFT')) {
+                <text
+                  x="-12"
+                  y="43"
+                  text-anchor="end"
+                  class="decision-port-label decision-port-label-left"
+                >no</text>
+              }
+
+              @if (hasDecisionBranchConnection(node.id, 'RIGHT')) {
+                <text
+                  x="142"
+                  y="43"
+                  text-anchor="start"
+                  class="decision-port-label decision-port-label-right"
+                >si</text>
+              }
             }
 
             <!-- FORK / JOIN: horizontal bar -->
@@ -314,6 +384,35 @@
                   {{ node.formulario.length }}
                 </text>
               }
+            }
+
+            @if (hasNodeEditors(node.id)) {
+              <rect
+                [attr.x]="-6"
+                [attr.y]="-6"
+                [attr.width]="getNodeWidth(node.tipo) + 12"
+                [attr.height]="getNodeHeight(node.tipo) + 12"
+                rx="14"
+                fill="none"
+                class="node-collab-outline"
+                [class.is-collision]="hasNodeCollision(node.id)"
+              />
+              <rect
+                x="-4"
+                y="-23"
+                [attr.width]="getNodeWidth(node.tipo) + 8"
+                height="14"
+                rx="7"
+                class="node-collab-chip"
+                [class.is-collision]="hasNodeCollision(node.id)"
+              />
+              <text
+                [attr.x]="getNodeWidth(node.tipo) / 2"
+                y="-13"
+                text-anchor="middle"
+                class="node-collab-chip-label"
+                [class.is-collision]="hasNodeCollision(node.id)"
+              >{{ getNodeEditorLabel(node.id) }}</text>
             }
 
             <!-- Connection port (right edge) -->
@@ -479,6 +578,13 @@
             <lucide-icon name="x" [size]="18"></lucide-icon>
           </button>
         </div>
+
+        @if (selectedNodeCollisionWarning()) {
+          <div class="collab-sidebar-warning flex items-center gap-2">
+            <lucide-icon name="alert-triangle" [size]="14"></lucide-icon>
+            <span>{{ selectedNodeCollisionWarning() }}</span>
+          </div>
+        }
 
         <!-- Delete node -->
         <button class="btn-delete-node flex justify-center items-center gap-2" (click)="deleteNode(sidebarNode()!.id)" id="btn-eliminar-nodo">
@@ -723,14 +829,24 @@
       </button>
       
       @if (!creatingNewDept()) {
-        <h3 class="modal-sm-title">Asignar Departamento (Carril)</h3>
-        <p class="modal-sm-hint">¿A qué departamento pertenece esta actividad?</p>
+        <h3 class="modal-sm-title">
+          {{ deptModalMode() === 'LANE' ? 'Añadir carril' : 'Asignar Departamento (Carril)' }}
+        </h3>
+        <p class="modal-sm-hint">
+          @if (deptModalMode() === 'LANE') {
+            Selecciona un departamento para crear su carril en orientación {{ laneOrientationLabel }}.
+          } @else {
+            ¿A qué departamento pertenece esta actividad?
+          }
+        </p>
 
         <div class="dept-list">
-          <button class="dept-opt" (click)="selectDeptFromModal(null)" id="btn-dept-ninguno">
-            <span class="dept-dot" style="background: #475569"></span>
-            Sin departamento
-          </button>
+          @if (deptModalMode() !== 'LANE') {
+            <button class="dept-opt" (click)="selectDeptFromModal(null)" id="btn-dept-ninguno">
+              <span class="dept-dot" style="background: #475569"></span>
+              Sin departamento
+            </button>
+          }
           @for (d of departamentos(); track d.id) {
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
               @if (editingDeptId() === d.id) {

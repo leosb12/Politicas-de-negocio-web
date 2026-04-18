@@ -30,6 +30,11 @@ export interface Nodo {
   id: string;
   tipo: TipoNodo;
   nombre: string;
+  /** Versión de concurrencia usada por backend para validaciones optimistas. */
+  version?: number;
+  /** Coordenadas persistidas del backend (opcionales en DTO). */
+  posicionX?: number;
+  posicionY?: number;
   /** Carril visual del diagrama (swimlane). No define quién ejecuta. */
   departamentoId: string | null;
   /** Responsable LÓGICO: solo aplica a nodos tipo ACTIVIDAD. */
@@ -50,6 +55,8 @@ export interface NodoCanvas extends Nodo {
 export interface Conexion {
   origen: string;
   destino: string;
+  puertoOrigen?: string;
+  puertoDestino?: string;
 }
 
 // ── PoliticaNegocio (full document) ──────────────

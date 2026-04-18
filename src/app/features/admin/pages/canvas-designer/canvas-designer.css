@@ -108,6 +108,93 @@
   gap: 0.6rem;
 }
 
+.collab-presence {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  padding: 0.32rem 0.52rem;
+  border-radius: 10px;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+  background: rgba(13, 148, 136, 0.12);
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.collab-presence.is-offline {
+  border-color: rgba(244, 63, 94, 0.35);
+  background: rgba(127, 29, 29, 0.16);
+}
+
+.collab-presence-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.67rem;
+  color: #99f6e4;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.collab-presence.is-offline .collab-presence-head {
+  color: #fecdd3;
+}
+
+.collab-presence-count {
+  margin-left: auto;
+  font-size: 0.62rem;
+  color: #d1fae5;
+  text-transform: none;
+  letter-spacing: 0.03em;
+}
+
+.collab-presence-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.collab-user-pill {
+  border: 1px solid rgba(45, 212, 191, 0.4);
+  background: rgba(15, 118, 110, 0.22);
+  color: #ccfbf1;
+  font-size: 0.64rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.14rem 0.42rem;
+  white-space: nowrap;
+}
+
+.collab-user-pill small {
+  font-size: 0.6rem;
+  opacity: 0.9;
+  margin-left: 0.2rem;
+}
+
+.collab-user-pill.is-me {
+  border-color: rgba(129, 140, 248, 0.55);
+  background: rgba(79, 70, 229, 0.3);
+}
+
+.collab-user-empty {
+  font-size: 0.64rem;
+  color: #94a3b8;
+}
+
+.autosave-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.68rem;
+  border-radius: 9px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.12);
+  color: #c7d2fe;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .btn-save {
   display: inline-flex;
   align-items: center;
@@ -297,6 +384,34 @@
   cursor: not-allowed;
 }
 
+.btn-lane-orientation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  border: 1px solid rgba(129, 140, 248, 0.42);
+  background: rgba(79, 70, 229, 0.14);
+  color: #c7d2fe;
+  border-radius: 8px;
+  padding: 0.42rem 0.5rem;
+  font-size: 0.73rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-lane-orientation:hover {
+  background: rgba(79, 70, 229, 0.24);
+  color: #eef2ff;
+}
+
+.btn-lane-orientation.is-vertical {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(8, 145, 178, 0.2);
+  color: #cffafe;
+}
+
 .lane-chip {
   display: flex;
   align-items: center;
@@ -343,6 +458,14 @@
   user-select: none;
 }
 .node-group.selected {}
+
+.node-group.soft-locked {
+  filter: drop-shadow(0 0 8px rgba(45, 212, 191, 0.25));
+}
+
+.node-group.soft-collision {
+  filter: drop-shadow(0 0 10px rgba(251, 113, 133, 0.35));
+}
 
 .node-group.connect-target .port-ring {
   stroke: #38bdf8;
@@ -421,6 +544,59 @@
 
 .port-input-bottom .port-core {
   fill: #fdba74;
+}
+
+.decision-port-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+  user-select: none;
+}
+
+.decision-port-label-left {
+  fill: #fda4af;
+}
+
+.decision-port-label-right {
+  fill: #86efac;
+}
+
+.node-collab-outline {
+  stroke: #2dd4bf;
+  stroke-width: 2;
+  opacity: 0.9;
+  stroke-dasharray: 5 3;
+  pointer-events: none;
+}
+
+.node-collab-outline.is-collision {
+  stroke: #fb7185;
+}
+
+.node-collab-chip {
+  fill: rgba(15, 118, 110, 0.8);
+  stroke: rgba(94, 234, 212, 0.75);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.node-collab-chip.is-collision {
+  fill: rgba(159, 18, 57, 0.84);
+  stroke: rgba(251, 113, 133, 0.85);
+}
+
+.node-collab-chip-label {
+  fill: #ccfbf1;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.node-collab-chip-label.is-collision {
+  fill: #ffe4e6;
 }
 
 @keyframes portPulse {
@@ -544,6 +720,16 @@
   justify-content: center;
 }
 .sidebar-close:hover { background: rgba(244,63,94,0.15); color: #f43f5e; }
+
+.collab-sidebar-warning {
+  background: rgba(251, 113, 133, 0.14);
+  border: 1px solid rgba(251, 113, 133, 0.35);
+  color: #fecdd3;
+  border-radius: 8px;
+  padding: 0.42rem 0.55rem;
+  font-size: 0.73rem;
+  font-weight: 600;
+}
 
 .btn-delete-node {
   width: 100%;
