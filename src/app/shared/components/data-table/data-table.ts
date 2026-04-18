@@ -2,10 +2,18 @@ import { CommonModule } from '@angular/common';
 import { Component, input, output } from '@angular/core';
 import { EmptyStateComponent } from '../empty-state/empty-state';
 import { LoaderComponent } from '../loader/loader';
+import { AppCardComponent } from '../../ui/card/card';
+import { AppTableComponent } from '../../ui/table/table';
 
 @Component({
   selector: 'app-data-table',
-  imports: [CommonModule, LoaderComponent, EmptyStateComponent],
+  imports: [
+    CommonModule,
+    LoaderComponent,
+    EmptyStateComponent,
+    AppCardComponent,
+    AppTableComponent,
+  ],
   templateUrl: './data-table.html',
   styleUrl: './data-table.css',
 })

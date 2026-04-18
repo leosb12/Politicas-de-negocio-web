@@ -2,6 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, effect, inject, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminRole } from '../../models/admin-role.model';
+import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
+import { AppButtonComponent } from '../../../../shared/ui/button/button';
+import { AppInputComponent } from '../../../../shared/ui/input/input';
+import { AppModalComponent } from '../../../../shared/ui/modal/modal';
+import { AppTextareaComponent } from '../../../../shared/ui/textarea/textarea';
 
 export interface AdminRoleFormValue {
   nombre: string;
@@ -11,7 +16,15 @@ export interface AdminRoleFormValue {
 
 @Component({
   selector: 'app-admin-role-form',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    AppModalComponent,
+    AppButtonComponent,
+    AppInputComponent,
+    AppTextareaComponent,
+    AppAlertComponent,
+  ],
   templateUrl: './admin-role-form.html',
   styleUrl: './admin-role-form.css',
 })

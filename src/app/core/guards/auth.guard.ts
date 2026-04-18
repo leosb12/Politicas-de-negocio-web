@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '../auth/services/auth.service';
 
 function validateLoggedSession(): true | UrlTree {
   const authService = inject(AuthService);

@@ -378,7 +378,7 @@
               </text>
 
               <!-- Form fields badge -->
-              @if (node.formulario?.length) {
+              @if (node.formulario.length) {
                 <circle cx="148" cy="12" r="9" fill="#6366f1" />
                 <text x="148" y="16" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">
                   {{ node.formulario.length }}
@@ -740,7 +740,7 @@
             </div>
           }
 
-          @if (!sidebarNode()!.formulario?.length) {
+          @if (!sidebarNode()!.formulario.length) {
             <p class="empty-hint">Aún no hay campos. Añade uno abajo.</p>
           }
 
@@ -783,7 +783,7 @@
             </div>
           }
 
-          @if (!sidebarNode()!.condiciones?.length) {
+          @if (!sidebarNode()!.condiciones.length) {
             <p class="empty-hint">Sin condiciones aún.</p>
           }
 

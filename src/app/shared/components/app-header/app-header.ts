@@ -9,8 +9,8 @@ import {
 } from '@angular/router';
 import { filter } from 'rxjs';
 import { LucideAngularModule, Settings2 } from 'lucide-angular';
-import { Usuario } from '../../../models/usuario.model';
-import { AuthService } from '../../../services/auth.service';
+import { Usuario } from '../../../core/auth/models/usuario.model';
+import { AuthService } from '../../../core/auth/services/auth.service';
 
 @Component({
   selector: 'app-header',

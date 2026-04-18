@@ -6,7 +6,7 @@
 // ── Enums ────────────────────────────────────────
 export type TipoNodo = 'INICIO' | 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' | 'FIN';
 export type TipoCampo = 'TEXTO' | 'NUMERO' | 'BOOLEANO' | 'ARCHIVO' | 'FECHA';
-export type EstadoPolitica = 'BORRADOR' | 'ACTIVA' | 'PAUSADA';
+export type EstadoPolitica = 'BORRADOR' | 'ACTIVA' | 'PAUSADA' | 'DESHABILITADA';
 
 /**
  * Tipo del responsable LÓGICO de ejecución de una ACTIVIDAD.
@@ -75,6 +75,11 @@ export interface PoliticaNegocio {
 export interface CreatePoliticaRequest {
   nombre: string;
   descripcion: string;
+}
+
+export interface UpdatePoliticaRequest {
+  nombre?: string;
+  descripcion?: string;
 }
 
 export interface UpdateFlujoRequest {

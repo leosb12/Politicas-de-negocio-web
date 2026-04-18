@@ -7,65 +7,50 @@
       </p>
     </div>
 
-    <button
-      type="button"
-      (click)="openCreateDepartment()"
-      class="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
-    >
+    <app-button type="button" (click)="openCreateDepartment()">
       Crear departamento
-    </button>
+    </app-button>
   </header>
 
   @if (error()) {
-    <div class="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      <span>{{ error() }}</span>
-      <button
-        type="button"
-        (click)="loadDepartments()"
-        class="rounded-lg border border-red-300 px-3 py-1 font-semibold hover:bg-red-100"
-      >
-        Reintentar
-      </button>
-    </div>
+    <app-alert variant="danger" className="flex items-center justify-between gap-3">
+      <div class="flex items-center justify-between gap-3">
+        <span>{{ error() }}</span>
+        <app-button type="button" variant="outline" size="sm" (click)="loadDepartments()">
+          Reintentar
+        </app-button>
+      </div>
+    </app-alert>
   }
 
   <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
     <div class="grid gap-3 md:grid-cols-4">
       <div class="md:col-span-3">
-        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Buscar por nombre o descripcion
-        </label>
-        <input
-          type="text"
+        <app-input
           [formControl]="searchControl"
+          label="Buscar por nombre o descripcion"
           placeholder="Ejemplo: finanzas"
-          class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          labelClass="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500"
         />
       </div>
 
       <div>
-        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Estado
-        </label>
-        <select
+        <app-select
           [formControl]="statusControl"
-          class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          label="Estado"
+          labelClass="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500"
         >
           <option value="ALL">Todos</option>
           <option value="ACTIVE">Activos</option>
           <option value="INACTIVE">Inactivos</option>
-        </select>
+        </app-select>
       </div>
     </div>
 
     <div class="mt-3 flex justify-end">
-      <button
-        type="button"
-        (click)="clearFilters()"
-        class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-      >
+      <app-button type="button" variant="secondary" size="sm" (click)="clearFilters()">
         Limpiar filtros
-      </button>
+      </app-button>
     </div>
   </section>
 
@@ -80,13 +65,9 @@
   >
     <div table-toolbar class="flex items-center justify-between gap-3 text-sm text-slate-600">
       <span>Resultados: {{ filteredDepartments().length }}</span>
-      <button
-        type="button"
-        (click)="loadDepartments()"
-        class="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-100"
-      >
+      <app-button type="button" variant="secondary" size="sm" (click)="loadDepartments()">
         Actualizar
-      </button>
+      </app-button>
     </div>
 
     <ng-container table-body>
@@ -95,54 +76,52 @@
           <td class="px-4 py-3 font-semibold">{{ department.nombre }}</td>
           <td class="px-4 py-3">{{ department.descripcion || '-' }}</td>
           <td class="px-4 py-3">
-            <span
-              [class]="
-                department.activo
-                  ? 'inline-flex rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700'
-                  : 'inline-flex rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700'
-              "
-            >
+            <app-badge [variant]="department.activo ? 'success' : 'neutral'">
               {{ department.activo ? 'Activo' : 'Inactivo' }}
-            </span>
+            </app-badge>
           </td>
           <td class="px-4 py-3">{{ department.totalUsuarios }}</td>
           <td class="px-4 py-3">
             <div class="flex flex-wrap gap-2">
-              <button
+              <app-button
                 type="button"
+                variant="secondary"
+                size="sm"
                 (click)="openDepartmentUsers(department)"
                 [disabled]="isDepartmentActionBusy(department.id)"
-                class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
               >
                 Ver usuarios
-              </button>
+              </app-button>
 
-              <button
+              <app-button
                 type="button"
+                variant="info"
+                size="sm"
                 (click)="openEditDepartment(department)"
                 [disabled]="isDepartmentActionBusy(department.id)"
-                class="rounded-lg border border-blue-300 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
               >
                 Editar
-              </button>
+              </app-button>
 
-              <button
+              <app-button
                 type="button"
+                variant="warning"
+                size="sm"
                 (click)="requestToggleStatus(department)"
                 [disabled]="isDepartmentActionBusy(department.id)"
-                class="rounded-lg border border-amber-300 px-3 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
               >
                 {{ department.activo ? 'Desactivar' : 'Activar' }}
-              </button>
+              </app-button>
 
-              <button
+              <app-button
                 type="button"
+                variant="danger"
+                size="sm"
                 (click)="requestDeleteDepartment(department)"
                 [disabled]="isDepartmentActionBusy(department.id)"
-                class="rounded-lg border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
               >
                 Eliminar
-              </button>
+              </app-button>
             </div>
           </td>
         </tr>
@@ -163,97 +142,91 @@
 }
 
 @if (usersModalOpen()) {
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-    <section class="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-      <header class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-        <div>
-          <h3 class="text-lg font-bold text-slate-800">Usuarios del departamento</h3>
-          <p class="text-sm text-slate-500">{{ usersModalDepartment()?.nombre }}</p>
+  <app-modal size="xl" (closed)="closeDepartmentUsers()">
+    <header class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-800">Usuarios del departamento</h3>
+        <p class="text-sm text-slate-500">{{ usersModalDepartment()?.nombre }}</p>
+      </div>
+
+      <app-button type="button" variant="secondary" size="sm" (click)="closeDepartmentUsers()">
+        Cerrar
+      </app-button>
+    </header>
+
+    <div class="grid gap-5 p-6">
+      @if (usersByDepartmentLoading()) {
+        <p class="text-sm text-slate-500">Cargando usuarios del departamento...</p>
+      } @else if (usersByDepartmentError()) {
+        <app-alert variant="danger">
+          <p class="text-sm">{{ usersByDepartmentError() }}</p>
+        </app-alert>
+      } @else if (usersByDepartment().length === 0) {
+        <app-alert variant="info">
+          <p class="text-sm">Este departamento no tiene usuarios asignados.</p>
+        </app-alert>
+      } @else {
+        <div class="max-h-64 overflow-y-auto rounded-xl border border-slate-200">
+          <app-table>
+            <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+              <tr>
+                <th class="px-4 py-3 text-left font-semibold">Nombre</th>
+                <th class="px-4 py-3 text-left font-semibold">Correo</th>
+                <th class="px-4 py-3 text-left font-semibold">Rol</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 text-slate-700">
+              @for (user of usersByDepartment(); track user.id) {
+                <tr>
+                  <td class="px-4 py-3">{{ user.nombre }}</td>
+                  <td class="px-4 py-3">{{ user.correo }}</td>
+                  <td class="px-4 py-3">{{ user.rol }}</td>
+                </tr>
+              }
+            </tbody>
+          </app-table>
         </div>
 
-        <button
-          type="button"
-          (click)="closeDepartmentUsers()"
-          class="rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
-        >
-          Cerrar
-        </button>
-      </header>
+        <section class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h4 class="font-semibold text-slate-800">Reasignar usuarios</h4>
+          <p class="mt-1 text-sm text-slate-600">
+            Mueve los usuarios de este departamento a otro departamento activo.
+          </p>
 
-      <div class="grid gap-5 p-6">
-        @if (usersByDepartmentLoading()) {
-          <p class="text-sm text-slate-500">Cargando usuarios del departamento...</p>
-        } @else if (usersByDepartmentError()) {
-          <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {{ usersByDepartmentError() }}
-          </div>
-        } @else if (usersByDepartment().length === 0) {
-          <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-            Este departamento no tiene usuarios asignados.
-          </div>
-        } @else {
-          <div class="max-h-64 overflow-y-auto rounded-xl border border-slate-200">
-            <table class="min-w-full text-sm">
-              <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
-                <tr>
-                  <th class="px-4 py-3 text-left font-semibold">Nombre</th>
-                  <th class="px-4 py-3 text-left font-semibold">Correo</th>
-                  <th class="px-4 py-3 text-left font-semibold">Rol</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-200 text-slate-700">
-                @for (user of usersByDepartment(); track user.id) {
-                  <tr>
-                    <td class="px-4 py-3">{{ user.nombre }}</td>
-                    <td class="px-4 py-3">{{ user.correo }}</td>
-                    <td class="px-4 py-3">{{ user.rol }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+          <div class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <app-select
+              [formControl]="reassignControl"
+              placeholderOption="Selecciona departamento destino"
+            >
+              @for (department of activeDepartmentsForReassign(); track department.id) {
+                <option [value]="department.id">{{ department.nombre }}</option>
+              }
+            </app-select>
+
+            <app-button
+              type="button"
+              (click)="requestReassignUsers()"
+              [pending]="reassignPending()"
+              pendingLabel="Reasignando..."
+              [disabled]="reassignPending() || activeDepartmentsForReassign().length === 0"
+            >
+              Reasignar
+            </app-button>
           </div>
 
-          <section class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h4 class="font-semibold text-slate-800">Reasignar usuarios</h4>
-            <p class="mt-1 text-sm text-slate-600">
-              Mueve los usuarios de este departamento a otro departamento activo.
-            </p>
+          @if (reassignControl.touched && reassignControl.invalid) {
+            <p class="mt-1 text-xs text-red-600">Selecciona un departamento destino.</p>
+          }
 
-            <div class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-              <select
-                [formControl]="reassignControl"
-                class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              >
-                <option value="">Selecciona departamento destino</option>
-                @for (department of activeDepartmentsForReassign(); track department.id) {
-                  <option [value]="department.id">{{ department.nombre }}</option>
-                }
-              </select>
-
-              <button
-                type="button"
-                (click)="requestReassignUsers()"
-                [disabled]="reassignPending() || activeDepartmentsForReassign().length === 0"
-                class="rounded-xl bg-blue-600 px-4 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {{ reassignPending() ? 'Reasignando...' : 'Reasignar' }}
-              </button>
-            </div>
-
-            @if (reassignControl.touched && reassignControl.invalid) {
-              <p class="mt-1 text-xs text-red-600">Selecciona un departamento destino.</p>
-            }
-
-            @if (reassignError()) {
-              <div class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {{ reassignError() }}
-              </div>
-            }
-          </section>
-        }
-      </div>
-    </section>
-  </div>
+          @if (reassignError()) {
+            <app-alert variant="danger" className="mt-3">
+              <p class="text-sm">{{ reassignError() }}</p>
+            </app-alert>
+          }
+        </section>
+      }
+    </div>
+  </app-modal>
 }
 
 @if (confirmState()) {

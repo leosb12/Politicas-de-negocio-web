@@ -1,76 +1,56 @@
-<div class="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
-  <section class="w-full max-w-xl rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
-    <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-      <h3 class="text-lg font-bold text-slate-800">
-        {{ mode() === 'create' ? 'Crear rol' : 'Editar rol' }}
-      </h3>
-      <button
-        type="button"
-        (click)="closeModal()"
-        class="rounded-lg border border-slate-300 px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
+<app-modal size="md" (closed)="closeModal()">
+  <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+    <h3 class="text-lg font-bold text-slate-800">
+      {{ mode() === 'create' ? 'Crear rol' : 'Editar rol' }}
+    </h3>
+    <app-button type="button" variant="secondary" size="sm" (click)="closeModal()">
+      Cerrar
+    </app-button>
+  </header>
+
+  <form [formGroup]="form" (ngSubmit)="submitForm()" class="p-6 grid gap-4">
+    <app-input
+      type="text"
+      formControlName="nombre"
+      label="Nombre del rol"
+      placeholder="Ejemplo: SUPERVISOR"
+      controlClass="disabled:bg-slate-100"
+      [error]="form.controls.nombre.touched && form.controls.nombre.invalid ? 'Usa formato A-Z, 0-9 o _ con longitud entre 3 y 30.' : null"
+    />
+
+    <app-textarea
+      formControlName="descripcion"
+      label="Descripcion (opcional)"
+      placeholder="Describe para que sirve este rol"
+      [rows]="4"
+      [error]="form.controls.descripcion.touched && form.controls.descripcion.invalid ? 'La descripcion supera el maximo permitido.' : null"
+    />
+
+    @if (mode() === 'edit') {
+      <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+        <input type="checkbox" formControlName="activo" class="h-4 w-4" />
+        Rol activo
+      </label>
+    }
+
+    @if (serverError()) {
+      <app-alert variant="danger">
+        <p class="text-sm">{{ serverError() }}</p>
+      </app-alert>
+    }
+
+    <footer class="pt-2 flex justify-end gap-3">
+      <app-button type="button" variant="secondary" (click)="closeModal()">
+        Cancelar
+      </app-button>
+      <app-button
+        type="submit"
+        [disabled]="pending()"
+        [pending]="pending()"
+        pendingLabel="Guardando..."
       >
-        Cerrar
-      </button>
-    </header>
-
-    <form [formGroup]="form" (ngSubmit)="submitForm()" class="p-6 grid gap-4">
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Nombre del rol</label>
-        <input
-          type="text"
-          formControlName="nombre"
-          class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100"
-          placeholder="Ejemplo: SUPERVISOR"
-        />
-        @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
-          <p class="mt-1 text-xs text-red-600">
-            Usa formato A-Z, 0-9 o _ con longitud entre 3 y 30.
-          </p>
-        }
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Descripcion (opcional)</label>
-        <textarea
-          rows="4"
-          formControlName="descripcion"
-          class="w-full rounded-xl border border-slate-300 px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-          placeholder="Describe para que sirve este rol"
-        ></textarea>
-        @if (form.controls.descripcion.touched && form.controls.descripcion.invalid) {
-          <p class="mt-1 text-xs text-red-600">La descripcion supera el maximo permitido.</p>
-        }
-      </div>
-
-      @if (mode() === 'edit') {
-        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" formControlName="activo" class="h-4 w-4" />
-          Rol activo
-        </label>
-      }
-
-      @if (serverError()) {
-        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {{ serverError() }}
-        </div>
-      }
-
-      <footer class="pt-2 flex justify-end gap-3">
-        <button
-          type="button"
-          (click)="closeModal()"
-          class="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
-        >
-          Cancelar
-        </button>
-        <button
-          type="submit"
-          [disabled]="pending()"
-          class="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-        >
-          {{ pending() ? 'Guardando...' : (mode() === 'create' ? 'Crear rol' : 'Guardar cambios') }}
-        </button>
-      </footer>
-    </form>
-  </section>
-</div>
+        {{ mode() === 'create' ? 'Crear rol' : 'Guardar cambios' }}
+      </app-button>
+    </footer>
+  </form>
+</app-modal>

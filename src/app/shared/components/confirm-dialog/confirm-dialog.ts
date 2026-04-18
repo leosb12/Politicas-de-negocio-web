@@ -1,7 +1,10 @@
 import { Component, input, output } from '@angular/core';
+import { AppButtonComponent } from '../../ui/button/button';
+import { AppModalComponent } from '../../ui/modal/modal';
 
 @Component({
   selector: 'app-confirm-dialog',
+  imports: [AppModalComponent, AppButtonComponent],
   templateUrl: './confirm-dialog.html',
   styleUrl: './confirm-dialog.css',
 })

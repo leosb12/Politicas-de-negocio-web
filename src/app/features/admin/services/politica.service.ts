@@ -5,6 +5,7 @@ import { API_ENDPOINTS } from '../../../core/config/api.config';
 import {
   PoliticaNegocio,
   CreatePoliticaRequest,
+  UpdatePoliticaRequest,
   UpdateFlujoRequest,
   EstadoPolitica,
 } from '../models/politica.model';
@@ -29,6 +30,11 @@ export class PoliticaService {
     return this.http.post<PoliticaNegocio>(this.url, payload);
   }
 
+  /** PATCH /api/politicas/:id */
+  updateMetadata(id: string, payload: UpdatePoliticaRequest): Observable<PoliticaNegocio> {
+    return this.http.patch<PoliticaNegocio>(`${this.url}/${id}`, payload);
+  }
+
   /** PUT /api/politicas/:id/flujo */
   saveFlujo(id: string, payload: UpdateFlujoRequest): Observable<PoliticaNegocio> {
     return this.http.put<PoliticaNegocio>(`${this.url}/${id}/flujo`, payload);
@@ -37,5 +43,17 @@ export class PoliticaService {
   /** PATCH /api/politicas/:id/estado */
   changeEstado(id: string, estado: EstadoPolitica): Observable<PoliticaNegocio> {
     return this.http.patch<PoliticaNegocio>(`${this.url}/${id}/estado`, { estado });
+  }
+
+  /** PATCH /api/politicas/:id/estado { estado: DESHABILITADA } */
+  disable(id: string): Observable<PoliticaNegocio> {
+    return this.http.patch<PoliticaNegocio>(`${this.url}/${id}/estado`, {
+      estado: 'DESHABILITADA' as EstadoPolitica,
+    });
+  }
+
+  /** DELETE /api/politicas/:id */
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.url}/${id}`);
   }
 }

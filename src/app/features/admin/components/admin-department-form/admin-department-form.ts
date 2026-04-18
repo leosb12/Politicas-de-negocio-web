@@ -2,6 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, effect, inject, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminDepartment } from '../../models/admin-department.model';
+import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
+import { AppButtonComponent } from '../../../../shared/ui/button/button';
+import { AppInputComponent } from '../../../../shared/ui/input/input';
+import { AppModalComponent } from '../../../../shared/ui/modal/modal';
+import { AppTextareaComponent } from '../../../../shared/ui/textarea/textarea';
 
 export interface AdminDepartmentFormValue {
   nombre: string;
@@ -11,7 +16,15 @@ export interface AdminDepartmentFormValue {
 
 @Component({
   selector: 'app-admin-department-form',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    AppModalComponent,
+    AppButtonComponent,
+    AppInputComponent,
+    AppTextareaComponent,
+    AppAlertComponent,
+  ],
   templateUrl: './admin-department-form.html',
   styleUrl: './admin-department-form.css',
 })

@@ -18,7 +18,7 @@ import { PoliticaService } from '../../services/politica.service';
 import { AdminDepartmentsService } from '../../services/admin-departments.service';
 import { AdminUsersService } from '../../services/admin-users.service';
 import { ToastService } from '../../../../shared/services/toast.service';
-import { AuthService } from '../../../../services/auth.service';
+import { AuthService } from '../../../../core/auth/services/auth.service';
 import {
   PoliticaNegocio,
   Nodo,

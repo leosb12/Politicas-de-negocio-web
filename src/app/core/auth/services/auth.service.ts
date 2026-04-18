@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap, timeout } from 'rxjs';
 import { Usuario } from '../models/usuario.model';
-import { API_ENDPOINTS } from '../core/config/api.config';
+import { API_ENDPOINTS } from '../../config/api.config';
 
 const SESSION_STORAGE_KEY = 'usuarioSesion';
 const LOGIN_TIMEOUT_MS = 8000;

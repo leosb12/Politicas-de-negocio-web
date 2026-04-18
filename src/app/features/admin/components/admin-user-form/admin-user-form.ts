@@ -4,6 +4,11 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminDepartment } from '../../models/admin-department.model';
 import { AdminRole } from '../../models/admin-role.model';
 import { AdminUser } from '../../models/admin-user.model';
+import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
+import { AppButtonComponent } from '../../../../shared/ui/button/button';
+import { AppInputComponent } from '../../../../shared/ui/input/input';
+import { AppModalComponent } from '../../../../shared/ui/modal/modal';
+import { AppSelectComponent } from '../../../../shared/ui/select/select';
 
 export interface AdminUserFormValue {
   nombre: string;
@@ -16,7 +21,15 @@ export interface AdminUserFormValue {
 
 @Component({
   selector: 'app-admin-user-form',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    AppModalComponent,
+    AppButtonComponent,
+    AppInputComponent,
+    AppSelectComponent,
+    AppAlertComponent,
+  ],
   templateUrl: './admin-user-form.html',
   styleUrl: './admin-user-form.css',
 })

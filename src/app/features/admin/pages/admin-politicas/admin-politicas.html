@@ -33,6 +33,10 @@
       <span class="stat-num pausada">{{ countEstado('PAUSADA') }}</span>
       <span class="stat-label">Pausadas</span>
     </div>
+    <div class="stat-card">
+      <span class="stat-num deshabilitada">{{ countEstado('DESHABILITADA') }}</span>
+      <span class="stat-label">Deshabilitadas</span>
+    </div>
 
     <!-- Search -->
     <div class="search-box relative flex items-center">
@@ -70,8 +74,18 @@
   @if (!loading() && filteredPoliticas().length > 0) {
     <div class="politicas-grid">
       @for (p of filteredPoliticas(); track trackById($index, p)) {
-        <article class="politica-card" (click)="openCanvas(p.id)" [id]="'card-' + p.id">
+        <article class="politica-card" (click)="onPoliticaCardClick($event, p.id)" [id]="'card-' + p.id">
           <div class="card-glow"></div>
+
+          <button
+            type="button"
+            class="card-edit-btn"
+            title="Editar nombre o descripcion"
+            aria-label="Editar politica"
+            (click)="openEditPolitica(p, $event)"
+          >
+            <lucide-icon name="pencil" [size]="14"></lucide-icon>
+          </button>
 
           <div class="card-top flex justify-between items-start">
             <div class="card-icon-wrap bg-indigo-50 p-2 rounded-lg">
@@ -81,6 +95,7 @@
               @if (p.estado === 'ACTIVA') { <lucide-icon name="check-circle-2" [size]="14"></lucide-icon> }
               @if (p.estado === 'BORRADOR') { <lucide-icon name="pencil" [size]="14"></lucide-icon> }
               @if (p.estado === 'PAUSADA') { <lucide-icon name="pause-circle" [size]="14"></lucide-icon> }
+              @if (p.estado === 'DESHABILITADA') { <lucide-icon name="ban" [size]="14"></lucide-icon> }
               {{ getEstadoLabel(p.estado) }}
             </span>
           </div>
@@ -94,14 +109,36 @@
             <div class="card-meta flex gap-4 text-sm text-slate-500">
               <span class="meta-item flex items-center gap-1.5">
                 <lucide-icon name="circle-dot" [size]="14" class="text-indigo-400"></lucide-icon>
-                {{ p.nodos?.length ?? 0 }} nodos
+                {{ p.nodos.length }} nodos
               </span>
               <span class="meta-item flex items-center gap-1.5">
                 <lucide-icon name="link" [size]="14" class="text-indigo-400"></lucide-icon>
-                {{ p.conexiones?.length ?? 0 }} conexiones
+                {{ p.conexiones.length }} conexiones
               </span>
             </div>
             <div class="card-date">{{ formatDate(p.fechaActualizacion) }}</div>
+          </div>
+
+          <div class="card-actions" (click)="$event.stopPropagation()">
+            @if (canDisablePolitica(p.estado)) {
+              <button
+                type="button"
+                class="btn-action btn-disable"
+                (click)="requestDisablePolitica(p, $event)"
+              >
+                Deshabilitar
+              </button>
+            }
+
+            <button
+              type="button"
+              class="btn-action btn-delete"
+              [disabled]="!canDeletePolitica(p.estado)"
+              [attr.title]="deleteDisabledMessage(p.estado)"
+              (click)="requestDeletePolitica(p, $event)"
+            >
+              Eliminar
+            </button>
           </div>
 
           <div class="card-action-hint">
@@ -114,15 +151,15 @@
 
 </section>
 
-<!-- ── Modal Crear Política ──────────────────────── -->
+<!-- ── Modal Crear/Editar Política ───────────────── -->
 @if (showModal()) {
   <div class="modal-overlay" (click)="closeModal()">
     <div class="modal-panel" (click)="$event.stopPropagation()" id="modal-nueva-politica">
 
       <div class="modal-header flex justify-between items-center mb-6">
         <h2 class="modal-title flex items-center gap-2 text-xl font-bold text-slate-800">
-          <lucide-icon name="sparkles" [size]="24" class="text-indigo-500"></lucide-icon>
-          Nueva Política de Negocio
+          <lucide-icon [name]="isEditMode() ? 'pencil' : 'sparkles'" [size]="24" class="text-indigo-500"></lucide-icon>
+          {{ modalTitle() }}
         </h2>
         <button class="modal-close text-slate-400 hover:text-slate-600 transition-colors" (click)="closeModal()" id="btn-cerrar-modal">
           <lucide-icon name="x" [size]="20"></lucide-icon>
@@ -138,7 +175,7 @@
             class="field-input"
             placeholder="Ej. Instalación de Medidor"
             [(ngModel)]="form.nombre"
-            (keyup.enter)="createPolitica()"
+            (keyup.enter)="submitPoliticaModal()"
           />
         </div>
 
@@ -160,12 +197,14 @@
         </button>
         <button
           class="btn-primary flex items-center gap-2"
-          (click)="createPolitica()"
+          (click)="submitPoliticaModal()"
           [disabled]="saving()"
           id="btn-confirmar-crear"
         >
           @if (saving()) {
-            <span class="btn-spinner"></span> Creando…
+            <span class="btn-spinner"></span> {{ modalSavingLabel() }}
+          } @else if (isEditMode()) {
+            <lucide-icon name="save" [size]="18"></lucide-icon> Guardar cambios
           } @else {
             <lucide-icon name="rocket" [size]="18"></lucide-icon> Crear y Diseñar
           }
@@ -174,4 +213,16 @@
 
     </div>
   </div>
+}
+
+@if (confirmAction()) {
+  <app-confirm-dialog
+    [title]="confirmTitle()"
+    [message]="confirmMessage()"
+    [confirmLabel]="confirmButtonLabel()"
+    [danger]="confirmDanger()"
+    [pending]="actionPending()"
+    (confirmed)="executeConfirmedAction()"
+    (cancelled)="closeConfirmDialog()"
+  />
 }

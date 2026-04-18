@@ -7,6 +7,12 @@ import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { DataTableComponent } from '../../../../shared/components/data-table/data-table';
 import { ToastService } from '../../../../shared/services/toast.service';
+import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
+import { AppBadgeComponent } from '../../../../shared/ui/badge/badge';
+import { AppButtonComponent } from '../../../../shared/ui/button/button';
+import { AppInputComponent } from '../../../../shared/ui/input/input';
+import { AppModalComponent } from '../../../../shared/ui/modal/modal';
+import { AppSelectComponent } from '../../../../shared/ui/select/select';
 import {
   AdminUserFormComponent,
   AdminUserFormValue,
@@ -40,6 +46,12 @@ interface ConfirmState {
     DataTableComponent,
     AdminUserFormComponent,
     ConfirmDialogComponent,
+    AppButtonComponent,
+    AppInputComponent,
+    AppSelectComponent,
+    AppAlertComponent,
+    AppBadgeComponent,
+    AppModalComponent,
   ],
   templateUrl: './admin-users.html',
   styleUrl: './admin-users.css',

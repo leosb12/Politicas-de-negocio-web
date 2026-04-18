@@ -4,8 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TimeoutError } from 'rxjs';
-import { AuthService } from '../../services/auth.service';
-import { getApiErrorMessage } from '../../core/utils/api-error.util';
+import { AuthService } from '../../../../core/auth/services/auth.service';
+import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 
 @Component({
   selector: 'app-login',

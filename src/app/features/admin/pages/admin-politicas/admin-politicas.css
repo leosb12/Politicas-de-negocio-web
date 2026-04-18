@@ -73,6 +73,7 @@
 .stat-num.activa  { color: #4ade80; }
 .stat-num.borrador { color: #facc15; }
 .stat-num.pausada  { color: #fb923c; }
+.stat-num.deshabilitada { color: #cbd5e1; }
 
 .stat-label {
   font-size: 0.72rem;
@@ -240,6 +241,7 @@
   inset: 0;
   background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.3s ease;
 }
 
@@ -267,6 +269,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-right: 2.5rem;
+}
+
+.card-edit-btn {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.5);
+  color: #c7d2fe;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-edit-btn:hover {
+  background: rgba(99, 102, 241, 0.32);
+  border-color: rgba(129, 140, 248, 0.65);
+  color: #eef2ff;
 }
 
 .card-icon-wrap {
@@ -306,6 +333,12 @@
   background: rgba(251, 146, 60, 0.12);
   color: #fb923c;
   border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+.estado-deshabilitada {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.4);
 }
 
 /* ─── Card Body ─────────────────────────────────────────────────── */
@@ -374,6 +407,51 @@
 .politica-card:hover .card-action-hint {
   opacity: 1;
   transform: translateY(0);
+}
+
+.card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-disable {
+  background: rgba(251, 146, 60, 0.18);
+  border-color: rgba(251, 146, 60, 0.45);
+  color: #fed7aa;
+}
+
+.btn-disable:hover:not(:disabled) {
+  background: rgba(251, 146, 60, 0.3);
+}
+
+.btn-delete {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fecaca;
+}
+
+.btn-delete:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3);
 }
 
 /* ─── Modal ─────────────────────────────────────────────────────── */

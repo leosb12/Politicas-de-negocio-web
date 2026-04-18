@@ -7,6 +7,13 @@ import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { DataTableComponent } from '../../../../shared/components/data-table/data-table';
 import { ToastService } from '../../../../shared/services/toast.service';
+import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
+import { AppBadgeComponent } from '../../../../shared/ui/badge/badge';
+import { AppButtonComponent } from '../../../../shared/ui/button/button';
+import { AppModalComponent } from '../../../../shared/ui/modal/modal';
+import { AppSelectComponent } from '../../../../shared/ui/select/select';
+import { AppTableComponent } from '../../../../shared/ui/table/table';
+import { AppInputComponent } from '../../../../shared/ui/input/input';
 import {
   AdminDepartmentFormComponent,
   AdminDepartmentFormValue,
@@ -38,6 +45,13 @@ interface ConfirmState {
     DataTableComponent,
     AdminDepartmentFormComponent,
     ConfirmDialogComponent,
+    AppButtonComponent,
+    AppInputComponent,
+    AppSelectComponent,
+    AppAlertComponent,
+    AppBadgeComponent,
+    AppModalComponent,
+    AppTableComponent,
   ],
   templateUrl: './admin-departments.html',
   styleUrl: './admin-departments.css',

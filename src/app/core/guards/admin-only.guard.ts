@@ -5,7 +5,7 @@ import {
   Router,
   UrlTree,
 } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from '../auth/services/auth.service';
 
 function validateAdminAccess(): true | UrlTree {
   const authService = inject(AuthService);

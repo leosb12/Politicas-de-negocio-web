@@ -7,6 +7,10 @@ import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { DataTableComponent } from '../../../../shared/components/data-table/data-table';
 import { ToastService } from '../../../../shared/services/toast.service';
+import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
+import { AppBadgeComponent } from '../../../../shared/ui/badge/badge';
+import { AppButtonComponent } from '../../../../shared/ui/button/button';
+import { AppInputComponent } from '../../../../shared/ui/input/input';
 import {
   AdminRoleFormComponent,
   AdminRoleFormValue,
@@ -34,6 +38,10 @@ interface ConfirmState {
     DataTableComponent,
     AdminRoleFormComponent,
     ConfirmDialogComponent,
+    AppButtonComponent,
+    AppInputComponent,
+    AppAlertComponent,
+    AppBadgeComponent,
   ],
   templateUrl: './admin-roles.html',
   styleUrl: './admin-roles.css',
