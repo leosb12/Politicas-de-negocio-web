@@ -20,9 +20,45 @@ export interface CampoFormulario {
   tipo: TipoCampo;
 }
 
+export type OperadorLogicoDecision = 'AND' | 'OR';
+
+export type OperadorCondicionDecision =
+  | 'IGUAL'
+  | 'DISTINTO'
+  | 'MAYOR_QUE'
+  | 'MAYOR_O_IGUAL'
+  | 'MENOR_QUE'
+  | 'MENOR_O_IGUAL'
+  | 'CONTIENE'
+  | 'NO_CONTIENE'
+  | 'INICIA_CON'
+  | 'TERMINA_CON'
+  | 'ES_VERDADERO'
+  | 'ES_FALSO'
+  | 'ESTA_VACIO'
+  | 'NO_ESTA_VACIO'
+  | 'ANTES_DE'
+  | 'DESPUES_DE'
+  | 'EN_FECHA';
+
+export interface ReglaCondicionDecision {
+  campo: string;
+  tipo: TipoCampo;
+  operador: OperadorCondicionDecision;
+  valor?: string | number | boolean | null;
+}
+
+export interface GrupoCondicionDecision {
+  operadorLogico: OperadorLogicoDecision;
+  reglas: ReglaCondicionDecision[];
+  grupos: GrupoCondicionDecision[];
+}
+
 export interface CondicionDecision {
   resultado: string;
   siguiente: string;
+  origenActividadId?: string | null;
+  grupo?: GrupoCondicionDecision | null;
 }
 
 // ── Nodo ─────────────────────────────────────────

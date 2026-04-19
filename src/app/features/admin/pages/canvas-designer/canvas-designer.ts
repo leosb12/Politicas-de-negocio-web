@@ -30,6 +30,10 @@ import {
   CondicionDecision,
   EstadoPolitica,
   ResponsableTipo,
+  GrupoCondicionDecision,
+  ReglaCondicionDecision,
+  OperadorCondicionDecision,
+  OperadorLogicoDecision,
 } from '../../models/politica.model';
 import {
   ColaboracionNodosBloqueadosState,
@@ -82,6 +86,15 @@ interface CanvasUiPrefsBackup {
   connectionTargetPorts?: Record<string, ConnectionTargetPort>;
 }
 
+interface DeferredCollaborativeFlow {
+  signature: string;
+}
+
+interface PendingNodeNameGuard {
+  nombre: string;
+  expiresAt: number;
+}
+
 // ── Node palette item ─────────────────────────────────────────────
 interface PaletteItem {
   tipo: TipoNodo;
@@ -89,6 +102,36 @@ interface PaletteItem {
   icon: string;
   color: string;
   description: string;
+}
+
+interface DecisionOperatorOption {
+  value: OperadorCondicionDecision;
+  label: string;
+  requiresValue: boolean;
+}
+
+interface DecisionRuleBuilderRow {
+  id: string;
+  campo: string;
+  operador: OperadorCondicionDecision;
+  valor: string;
+}
+
+interface DecisionGroupBuilder {
+  id: string;
+  operadorLogico: OperadorLogicoDecision;
+  reglas: DecisionRuleBuilderRow[];
+  grupos: DecisionGroupBuilder[];
+}
+
+interface DecisionBuilderState {
+  sourceActivityId: string | null;
+  group: DecisionGroupBuilder;
+}
+
+interface DecisionConditionDraft {
+  origenActividadId: string | null;
+  grupo: GrupoCondicionDecision;
 }
 
 import { LucideAngularModule } from 'lucide-angular';
@@ -185,6 +228,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     if (status === 'CONNECTING') return 'Conectando';
     return 'Desconectado';
   });
+  readonly isCanvasReadOnly = computed(() => this.politicaEstado === 'ACTIVA');
+  readonly canvasReadOnlyMessage =
+    'La politica esta activa. La pizarra esta en modo solo visual.';
 
   responsableItems = computed(() => {
     const node = this.sidebarNode();
@@ -219,6 +265,65 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   tipoCampoOptions: TipoCampo[] = ['TEXTO', 'NUMERO', 'BOOLEANO', 'ARCHIVO', 'FECHA'];
 
+  readonly decisionLogicalOperatorOptions: Array<{
+    value: OperadorLogicoDecision;
+    label: string;
+  }> = [
+    { value: 'AND', label: 'Cumplir todas (AND)' },
+    { value: 'OR', label: 'Cumplir alguna (OR)' },
+  ];
+
+  private readonly decisionOperatorCatalog: Record<
+    TipoCampo,
+    DecisionOperatorOption[]
+  > = {
+    TEXTO: [
+      { value: 'IGUAL', label: 'Es igual a', requiresValue: true },
+      { value: 'DISTINTO', label: 'Es distinto de', requiresValue: true },
+      { value: 'CONTIENE', label: 'Contiene', requiresValue: true },
+      { value: 'NO_CONTIENE', label: 'No contiene', requiresValue: true },
+      { value: 'INICIA_CON', label: 'Inicia con', requiresValue: true },
+      { value: 'TERMINA_CON', label: 'Termina con', requiresValue: true },
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'No esta vacio', requiresValue: false },
+    ],
+    NUMERO: [
+      { value: 'IGUAL', label: 'Es igual a', requiresValue: true },
+      { value: 'DISTINTO', label: 'Es distinto de', requiresValue: true },
+      { value: 'MAYOR_QUE', label: 'Es mayor que', requiresValue: true },
+      { value: 'MAYOR_O_IGUAL', label: 'Es mayor o igual', requiresValue: true },
+      { value: 'MENOR_QUE', label: 'Es menor que', requiresValue: true },
+      { value: 'MENOR_O_IGUAL', label: 'Es menor o igual', requiresValue: true },
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'No esta vacio', requiresValue: false },
+    ],
+    BOOLEANO: [
+      { value: 'ES_VERDADERO', label: 'Es verdadero', requiresValue: false },
+      { value: 'ES_FALSO', label: 'Es falso', requiresValue: false },
+      { value: 'IGUAL', label: 'Es igual a', requiresValue: true },
+      { value: 'DISTINTO', label: 'Es distinto de', requiresValue: true },
+    ],
+    FECHA: [
+      { value: 'ANTES_DE', label: 'Es antes de', requiresValue: true },
+      { value: 'DESPUES_DE', label: 'Es despues de', requiresValue: true },
+      { value: 'EN_FECHA', label: 'Es exactamente', requiresValue: true },
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'No esta vacio', requiresValue: false },
+    ],
+    ARCHIVO: [
+      { value: 'ESTA_VACIO', label: 'No se adjunto archivo', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'Tiene archivo adjunto', requiresValue: false },
+      { value: 'CONTIENE', label: 'Nombre contiene', requiresValue: true },
+      { value: 'NO_CONTIENE', label: 'Nombre no contiene', requiresValue: true },
+    ],
+  };
+
+  decisionBuilderVisible = false;
+  decisionBuilderNodeId: string | null = null;
+  decisionBuilderState: DecisionBuilderState | null = null;
+  decisionConditionPreviewState = signal<Record<string, boolean>>({});
+  decisionConditionDraftState = signal<Record<string, DecisionConditionDraft>>({});
+
   // ── New campo form ────────────────────────────────────────────
   newCampo = { campo: '', tipo: 'TEXTO' as TipoCampo };
   newCondicion = { resultado: '', siguiente: '' };
@@ -241,6 +346,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private idCounter = 0;
   private lastCollabErrorMessage = '';
   private lastCollabErrorAt = 0;
+  private lastReadOnlyToastAt = 0;
+  private policyEstadoSyncTimer: ReturnType<typeof setInterval> | null = null;
+  private policyEstadoSyncInFlight = false;
   private autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
   private autoSaveQueued = false;
   private lastSavedDraftSignature = '';
@@ -256,6 +364,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     string,
     { x: number; y: number; expiresAt: number }
   >();
+  private pendingNodeNameSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private pendingNodeNameGuards = new Map<string, PendingNodeNameGuard>();
+  private readonly nodeNameSyncDebounceMs = 280;
+  private readonly nodeNameGuardTtlMs = 1200;
+  private deferredCollaborativeFlow: DeferredCollaborativeFlow | null = null;
   readonly LANE_WIDTH = 320;
   readonly LANE_HEIGHT = 220;
 
@@ -312,15 +425,21 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     // Load departments
-    this.deptSvc.getDepartments().subscribe({ next: (d) => this.departamentos.set(d) });
+    this.deptSvc.getDepartments().subscribe({
+      next: (d) => {
+        this.departamentos.set(d);
+        this.enforceActivitiesAssignedToLane();
+      },
+    });
     // Load users
     this.userSvc.getUsers().subscribe({ next: (u) => this.usuarios.set(u) });
 
     this.svc.getById(id).subscribe({
       next: (p) => {
-        this.politica.set(p);
+        this.setPoliticaState(p);
         this.hydrateCanvas(p);
         this.startCollaborationSession(p.id);
+        this.startPolicyEstadoSync();
         this.loading.set(false);
       },
       error: () => {
@@ -337,6 +456,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     this.backupUnsavedDraftLocally();
+    this.stopPolicyEstadoSync();
 
     if (this.autoSaveTimer) {
       clearTimeout(this.autoSaveTimer);
@@ -346,6 +466,12 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     if (this.autoSaveQueued) {
       this.flushAutoSave();
     }
+
+    for (const timer of this.pendingNodeNameSyncTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.pendingNodeNameSyncTimers.clear();
+    this.pendingNodeNameGuards.clear();
 
     this.collabFacade.stopSession(true);
   }
@@ -379,10 +505,29 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         this.applyCollaborativeFlow(flowState.nodos, flowState.conexiones);
       });
 
+    this.collabFacade.politicaEstado$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((estado) => {
+        if (!estado) {
+          return;
+        }
+
+        const currentPolicy = this.politica();
+        if (!currentPolicy || currentPolicy.estado === estado) {
+          return;
+        }
+
+        this.setPoliticaState({
+          ...currentPolicy,
+          estado,
+        });
+      });
+
     this.collabFacade.connectedUsers$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((users) => {
         this.connectedUsers.set(users);
+        this.syncPolicyEstadoFromBackend();
       });
 
     this.collabFacade.nodeLocks$
@@ -395,12 +540,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((status) => {
         this.collaborationConnectionState.set(status);
+        if (status === 'CONNECTED') {
+          this.syncPolicyEstadoFromBackend();
+        }
       });
 
     this.collabFacade.errorMessages$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((message) => {
         const now = Date.now();
+        const normalizedMessage = message.toLowerCase();
+        const isAutoSyncNotice = normalizedMessage.includes(
+          'sincronizando pizarra'
+        );
         if (
           message === this.lastCollabErrorMessage &&
           now - this.lastCollabErrorAt < 2500
@@ -410,8 +562,72 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
         this.lastCollabErrorMessage = message;
         this.lastCollabErrorAt = now;
+
+        if (isAutoSyncNotice) {
+          this.toast.info('Colaboración', message);
+          return;
+        }
+
         this.toast.error('Colaboración', message);
       });
+  }
+
+  private startPolicyEstadoSync(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    this.stopPolicyEstadoSync();
+    this.policyEstadoSyncTimer = setInterval(() => {
+      this.syncPolicyEstadoFromBackend();
+    }, 1500);
+
+    this.syncPolicyEstadoFromBackend();
+  }
+
+  private stopPolicyEstadoSync(): void {
+    if (this.policyEstadoSyncTimer) {
+      clearInterval(this.policyEstadoSyncTimer);
+      this.policyEstadoSyncTimer = null;
+    }
+
+    this.policyEstadoSyncInFlight = false;
+  }
+
+  private syncPolicyEstadoFromBackend(): void {
+    const currentPolicy = this.politica();
+    if (!currentPolicy || this.policyEstadoSyncInFlight) {
+      return;
+    }
+
+    if (this.collaborationConnectionState() === 'DISCONNECTED') {
+      return;
+    }
+
+    this.policyEstadoSyncInFlight = true;
+    this.svc.getById(currentPolicy.id).subscribe({
+      next: (remotePolicy) => {
+        const localPolicy = this.politica();
+        if (!localPolicy) {
+          return;
+        }
+
+        if (remotePolicy.estado === localPolicy.estado) {
+          return;
+        }
+
+        this.setPoliticaState({
+          ...localPolicy,
+          estado: remotePolicy.estado,
+        });
+      },
+      error: () => {
+        // Silent fallback; websocket stream remains the primary source.
+      },
+      complete: () => {
+        this.policyEstadoSyncInFlight = false;
+      },
+    });
   }
 
   private startCollaborationSession(politicaId: string): void {
@@ -443,9 +659,165 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   ): void {
     const resolvedConnections = this.withResolvedConnectionPorts(connections);
     const canvasNodes = rawNodes.map((node, index) =>
-      this.applyPendingMoveGuard(this.toCanvasNode(node, index))
+      this.applyPendingNodeNameGuard(
+        this.applyPendingMoveGuard(this.toCanvasNode(node, index))
+      )
     );
+
+    const incomingSignature = this.buildFlowSyncSignature(
+      canvasNodes,
+      resolvedConnections
+    );
+    const currentSignature = this.buildFlowSyncSignature(
+      this.nodos(),
+      this.withResolvedConnectionPorts(this.conexiones())
+    );
+
+    if (
+      this.shouldProtectLocalFlowFromRemoteSnapshot() &&
+      incomingSignature !== currentSignature
+    ) {
+      this.deferredCollaborativeFlow = {
+        signature: incomingSignature,
+      };
+      return;
+    }
+
+    this.deferredCollaborativeFlow = null;
+    this.applyCollaborativeCanvasState(canvasNodes, resolvedConnections);
+  }
+
+  private shouldProtectLocalFlowFromRemoteSnapshot(): boolean {
+    return (
+      this.saving() ||
+      this.autoSaveQueued ||
+      this.autoSaveTimer !== null ||
+      this.pendingNodeNameSyncTimers.size > 0
+    );
+  }
+
+  private applyPendingNodeNameGuard(node: NodoCanvas): NodoCanvas {
+    const guard = this.pendingNodeNameGuards.get(node.id);
+    if (!guard) {
+      return node;
+    }
+
+    if (Date.now() > guard.expiresAt) {
+      this.pendingNodeNameGuards.delete(node.id);
+      return node;
+    }
+
+    if (node.nombre === guard.nombre) {
+      this.pendingNodeNameGuards.delete(node.id);
+      return node;
+    }
+
+    return {
+      ...node,
+      nombre: guard.nombre,
+    };
+  }
+
+  private setPendingNodeNameGuard(nodeId: string, nombre: string): void {
+    this.pendingNodeNameGuards.set(nodeId, {
+      nombre,
+      expiresAt: Date.now() + this.nodeNameGuardTtlMs,
+    });
+  }
+
+  private emitNodeNameSync(nodeId: string): void {
+    const node = this.nodos().find((n) => n.id === nodeId);
+    if (!node) {
+      this.pendingNodeNameGuards.delete(nodeId);
+      return;
+    }
+
+    const nombre = node.nombre ?? '';
+    this.setPendingNodeNameGuard(nodeId, nombre);
+    this.collabFacade.emitUpdateNode(
+      nodeId,
+      { nombre },
+      this.getNodeVersion(nodeId)
+    );
+  }
+
+  private scheduleNodeNameSync(nodeId: string): void {
+    const currentTimer = this.pendingNodeNameSyncTimers.get(nodeId);
+    if (currentTimer) {
+      clearTimeout(currentTimer);
+    }
+
+    const timer = setTimeout(() => {
+      this.pendingNodeNameSyncTimers.delete(nodeId);
+      this.emitNodeNameSync(nodeId);
+    }, this.nodeNameSyncDebounceMs);
+
+    this.pendingNodeNameSyncTimers.set(nodeId, timer);
+  }
+
+  flushNodeNameSync(nodeId: string): void {
+    const timer = this.pendingNodeNameSyncTimers.get(nodeId);
+    if (!timer) {
+      return;
+    }
+
+    clearTimeout(timer);
+    this.pendingNodeNameSyncTimers.delete(nodeId);
+    this.emitNodeNameSync(nodeId);
+  }
+
+  private buildFlowSyncSignature(
+    nodes: NodoCanvas[],
+    connections: Conexion[]
+  ): string {
+    const normalizedNodes = [...nodes]
+      .map((node) => ({
+        id: node.id,
+        tipo: node.tipo,
+        nombre: node.nombre,
+        departamentoId: node.departamentoId ?? null,
+        responsableTipo: node.responsableTipo ?? null,
+        responsableId: node.responsableId ?? null,
+        x: Math.round(node.x * 100) / 100,
+        y: Math.round(node.y * 100) / 100,
+        formulario: (node.formulario ?? []).map((campo) => ({
+          campo: campo.campo,
+          tipo: campo.tipo,
+        })),
+        condiciones: (node.condiciones ?? []).map((condicion) => ({
+          resultado: condicion.resultado,
+          siguiente: condicion.siguiente,
+          origenActividadId: condicion.origenActividadId ?? null,
+          grupo: condicion.grupo ?? null,
+        })),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    const normalizedConnections = [...connections]
+      .map((connection) => ({
+        origen: connection.origen,
+        destino: connection.destino,
+        puertoOrigen: this.normalizeConnectionPort(connection.puertoOrigen) ?? null,
+        puertoDestino: this.normalizeConnectionPort(connection.puertoDestino) ?? null,
+      }))
+      .sort((a, b) => {
+        const keyA = this.connectionKey(a.origen, a.destino);
+        const keyB = this.connectionKey(b.origen, b.destino);
+        return keyA.localeCompare(keyB);
+      });
+
+    return JSON.stringify({
+      nodos: normalizedNodes,
+      conexiones: normalizedConnections,
+    });
+  }
+
+  private applyCollaborativeCanvasState(
+    canvasNodes: NodoCanvas[],
+    resolvedConnections: Conexion[]
+  ): void {
     this.nodos.set(canvasNodes);
+    this.reconcileDecisionConditionDrafts(canvasNodes);
     this.conexiones.set(resolvedConnections);
     this.initializeConnectionPorts(canvasNodes, resolvedConnections);
 
@@ -453,6 +825,83 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     if (selectedNodeId && !canvasNodes.some((node) => node.id === selectedNodeId)) {
       this.deselectAll();
     }
+  }
+
+  private tryApplyDeferredCollaborativeFlow(): void {
+    if (this.shouldProtectLocalFlowFromRemoteSnapshot()) {
+      return;
+    }
+
+    const deferredFlow = this.deferredCollaborativeFlow;
+    if (!deferredFlow) {
+      return;
+    }
+    this.deferredCollaborativeFlow = null;
+
+    const currentSignature = this.buildFlowSyncSignature(
+      this.nodos(),
+      this.withResolvedConnectionPorts(this.conexiones())
+    );
+
+    if (deferredFlow.signature === currentSignature) {
+      return;
+    }
+
+    this.collabFacade.requestResync(
+      'Reconciliacion tras cambios rapidos durante autosave',
+      true
+    );
+  }
+
+  private setPoliticaState(policy: PoliticaNegocio): void {
+    this.politica.set(policy);
+    this.syncReadOnlyUiState();
+  }
+
+  private syncReadOnlyUiState(): void {
+    if (!this.isCanvasReadOnly()) {
+      return;
+    }
+
+    this.dragState = null;
+    this.isPanning = false;
+    this.panMoved = false;
+    this.connectState.set(null);
+    this.pendingNodeFromPalette = null;
+    this.showDeptModal.set(false);
+    this.creatingNewDept.set(false);
+    this.editingDeptId.set(null);
+    this.editDeptName.set('');
+
+    if (this.autoSaveTimer) {
+      clearTimeout(this.autoSaveTimer);
+      this.autoSaveTimer = null;
+    }
+    this.autoSaveQueued = false;
+  }
+
+  private isCanvasEditBlocked(showToast = false): boolean {
+    if (!this.isCanvasReadOnly()) {
+      return false;
+    }
+
+    this.syncReadOnlyUiState();
+
+    if (showToast) {
+      this.notifyReadOnlyMode();
+    }
+
+    return true;
+  }
+
+  private notifyReadOnlyMode(): void {
+    const now = Date.now();
+    if (now - this.lastReadOnlyToastAt < 1500) {
+      return;
+    }
+
+    this.lastReadOnlyToastAt = now;
+    this.toast.error('Flujo activo', 'No se puede modificar el flujo de una politica activa.');
   }
 
   private currentUserId(): string | null {
@@ -505,6 +954,12 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private toCanvasNode(node: Partial<ColaboracionNodo>, index: number): NodoCanvas {
+    const resolvedTipo = (node.tipo ?? 'ACTIVIDAD') as TipoNodo;
+    const resolvedDeptId =
+      resolvedTipo === 'ACTIVIDAD'
+        ? this.resolveRequiredDepartmentId(node.departamentoId ?? null)
+        : node.departamentoId ?? null;
+
     const rawX = this.toWorldCoordinate(
       this.resolveNodeCoordinate(node, 'X'),
       100 + (index % 6) * 220,
@@ -518,20 +973,124 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       this.CANVAS_HEIGHT
     );
     const clamped = this.clampNodePosition(rawX, rawY);
+    const laneClamped =
+      resolvedTipo === 'ACTIVIDAD' && resolvedDeptId
+        ? this.clampActivityPositionToLane(resolvedDeptId, clamped.x, clamped.y)
+        : clamped;
 
     return {
       id: node.id ?? this.genId(),
-      tipo: (node.tipo ?? 'ACTIVIDAD') as TipoNodo,
+      tipo: resolvedTipo,
       nombre: node.nombre ?? 'Nodo',
-      departamentoId: node.departamentoId ?? null,
+      departamentoId: resolvedDeptId,
       responsableTipo: node.responsableTipo ?? null,
       responsableId: node.responsableId ?? null,
       formulario: node.formulario ?? [],
       condiciones: node.condiciones ?? [],
       version: node.version,
-      x: clamped.x,
-      y: clamped.y,
+      x: laneClamped.x,
+      y: laneClamped.y,
     };
+  }
+
+  private resolveRequiredDepartmentId(deptId: string | null | undefined): string | null {
+    if (typeof deptId === 'string' && deptId.trim().length > 0) {
+      return deptId;
+    }
+
+    const firstDepartment = this.departamentos()[0];
+    return firstDepartment?.id ?? null;
+  }
+
+  private getActivityLaneBounds(deptId: string):
+    | { minX: number; maxX: number; minY: number; maxY: number }
+    | null {
+    const laneIds = this.getLaneIdsForPlacement(deptId);
+    const laneIndex = laneIds.indexOf(deptId);
+    if (laneIndex < 0) {
+      return null;
+    }
+
+    const nodeWidth = this.getNodeWidth('ACTIVIDAD');
+    const nodeHeight = this.getNodeHeight('ACTIVIDAD');
+
+    if (this.isVerticalLaneOrientation()) {
+      const laneX = this.CANVAS_ORIGIN_X + laneIndex * this.LANE_WIDTH;
+      const minX = laneX;
+      const maxX = Math.max(minX, laneX + this.LANE_WIDTH - nodeWidth);
+      const minY = this.CANVAS_ORIGIN_Y;
+      const maxY = Math.max(minY, this.CANVAS_HEIGHT - nodeHeight);
+      return { minX, maxX, minY, maxY };
+    }
+
+    const laneY = this.CANVAS_ORIGIN_Y + laneIndex * this.LANE_HEIGHT;
+    const minY = laneY;
+    const maxY = Math.max(minY, laneY + this.LANE_HEIGHT - nodeHeight);
+    const minX = this.CANVAS_ORIGIN_X;
+    const maxX = Math.max(minX, this.CANVAS_WIDTH - nodeWidth);
+    return { minX, maxX, minY, maxY };
+  }
+
+  private clampActivityPositionToLane(
+    deptId: string,
+    x: number,
+    y: number
+  ): { x: number; y: number } {
+    const clamped = this.clampNodePosition(x, y);
+    const bounds = this.getActivityLaneBounds(deptId);
+    if (!bounds) {
+      return clamped;
+    }
+
+    return {
+      x: Math.min(Math.max(clamped.x, bounds.minX), bounds.maxX),
+      y: Math.min(Math.max(clamped.y, bounds.minY), bounds.maxY),
+    };
+  }
+
+  private clampNodePositionForNode(node: NodoCanvas, x: number, y: number): { x: number; y: number } {
+    if (node.tipo === 'ACTIVIDAD' && node.departamentoId) {
+      return this.clampActivityPositionToLane(node.departamentoId, x, y);
+    }
+
+    return this.clampNodePosition(x, y);
+  }
+
+  private enforceActivitiesAssignedToLane(): void {
+    const fallbackDepartmentId = this.resolveRequiredDepartmentId(null);
+    if (!fallbackDepartmentId) {
+      return;
+    }
+
+    this.nodos.update((nodes) =>
+      nodes.map((node) => {
+        if (node.tipo !== 'ACTIVIDAD') {
+          return node;
+        }
+
+        const nextDeptId = this.resolveRequiredDepartmentId(node.departamentoId) ?? fallbackDepartmentId;
+        const nextPos = this.clampActivityPositionToLane(nextDeptId, node.x, node.y);
+        const nextResponsableId =
+          node.responsableTipo === 'DEPARTAMENTO' ? nextDeptId : node.responsableId;
+
+        if (
+          nextDeptId === node.departamentoId &&
+          nextPos.x === node.x &&
+          nextPos.y === node.y &&
+          nextResponsableId === node.responsableId
+        ) {
+          return node;
+        }
+
+        return {
+          ...node,
+          departamentoId: nextDeptId,
+          responsableId: nextResponsableId,
+          x: nextPos.x,
+          y: nextPos.y,
+        };
+      })
+    );
   }
 
   private toCollaborativeNode(node: NodoCanvas): ColaboracionNodo {
@@ -616,6 +1175,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       this.toCanvasNode(n as ColaboracionNodo, i)
     );
     this.nodos.set(nodes);
+    this.reconcileDecisionConditionDrafts(nodes);
     const connections = this.withResolvedConnectionPorts(
       flowToHydrate.conexiones ?? []
     );
@@ -927,6 +1487,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private scheduleAutoSave(immediate = false): void {
+    if (this.isCanvasEditBlocked()) {
+      return;
+    }
+
     const currentPolicy = this.politica();
     if (!currentPolicy) {
       return;
@@ -953,7 +1517,12 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   private flushAutoSave(): void {
     const p = this.politica();
-    if (!p || !this.autoSaveQueued) {
+    if (!p) {
+      return;
+    }
+
+    if (!this.autoSaveQueued) {
+      this.tryApplyDeferredCollaborativeFlow();
       return;
     }
 
@@ -972,6 +1541,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     if (signature === this.lastSavedDraftSignature) {
       this.autoSaveQueued = false;
+      this.tryApplyDeferredCollaborativeFlow();
       return;
     }
 
@@ -980,7 +1550,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     this.svc.saveFlujo(p.id, payload).subscribe({
       next: (updated) => {
-        this.politica.set(updated);
+        this.setPoliticaState(updated);
         this.lastSavedDraftSignature = signature;
         this.saving.set(false);
         this.clearPendingFlowBackup(p.id);
@@ -988,7 +1558,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
         if (this.autoSaveQueued) {
           this.scheduleAutoSave(true);
+          return;
         }
+
+        this.tryApplyDeferredCollaborativeFlow();
       },
       error: (err) => {
         this.saving.set(false);
@@ -1012,6 +1585,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   // ── Save to backend ───────────────────────────────────────────
   save(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     this.scheduleAutoSave(true);
   }
 
@@ -1042,7 +1619,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       // Backend valida contra el flujo persistido: guardamos antes de activar.
       this.svc.saveFlujo(p.id, this.buildFlujoPayload()).subscribe({
         next: (updated) => {
-          this.politica.set(updated);
+          this.setPoliticaState(updated);
           this.changeEstadoPersistido(p.id, estado);
         },
         error: (err) => {
@@ -1059,7 +1636,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private changeEstadoPersistido(policyId: string, estado: EstadoPolitica): void {
     this.svc.changeEstado(policyId, estado).subscribe({
       next: (updated) => {
-        this.politica.set(updated);
+        this.setPoliticaState(updated);
         this.toast.success('Estado actualizado', `Política ahora en estado ${estado}`);
       },
       error: (err) => {
@@ -1080,6 +1657,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   addNodeFromPalette(tipo: TipoNodo): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     let cx = 300;
     let cy = 200;
 
@@ -1102,6 +1683,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   toggleLaneOrientation(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     this.laneOrientation.update((orientation) =>
       orientation === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL'
     );
@@ -1167,7 +1752,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     if (this.isVerticalLaneOrientation()) {
       const laneX = this.CANVAS_ORIGIN_X + laneIndex * this.LANE_WIDTH;
       const centeredX = laneX + (this.LANE_WIDTH - this.getNodeWidth('ACTIVIDAD')) / 2;
-      return this.clampNodePosition(
+      return this.clampActivityPositionToLane(
+        deptId,
         centeredX + this.randomOffset(26),
         baseY + this.randomOffset(36)
       );
@@ -1175,7 +1761,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     const laneY = this.CANVAS_ORIGIN_Y + laneIndex * this.LANE_HEIGHT;
     const centeredY = laneY + (this.LANE_HEIGHT - this.getNodeHeight('ACTIVIDAD')) / 2;
-    return this.clampNodePosition(
+    return this.clampActivityPositionToLane(
+      deptId,
       baseX + this.randomOffset(36),
       centeredY + this.randomOffset(24)
     );
@@ -1219,7 +1806,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         if (this.isVerticalLaneOrientation()) {
           const laneX = this.CANVAS_ORIGIN_X + laneIndex * this.LANE_WIDTH;
           const centeredX = laneX + (this.LANE_WIDTH - this.getNodeWidth(node.tipo)) / 2;
-          const clamped = this.clampNodePosition(centeredX, node.y);
+          const clamped = this.clampActivityPositionToLane(node.departamentoId, centeredX, node.y);
           const nextNode = { ...node, x: clamped.x, y: clamped.y };
           if (nextNode.x !== node.x || nextNode.y !== node.y) {
             movedNodes.push(nextNode);
@@ -1229,7 +1816,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
         const laneY = this.CANVAS_ORIGIN_Y + laneIndex * this.LANE_HEIGHT;
         const centeredY = laneY + (this.LANE_HEIGHT - this.getNodeHeight(node.tipo)) / 2;
-        const clamped = this.clampNodePosition(node.x, centeredY);
+        const clamped = this.clampActivityPositionToLane(node.departamentoId, node.x, centeredY);
         const nextNode = { ...node, x: clamped.x, y: clamped.y };
         if (nextNode.x !== node.x || nextNode.y !== node.y) {
           movedNodes.push(nextNode);
@@ -1253,14 +1840,25 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   selectDeptForPending(deptId: string | null): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     if (!this.pendingNodeFromPalette) return;
     const { tipo, x, y } = this.pendingNodeFromPalette;
-    const initialPos = this.getInitialNodePosition(tipo, deptId, x, y);
+    const resolvedDeptId =
+      tipo === 'ACTIVIDAD' ? this.resolveRequiredDepartmentId(deptId) : deptId;
+
+    if (tipo === 'ACTIVIDAD' && !resolvedDeptId) {
+      return;
+    }
+
+    const initialPos = this.getInitialNodePosition(tipo, resolvedDeptId, x, y);
     const newNode: NodoCanvas = {
       id: this.genId(),
       tipo,
       nombre: this.defaultName(tipo),
-      departamentoId: deptId,
+      departamentoId: resolvedDeptId,
       responsableTipo: null,
       responsableId: null,
       formulario: [],
@@ -1277,6 +1875,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   selectDeptFromModal(deptId: string | null): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     if (this.deptModalMode() === 'LANE') {
       if (!deptId) {
         this.toast.info('Carriles', 'Para añadir carril debes seleccionar un departamento.');
@@ -1287,10 +1889,18 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!deptId) {
+      return;
+    }
+
     this.selectDeptForPending(deptId);
   }
 
   addManualLane(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     this.pendingNodeFromPalette = null;
     this.creatingNewDept.set(false);
     this.newDeptName.set('');
@@ -1301,6 +1911,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private addManualLaneByDeptId(deptId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     const dept = this.departamentos().find((d) => d.id === deptId);
     if (!dept) {
       this.toast.error('Carriles', 'El departamento seleccionado no existe.');
@@ -1334,6 +1948,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   deleteNode(id: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     const nodeToDelete = this.nodos().find((n) => n.id === id);
     const removedConnections = this.conexiones().filter(
       (c) => c.origen === id || c.destino === id
@@ -1341,6 +1959,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     this.nodos.update((ns) => ns.filter((n) => n.id !== id));
     this.conexiones.update((cs) => cs.filter((c) => c.origen !== id && c.destino !== id));
+    this.clearDecisionConditionPreviewForNode(id);
+    this.removeDecisionConditionDraft(id);
 
     if (removedConnections.length) {
       this.connectionTargetPorts.update((map) => {
@@ -1372,6 +1992,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   // ── Selection ─────────────────────────────────────────────────
   selectNode(id: string): void {
+    const previousNodeId = this.selectedNodeId();
+    if (previousNodeId && previousNodeId !== id) {
+      this.flushNodeNameSync(previousNodeId);
+    }
+
     this.selectedNodeId.set(id);
     this.showSidebar.set(true);
     this.collabFacade.setEditingNode(id);
@@ -1389,6 +2014,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   deselectAll(): void {
+    const selectedNodeId = this.selectedNodeId();
+    if (selectedNodeId) {
+      this.flushNodeNameSync(selectedNodeId);
+    }
+
     this.selectedNodeId.set(null);
     this.showSidebar.set(false);
     this.connectState.set(null);
@@ -1397,6 +2027,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   // ── Drag & Drop ───────────────────────────────────────────────
   onNodeMouseDown(event: MouseEvent, nodeId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     if (this.connectState()) {
       return;
     }
@@ -1417,11 +2051,29 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   @HostListener('window:mousemove', ['$event'])
   onMouseMove(event: MouseEvent): void {
+    if (this.isCanvasReadOnly()) {
+      if (this.isPanning) {
+        const dx = event.clientX - this.panStart.x;
+        const dy = event.clientY - this.panStart.y;
+        if (!this.panMoved && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+          this.panMoved = true;
+        }
+        this.setPan(this.panStart.px + dx, this.panStart.py + dy);
+      }
+      return;
+    }
+
     if (this.dragState) {
       const dx = (event.clientX - this.dragState.startMouseX) / this.zoom();
       const dy = (event.clientY - this.dragState.startMouseY) / this.zoom();
       const id = this.dragState.nodeId;
-      const clampedPos = this.clampNodePosition(
+      const draggedNode = this.nodos().find((n) => n.id === id);
+      if (!draggedNode) {
+        return;
+      }
+
+      const clampedPos = this.clampNodePositionForNode(
+        draggedNode,
         this.dragState.startNodeX + dx,
         this.dragState.startNodeY + dy
       );
@@ -1456,6 +2108,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   @HostListener('window:mouseup')
   onMouseUp(): void {
+    if (this.isCanvasReadOnly()) {
+      const wasPanning = this.isPanning;
+      const didPan = this.panMoved;
+
+      this.isPanning = false;
+      this.panMoved = false;
+
+      if (wasPanning && !didPan) {
+        this.deselectAll();
+      }
+      return;
+    }
+
     const dragSnapshot = this.dragState;
     const wasPanning = this.isPanning;
     const didPan = this.panMoved;
@@ -1488,6 +2153,16 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   // ── Pan ───────────────────────────────────────────────────────
   onCanvasMouseDown(event: MouseEvent): void {
+    if (this.isCanvasReadOnly()) {
+      if (event.button === 0 || event.button === 1 || event.altKey) {
+        this.isPanning = true;
+        this.panMoved = false;
+        this.panStart = { x: event.clientX, y: event.clientY, px: this.panX(), py: this.panY() };
+        event.preventDefault();
+      }
+      return;
+    }
+
     if (this.connectState()) {
       this.connectState.set(null);
       return;
@@ -1656,6 +2331,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     fromId: string,
     fromPort: ConnectionPort = 'RIGHT'
   ): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -1679,6 +2358,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     nodeId: string,
     port: ConnectionPort
   ): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     if (this.connectState()) {
       this.finishConnect(nodeId, port, event);
       return;
@@ -1692,6 +2375,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     targetPort: ConnectionTargetPort | null = null,
     event?: MouseEvent
   ): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     event?.preventDefault();
     event?.stopPropagation();
 
@@ -1708,7 +2395,34 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       targetPort ?? (fromNode && toNode ? this.autoTargetPort(fromNode, toNode) : 'LEFT');
     const resolvedSourcePort: ConnectionPort = cs.fromPort;
 
-    const exists = this.conexiones().some((c) => c.origen === cs.fromNodeId && c.destino === toId);
+    const limitToSingleDecisionBranch =
+      fromNode?.tipo === 'DECISION' &&
+      (resolvedSourcePort === 'LEFT' || resolvedSourcePort === 'RIGHT');
+
+    const previousConnections = this.conexiones();
+    const removedBranchConnections = limitToSingleDecisionBranch
+      ? previousConnections.filter(
+          (connection) =>
+            connection.origen === cs.fromNodeId &&
+            this.getConnectionSourcePort(connection) === resolvedSourcePort &&
+            connection.destino !== toId
+        )
+      : [];
+
+    const baseConnections = limitToSingleDecisionBranch
+      ? previousConnections.filter(
+          (connection) =>
+            !(
+              connection.origen === cs.fromNodeId &&
+              this.getConnectionSourcePort(connection) === resolvedSourcePort &&
+              connection.destino !== toId
+            )
+        )
+      : previousConnections;
+
+    const exists = baseConnections.some(
+      (connection) => connection.origen === cs.fromNodeId && connection.destino === toId
+    );
     const newConexion: Conexion = {
       origen: cs.fromNodeId,
       destino: toId,
@@ -1716,22 +2430,37 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       puertoDestino: resolvedPort
     };
 
-    if (!exists) {
-      this.conexiones.update((cs2) => [...cs2, newConexion]);
-      this.collabFacade.emitCreateEdge(newConexion);
-    } else {
-      this.conexiones.update(cs2 => cs2.map(c =>
-        (c.origen === cs.fromNodeId && c.destino === toId) ? newConexion : c
-      ));
-      this.collabFacade.emitCreateEdge(newConexion);
+    const nextConnections = !exists
+      ? [...baseConnections, newConexion]
+      : baseConnections.map((connection) =>
+          connection.origen === cs.fromNodeId && connection.destino === toId
+            ? newConexion
+            : connection
+        );
+
+    this.conexiones.set(nextConnections);
+
+    for (const removedConnection of removedBranchConnections) {
+      this.deleteConnectionPortMetadata(removedConnection.origen, removedConnection.destino);
+      this.collabFacade.emitDeleteEdge({
+        origen: removedConnection.origen,
+        destino: removedConnection.destino,
+      });
     }
-    this.scheduleAutoSave(true);
+
+    this.collabFacade.emitCreateEdge(newConexion);
 
     this.setConnectionTargetPort(cs.fromNodeId, toId, resolvedPort);
     this.setConnectionSourcePort(cs.fromNodeId, toId, resolvedSourcePort);
 
     const resolvedConnections = this.withResolvedConnectionPorts(this.conexiones());
     this.conexiones.set(resolvedConnections);
+
+    if (fromNode?.tipo === 'DECISION') {
+      this.syncDecisionConditionDestinations(fromNode.id);
+    }
+
+    this.scheduleAutoSave(true);
 
     this.connectState.set(null);
     this.selectNode(toId);
@@ -1771,24 +2500,102 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   deleteConexion(origen: string, destino: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     this.conexiones.update((cs) => cs.filter((c) => !(c.origen === origen && c.destino === destino)));
+    this.deleteConnectionPortMetadata(origen, destino);
+    this.persistUiPreferencesForCurrentPolicy();
+
+    this.collabFacade.emitDeleteEdge({ origen, destino });
+
+    const originNode = this.nodos().find((node) => node.id === origen);
+    if (originNode?.tipo === 'DECISION') {
+      this.syncDecisionConditionDestinations(origen);
+    }
+
+    this.scheduleAutoSave(true);
+  }
+
+  private deleteConnectionPortMetadata(origen: string, destino: string): void {
     const key = this.connectionKey(origen, destino);
+
     this.connectionTargetPorts.update((map) => {
       if (!(key in map)) return map;
       const next = { ...map };
       delete next[key];
       return next;
     });
+
     this.connectionSourcePorts.update((map) => {
       if (!(key in map)) return map;
       const next = { ...map };
       delete next[key];
       return next;
     });
-    this.persistUiPreferencesForCurrentPolicy();
+  }
 
-    this.collabFacade.emitDeleteEdge({ origen, destino });
-    this.scheduleAutoSave(true);
+  private syncDecisionConditionDestinations(nodeId: string): void {
+    const decisionNode = this.nodos().find(
+      (node) => node.id === nodeId && node.tipo === 'DECISION'
+    );
+
+    if (!decisionNode?.condiciones?.length) {
+      return;
+    }
+
+    const trueTarget = this.getDecisionBranchTargetNodeId(nodeId, 'RIGHT');
+    const falseTarget = this.getDecisionBranchTargetNodeId(nodeId, 'LEFT');
+
+    const nextCondiciones = decisionNode.condiciones.map((condicion) => {
+      const normalizedResult = (condicion.resultado ?? '').trim().toUpperCase();
+      const isTrueBranchCondition =
+        !!condicion.grupo ||
+        normalizedResult === 'TRUE' ||
+        normalizedResult === 'SI' ||
+        normalizedResult === 'YES';
+      const isFalseBranchCondition =
+        normalizedResult === 'FALSE' ||
+        normalizedResult === 'NO' ||
+        normalizedResult === '*' ||
+        normalizedResult === 'DEFAULT' ||
+        normalizedResult === 'ELSE';
+
+      if (isTrueBranchCondition && trueTarget && condicion.siguiente !== trueTarget) {
+        return { ...condicion, siguiente: trueTarget };
+      }
+
+      if (isFalseBranchCondition && falseTarget && condicion.siguiente !== falseTarget) {
+        return { ...condicion, siguiente: falseTarget };
+      }
+
+      return condicion;
+    });
+
+    const changed =
+      JSON.stringify(nextCondiciones) !== JSON.stringify(decisionNode.condiciones);
+    if (!changed) {
+      return;
+    }
+
+    this.nodos.update((nodes) =>
+      nodes.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              condiciones: nextCondiciones,
+            }
+          : node
+      )
+    );
+
+    const updatedNode = this.nodos().find((node) => node.id === nodeId);
+    this.collabFacade.emitUpdateNode(
+      nodeId,
+      { condiciones: updatedNode?.condiciones ?? [] },
+      updatedNode?.version
+    );
   }
 
   // ── Node geometry helpers ─────────────────────────────────────
@@ -1987,7 +2794,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   getDeptName(id: string | null): string {
-    if (!id) return 'Sin departamento';
+    if (!id) return 'Departamento no asignado';
     return this.departamentos().find((d) => d.id === id)?.nombre ?? id;
   }
 
@@ -2095,26 +2902,51 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   // ── Sidebar / Form editing ────────────────────────────────────
   updateNodeName(id: string, name: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    this.setPendingNodeNameGuard(id, name);
     this.nodos.update((ns) => ns.map((n) => (n.id === id ? { ...n, nombre: name } : n)));
-    this.collabFacade.emitUpdateNode(
-      id,
-      { nombre: name },
-      this.getNodeVersion(id)
-    );
+    this.scheduleNodeNameSync(id);
     this.scheduleAutoSave();
   }
 
   updateNodeTipo(id: string, newTipoStr: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     const newTipo = newTipoStr as TipoNodo;
+
+    const previousNode = this.nodos().find((node) => node.id === id);
     this.nodos.update((ns) => ns.map((n) => {
       if (n.id === id) {
+        if (newTipo === 'ACTIVIDAD') {
+          const requiredDeptId = this.resolveRequiredDepartmentId(n.departamentoId);
+          if (!requiredDeptId) {
+            return n;
+          }
+
+          const nextPos = this.clampActivityPositionToLane(requiredDeptId, n.x, n.y);
+          return {
+            ...n,
+            tipo: newTipo,
+            departamentoId: requiredDeptId,
+            responsableTipo: n.responsableTipo,
+            responsableId: n.responsableTipo === 'DEPARTAMENTO' ? requiredDeptId : n.responsableId,
+            x: nextPos.x,
+            y: nextPos.y,
+          };
+        }
+
         return {
           ...n,
           tipo: newTipo,
-          departamentoId: newTipo === 'ACTIVIDAD' ? n.departamentoId : null,
+          departamentoId: null,
           // Si deja de ser ACTIVIDAD, limpiamos los responsables
-          responsableTipo: newTipo === 'ACTIVIDAD' ? n.responsableTipo : null,
-          responsableId: newTipo === 'ACTIVIDAD' ? n.responsableId : null,
+          responsableTipo: null,
+          responsableId: null,
         };
       }
       return n;
@@ -2130,10 +2962,29 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       },
       updatedNode?.version
     );
+
+    if (
+      updatedNode?.tipo === 'ACTIVIDAD' &&
+      previousNode &&
+      (Math.abs(updatedNode.x - previousNode.x) > 0.5 ||
+        Math.abs(updatedNode.y - previousNode.y) > 0.5)
+    ) {
+      this.setPendingMoveGuard(updatedNode.id, updatedNode.x, updatedNode.y);
+      this.collabFacade.emitMoveNode(
+        updatedNode.id,
+        this.toPersistedCoordinate(updatedNode.x, this.CANVAS_ORIGIN_X),
+        this.toPersistedCoordinate(updatedNode.y, this.CANVAS_ORIGIN_Y)
+      );
+    }
+
     this.scheduleAutoSave();
   }
 
   updateNodeDept(id: string, deptId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     if (deptId === 'CREATE_NEW') {
       this.pendingNodeFromPalette = null;
       this.creatingNewDept.set(true);
@@ -2141,9 +2992,28 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       this.showDeptModal.set(true);
       return;
     }
+
+    const previousNode = this.nodos().find((node) => node.id === id);
+
     this.nodos.update((ns) =>
       ns.map((n) => {
         if (n.id !== id) return n;
+
+        if (n.tipo === 'ACTIVIDAD') {
+          const nextDeptId = this.resolveRequiredDepartmentId(deptId);
+          if (!nextDeptId) {
+            return n;
+          }
+
+          const nextPos = this.clampActivityPositionToLane(nextDeptId, n.x, n.y);
+          return {
+            ...n,
+            departamentoId: nextDeptId,
+            responsableId: n.responsableTipo === 'DEPARTAMENTO' ? nextDeptId : n.responsableId,
+            x: nextPos.x,
+            y: nextPos.y,
+          };
+        }
 
         const nextDeptId = deptId || null;
         return {
@@ -2169,10 +3039,29 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       },
       updatedNode?.version
     );
+
+    if (
+      updatedNode?.tipo === 'ACTIVIDAD' &&
+      previousNode &&
+      (Math.abs(updatedNode.x - previousNode.x) > 0.5 ||
+        Math.abs(updatedNode.y - previousNode.y) > 0.5)
+    ) {
+      this.setPendingMoveGuard(updatedNode.id, updatedNode.x, updatedNode.y);
+      this.collabFacade.emitMoveNode(
+        updatedNode.id,
+        this.toPersistedCoordinate(updatedNode.x, this.CANVAS_ORIGIN_X),
+        this.toPersistedCoordinate(updatedNode.y, this.CANVAS_ORIGIN_Y)
+      );
+    }
+
     this.scheduleAutoSave();
   }
 
   updateNodeResponsableTipo(id: string, tipo: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     const responsableTipo = (tipo === 'USUARIO' || tipo === 'DEPARTAMENTO') ? tipo as ResponsableTipo : null;
     this.nodos.update((ns) =>
       ns.map((n) => {
@@ -2224,6 +3113,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   updateNodeResponsableId(id: string, responsableId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     this.nodos.update((ns) =>
       ns.map((n) => {
         if (n.id !== id) return n;
@@ -2258,6 +3151,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   startCreateDept(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     this.creatingNewDept.set(true);
     this.newDeptName.set('');
   }
@@ -2278,6 +3175,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   confirmCreateDept(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     const name = this.newDeptName().trim();
     if (!name) return;
     this.savingDept.set(true);
@@ -2310,6 +3211,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   startEditDept(event: Event, dept: AdminDepartment): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     event.stopPropagation();
     this.editingDeptId.set(dept.id);
     this.editDeptName.set(dept.nombre);
@@ -2322,6 +3227,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   saveEditDept(event: Event, id: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     event.stopPropagation();
     const name = this.editDeptName().trim();
     if (!name) return;
@@ -2341,14 +3250,87 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   deleteDept(event: Event, id: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     event.stopPropagation();
-    if (!confirm('¿Seguro que deseas eliminar este departamento? Los nodos asignados quedarán sin departamento.')) return;
+
+    const remainingDepartments = this.departamentos().filter((d) => d.id !== id);
+    const fallbackDepartment = remainingDepartments[0] ?? null;
+    const affectedActivities = this.nodos().filter(
+      (n) => n.tipo === 'ACTIVIDAD' && n.departamentoId === id
+    );
+
+    if (affectedActivities.length && !fallbackDepartment) {
+      this.toast.error(
+        'Departamentos',
+        'No puedes eliminar el único departamento cuando existen actividades en el flujo.'
+      );
+      return;
+    }
+
+    const confirmMessage =
+      affectedActivities.length && fallbackDepartment
+        ? `¿Seguro que deseas eliminar este departamento? Las actividades asignadas se moverán al carril ${fallbackDepartment.nombre}.`
+        : '¿Seguro que deseas eliminar este departamento?';
+
+    if (!confirm(confirmMessage)) return;
 
     this.savingDept.set(true);
     this.deptSvc.deleteDepartment(id).subscribe({
       next: () => {
+        const reassignedActivityNodes: NodoCanvas[] = [];
+
         this.departamentos.update(depts => depts.filter(d => d.id !== id));
-        this.nodos.update(ns => ns.map(n => n.departamentoId === id ? { ...n, departamentoId: null } : n));
+        this.nodos.update((ns) =>
+          ns.map((n) => {
+            if (n.departamentoId !== id) {
+              return n;
+            }
+
+            if (n.tipo === 'ACTIVIDAD' && fallbackDepartment) {
+              const nextPos = this.clampActivityPositionToLane(
+                fallbackDepartment.id,
+                n.x,
+                n.y
+              );
+              const updatedNode: NodoCanvas = {
+                ...n,
+                departamentoId: fallbackDepartment.id,
+                responsableId:
+                  n.responsableTipo === 'DEPARTAMENTO'
+                    ? fallbackDepartment.id
+                    : n.responsableId,
+                x: nextPos.x,
+                y: nextPos.y,
+              };
+              reassignedActivityNodes.push(updatedNode);
+              return updatedNode;
+            }
+
+            return { ...n, departamentoId: null };
+          })
+        );
+
+        for (const reassignedNode of reassignedActivityNodes) {
+          this.collabFacade.emitUpdateNode(
+            reassignedNode.id,
+            {
+              departamentoId: reassignedNode.departamentoId,
+              responsableTipo: reassignedNode.responsableTipo ?? null,
+              responsableId: reassignedNode.responsableId ?? null,
+            },
+            reassignedNode.version
+          );
+          this.setPendingMoveGuard(reassignedNode.id, reassignedNode.x, reassignedNode.y);
+          this.collabFacade.emitMoveNode(
+            reassignedNode.id,
+            this.toPersistedCoordinate(reassignedNode.x, this.CANVAS_ORIGIN_X),
+            this.toPersistedCoordinate(reassignedNode.y, this.CANVAS_ORIGIN_Y)
+          );
+        }
+
         this.manualLaneDeptIds.update((laneIds) => laneIds.filter((laneId) => laneId !== id));
         const policyId = this.politica()?.id;
         if (policyId) {
@@ -2366,6 +3348,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   addCampo(nodeId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     if (!this.newCampo.campo.trim()) return;
     const campo: CampoFormulario = { campo: this.newCampo.campo.trim(), tipo: this.newCampo.tipo };
     this.nodos.update((ns) =>
@@ -2382,6 +3368,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   removeCampo(nodeId: string, idx: number): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     this.nodos.update((ns) =>
       ns.map((n) =>
         n.id === nodeId ? { ...n, formulario: n.formulario.filter((_, i) => i !== idx) } : n
@@ -2396,7 +3386,1008 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.scheduleAutoSave();
   }
 
+  getNodeNameById(nodeId: string | null | undefined): string {
+    if (!nodeId) {
+      return '-';
+    }
+
+    const node = this.nodos().find((item) => item.id === nodeId);
+    return node?.nombre ?? nodeId;
+  }
+
+  getDecisionBranchTargetNodeId(
+    nodeId: string,
+    sourcePort: 'LEFT' | 'RIGHT'
+  ): string | null {
+    const connection = this.conexiones().find(
+      (item) =>
+        item.origen === nodeId &&
+        this.getConnectionSourcePort(item) === sourcePort
+    );
+
+    return connection?.destino ?? null;
+  }
+
+  getDecisionBranchNodeName(nodeId: string, sourcePort: 'LEFT' | 'RIGHT'): string {
+    const targetNodeId = this.getDecisionBranchTargetNodeId(nodeId, sourcePort);
+    if (!targetNodeId) {
+      return 'Sin conexion';
+    }
+
+    return this.getNodeNameById(targetNodeId);
+  }
+
+  hasDecisionBranchesReady(nodeId: string): boolean {
+    return (
+      !!this.getDecisionBranchTargetNodeId(nodeId, 'RIGHT') &&
+      !!this.getDecisionBranchTargetNodeId(nodeId, 'LEFT')
+    );
+  }
+
+  getDecisionConditionLabel(nodeId: string, condicion: CondicionDecision): string {
+    if (this.getDecisionConditionGroupPreview(nodeId, condicion)) {
+      return 'Condicion dinamica';
+    }
+
+    const normalized = (condicion?.resultado ?? '').trim();
+    if (!normalized) {
+      return 'Condicion sin resultado';
+    }
+
+    return normalized;
+  }
+
+  hasDecisionConditionGroup(nodeId: string, condicion: CondicionDecision): boolean {
+    return !!this.getDecisionConditionGroupPreview(nodeId, condicion);
+  }
+
+  getDecisionConditionGroupPreview(
+    nodeId: string,
+    condicion: CondicionDecision
+  ): GrupoCondicionDecision | null {
+    const embeddedGroup = condicion?.grupo ?? null;
+    if (embeddedGroup) {
+      return embeddedGroup;
+    }
+
+    if (!this.isDecisionTrueBranchResult(condicion?.resultado)) {
+      return null;
+    }
+
+    return this.decisionConditionDraftState()[nodeId]?.grupo ?? null;
+  }
+
+  isDecisionConditionPreviewOpen(nodeId: string, index: number): boolean {
+    const key = this.getDecisionConditionPreviewKey(nodeId, index);
+    return !!this.decisionConditionPreviewState()[key];
+  }
+
+  toggleDecisionConditionPreview(nodeId: string, index: number): void {
+    const key = this.getDecisionConditionPreviewKey(nodeId, index);
+    this.decisionConditionPreviewState.update((state) => ({
+      ...state,
+      [key]: !state[key],
+    }));
+  }
+
+  getDecisionLogicalOperatorLabel(
+    operador: OperadorLogicoDecision | string | null | undefined
+  ): string {
+    return String(operador ?? '').toUpperCase() === 'OR'
+      ? 'Cumple alguna (OR)'
+      : 'Cumplen todas (AND)';
+  }
+
+  getDecisionOperatorDisplayLabel(
+    operador: OperadorCondicionDecision | string | null | undefined
+  ): string {
+    const option = this.getDecisionOperatorOptionByValue(operador);
+    return option?.label ?? String(operador ?? 'Operador');
+  }
+
+  decisionRulePreviewNeedsValue(rule: ReglaCondicionDecision): boolean {
+    const option = this.getDecisionOperatorOptionByValue(rule?.operador);
+    if (option) {
+      return option.requiresValue;
+    }
+
+    return (
+      rule?.valor !== null &&
+      rule?.valor !== undefined &&
+      String(rule.valor).trim().length > 0
+    );
+  }
+
+  formatDecisionRulePreviewValue(
+    value: ReglaCondicionDecision['valor']
+  ): string {
+    if (value === null || value === undefined) {
+      return '(sin valor)';
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false';
+    }
+
+    const normalized = String(value).trim();
+    return normalized.length ? normalized : '(sin valor)';
+  }
+
+  private getDecisionConditionPreviewKey(nodeId: string, index: number): string {
+    return `${nodeId}:${index}`;
+  }
+
+  private isDecisionTrueBranchResult(resultado: string | null | undefined): boolean {
+    const normalized = this.normalizeDecisionResultValue(resultado);
+    return normalized === 'TRUE' || normalized === 'SI' || normalized === 'YES';
+  }
+
+  private normalizeDecisionResultValue(resultado: string | null | undefined): string {
+    return String(resultado ?? '').trim().toUpperCase();
+  }
+
+  private decisionHasTrueAndFalseRoutes(condiciones: CondicionDecision[]): boolean {
+    const values = new Set(
+      (condiciones ?? []).map((item) =>
+        this.normalizeDecisionResultValue(item?.resultado)
+      )
+    );
+
+    const hasTrueRoute = values.has('TRUE') || values.has('SI') || values.has('YES');
+    const hasFalseRoute =
+      values.has('*') ||
+      values.has('FALSE') ||
+      values.has('NO') ||
+      values.has('DEFAULT') ||
+      values.has('ELSE');
+
+    return hasTrueRoute && hasFalseRoute;
+  }
+
+  private removeDecisionConditionDraft(nodeId: string): void {
+    this.decisionConditionDraftState.update((state) => {
+      if (!(nodeId in state)) {
+        return state;
+      }
+
+      const next = { ...state };
+      delete next[nodeId];
+      return next;
+    });
+  }
+
+  private syncDecisionConditionDraftForNode(nodeId: string): void {
+    const decisionNode = this.nodos().find(
+      (node) => node.id === nodeId && node.tipo === 'DECISION'
+    );
+    if (!decisionNode) {
+      this.removeDecisionConditionDraft(nodeId);
+      return;
+    }
+
+    const embeddedDynamic = decisionNode.condiciones.find(
+      (condicion) => !!condicion?.grupo
+    );
+    const embeddedGroup = embeddedDynamic?.grupo;
+    if (embeddedGroup) {
+      this.decisionConditionDraftState.update((state) => ({
+        ...state,
+        [nodeId]: {
+          origenActividadId: embeddedDynamic.origenActividadId ?? null,
+          grupo: embeddedGroup,
+        },
+      }));
+      return;
+    }
+
+    if (!this.decisionHasTrueAndFalseRoutes(decisionNode.condiciones ?? [])) {
+      this.removeDecisionConditionDraft(nodeId);
+    }
+  }
+
+  private reconcileDecisionConditionDrafts(nodes: NodoCanvas[]): void {
+    const previous = this.decisionConditionDraftState();
+    const next: Record<string, DecisionConditionDraft> = {};
+
+    for (const node of nodes) {
+      if (node.tipo !== 'DECISION') {
+        continue;
+      }
+
+      const embeddedDynamic = node.condiciones.find((condicion) => !!condicion?.grupo);
+      const embeddedGroup = embeddedDynamic?.grupo;
+      if (embeddedGroup) {
+        next[node.id] = {
+          origenActividadId: embeddedDynamic.origenActividadId ?? null,
+          grupo: embeddedGroup,
+        };
+        continue;
+      }
+
+      const existingDraft = previous[node.id];
+      if (existingDraft && this.decisionHasTrueAndFalseRoutes(node.condiciones ?? [])) {
+        next[node.id] = existingDraft;
+      }
+    }
+
+    this.decisionConditionDraftState.set(next);
+  }
+
+  private clearDecisionConditionPreviewForNode(nodeId: string): void {
+    const prefix = `${nodeId}:`;
+    this.decisionConditionPreviewState.update((state) => {
+      let changed = false;
+      const next: Record<string, boolean> = {};
+
+      for (const [key, value] of Object.entries(state)) {
+        if (key.startsWith(prefix)) {
+          changed = true;
+          continue;
+        }
+
+        next[key] = value;
+      }
+
+      return changed ? next : state;
+    });
+  }
+
+  private getDecisionOperatorOptionByValue(
+    operador: OperadorCondicionDecision | string | null | undefined
+  ): DecisionOperatorOption | null {
+    if (!operador) {
+      return null;
+    }
+
+    for (const tipo of this.tipoCampoOptions) {
+      const option = this.decisionOperatorCatalog[tipo].find(
+        (item) => item.value === operador
+      );
+      if (option) {
+        return option;
+      }
+    }
+
+    return null;
+  }
+
+  getDecisionIncomingActivities(nodeId: string): NodoCanvas[] {
+    const incomingOriginIds = new Set<string>();
+
+    for (const connection of this.conexiones()) {
+      if (connection.destino !== nodeId) {
+        continue;
+      }
+
+      const fromNode = this.nodos().find((item) => item.id === connection.origen);
+      if (fromNode?.tipo === 'ACTIVIDAD') {
+        incomingOriginIds.add(fromNode.id);
+      }
+    }
+
+    return this.nodos().filter((node) => incomingOriginIds.has(node.id));
+  }
+
+  getDecisionBuilderFields(nodeId: string): CampoFormulario[] {
+    if (!this.decisionBuilderState?.sourceActivityId) {
+      return [];
+    }
+
+    const sourceNode = this.getDecisionIncomingActivities(nodeId).find(
+      (node) => node.id === this.decisionBuilderState?.sourceActivityId
+    );
+
+    return sourceNode?.formulario ?? [];
+  }
+
+  openDecisionConditionBuilder(nodeId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    const decisionNode = this.nodos().find(
+      (node) => node.id === nodeId && node.tipo === 'DECISION'
+    );
+    if (!decisionNode) {
+      return;
+    }
+
+    const incomingActivities = this.getDecisionIncomingActivities(nodeId);
+    if (!incomingActivities.length) {
+      this.toast.info(
+        'Decision',
+        'Conecta primero una actividad al nodo de decision para habilitar condiciones.'
+      );
+      return;
+    }
+
+    const existingDynamicCondition = decisionNode.condiciones.find(
+      (condicion) => !!condicion?.grupo
+    );
+    const existingDraft = this.decisionConditionDraftState()[nodeId] ?? null;
+    const existingGroup = existingDynamicCondition?.grupo ?? existingDraft?.grupo ?? null;
+
+    const sourceActivityId =
+      existingDynamicCondition?.origenActividadId ??
+      existingDraft?.origenActividadId ??
+      this.resolveDefaultDecisionSourceActivity(nodeId);
+    const preferredField = this.resolvePreferredDecisionField(nodeId, sourceActivityId);
+
+    this.decisionBuilderState = {
+      sourceActivityId,
+      group: existingGroup
+        ? this.toDecisionBuilderGroup(existingGroup, preferredField)
+        : this.createDecisionGroup(preferredField),
+    };
+    this.decisionBuilderNodeId = nodeId;
+    this.decisionBuilderVisible = true;
+    this.normalizeDecisionBuilderForSelectedSource(nodeId);
+  }
+
+  closeDecisionConditionBuilder(): void {
+    this.decisionBuilderVisible = false;
+    this.decisionBuilderNodeId = null;
+    this.decisionBuilderState = null;
+  }
+
+  updateDecisionBuilderSourceActivity(activityId: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    this.decisionBuilderState = {
+      ...this.decisionBuilderState,
+      sourceActivityId: activityId || null,
+    };
+
+    if (this.decisionBuilderNodeId) {
+      this.normalizeDecisionBuilderForSelectedSource(this.decisionBuilderNodeId);
+    }
+  }
+
+  updateDecisionGroupOperator(groupId: string, operator: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    const nextOperator: OperadorLogicoDecision =
+      operator === 'OR' ? 'OR' : 'AND';
+
+    this.updateDecisionGroup(groupId, (group) => ({
+      ...group,
+      operadorLogico: nextOperator,
+    }));
+  }
+
+  addDecisionRule(groupId: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    const preferredField = this.resolvePreferredDecisionField(
+      this.decisionBuilderNodeId,
+      this.decisionBuilderState.sourceActivityId
+    );
+
+    this.updateDecisionGroup(groupId, (group) => ({
+      ...group,
+      reglas: [...group.reglas, this.createDecisionRule(preferredField)],
+    }));
+  }
+
+  removeDecisionRule(groupId: string, ruleId: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    this.updateDecisionGroup(groupId, (group) => ({
+      ...group,
+      reglas: group.reglas.filter((rule) => rule.id !== ruleId),
+    }));
+  }
+
+  addDecisionSubGroup(groupId: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    const preferredField = this.resolvePreferredDecisionField(
+      this.decisionBuilderNodeId,
+      this.decisionBuilderState.sourceActivityId
+    );
+
+    this.updateDecisionGroup(groupId, (group) => ({
+      ...group,
+      grupos: [...group.grupos, this.createDecisionGroup(preferredField)],
+    }));
+  }
+
+  removeDecisionGroup(groupId: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    const rootGroupId = this.decisionBuilderState.group.id;
+    if (groupId === rootGroupId) {
+      return;
+    }
+
+    this.decisionBuilderState = {
+      ...this.decisionBuilderState,
+      group: this.removeDecisionGroupById(this.decisionBuilderState.group, groupId),
+    };
+  }
+
+  updateDecisionRuleField(groupId: string, ruleId: string, campo: string): void {
+    if (!this.decisionBuilderState || !this.decisionBuilderNodeId) {
+      return;
+    }
+
+    const fieldType = this.getDecisionFieldType(this.decisionBuilderNodeId, campo);
+    const operatorOptions = this.getDecisionOperatorOptionsByType(fieldType);
+    const fallbackOperator = operatorOptions[0]?.value ?? 'IGUAL';
+
+    this.updateDecisionRule(groupId, ruleId, (rule) => ({
+      ...rule,
+      campo,
+      operador: fallbackOperator,
+      valor: '',
+    }));
+  }
+
+  updateDecisionRuleOperator(
+    groupId: string,
+    ruleId: string,
+    operador: OperadorCondicionDecision
+  ): void {
+    if (!this.decisionBuilderState || !this.decisionBuilderNodeId) {
+      return;
+    }
+
+    const rule = this.findDecisionRule(this.decisionBuilderState.group, groupId, ruleId);
+    if (!rule) {
+      return;
+    }
+
+    const fieldType = this.getDecisionFieldType(this.decisionBuilderNodeId, rule.campo);
+    const requiresValue = this.decisionOperatorRequiresValue(fieldType, operador);
+
+    this.updateDecisionRule(groupId, ruleId, (current) => ({
+      ...current,
+      operador,
+      valor: requiresValue ? current.valor : '',
+    }));
+  }
+
+  updateDecisionRuleValue(groupId: string, ruleId: string, valor: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    this.updateDecisionRule(groupId, ruleId, (rule) => ({
+      ...rule,
+      valor,
+    }));
+  }
+
+  getDecisionRuleOperatorOptions(campo: string): DecisionOperatorOption[] {
+    if (!this.decisionBuilderNodeId) {
+      return [];
+    }
+
+    const fieldType = this.getDecisionFieldType(this.decisionBuilderNodeId, campo);
+    return this.getDecisionOperatorOptionsByType(fieldType);
+  }
+
+  decisionRuleNeedsValue(campo: string, operador: OperadorCondicionDecision): boolean {
+    if (!this.decisionBuilderNodeId) {
+      return false;
+    }
+
+    const fieldType = this.getDecisionFieldType(this.decisionBuilderNodeId, campo);
+    return this.decisionOperatorRequiresValue(fieldType, operador);
+  }
+
+  getDecisionRuleInputType(campo: string): 'text' | 'number' | 'date' | 'boolean' {
+    if (!this.decisionBuilderNodeId) {
+      return 'text';
+    }
+
+    const fieldType = this.getDecisionFieldType(this.decisionBuilderNodeId, campo);
+    if (fieldType === 'NUMERO') {
+      return 'number';
+    }
+
+    if (fieldType === 'FECHA') {
+      return 'date';
+    }
+
+    if (fieldType === 'BOOLEANO') {
+      return 'boolean';
+    }
+
+    return 'text';
+  }
+
+  saveDecisionConditionBuilder(nodeId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    if (!this.decisionBuilderState) {
+      this.toast.error('Decision', 'Debes seleccionar una condicion primero.');
+      return;
+    }
+
+    const validationError = this.validateDecisionBuilder(nodeId);
+    if (validationError) {
+      this.toast.error('Decision', validationError);
+      return;
+    }
+
+    const trueTarget = this.getDecisionBranchTargetNodeId(nodeId, 'RIGHT');
+    const falseTarget = this.getDecisionBranchTargetNodeId(nodeId, 'LEFT');
+    if (!trueTarget || !falseTarget) {
+      this.toast.error(
+        'Decision',
+        'Conecta las dos salidas del rombo: derecha para SI e izquierda para NO.'
+      );
+      return;
+    }
+
+    const fieldIndex = new Map<string, CampoFormulario>(
+      this.getDecisionBuilderFields(nodeId).map((field) => [field.campo, field])
+    );
+
+    const payloadGroup = this.toDecisionPayloadGroup(
+      this.decisionBuilderState.group,
+      fieldIndex
+    );
+
+    if (!payloadGroup) {
+      this.toast.error('Decision', 'La condicion no contiene reglas validas.');
+      return;
+    }
+
+    const condiciones: CondicionDecision[] = [
+      {
+        resultado: 'true',
+        siguiente: trueTarget,
+        origenActividadId: this.decisionBuilderState.sourceActivityId,
+        grupo: payloadGroup,
+      },
+      {
+        resultado: '*',
+        siguiente: falseTarget,
+      },
+    ];
+
+    this.nodos.update((nodes) =>
+      nodes.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              condiciones,
+            }
+          : node
+      )
+    );
+    this.decisionConditionDraftState.update((state) => ({
+      ...state,
+      [nodeId]: {
+        origenActividadId: this.decisionBuilderState?.sourceActivityId ?? null,
+        grupo: payloadGroup,
+      },
+    }));
+    this.clearDecisionConditionPreviewForNode(nodeId);
+
+    const updatedNode = this.nodos().find((node) => node.id === nodeId);
+    this.collabFacade.emitUpdateNode(
+      nodeId,
+      { condiciones: updatedNode?.condiciones ?? [] },
+      updatedNode?.version
+    );
+    this.scheduleAutoSave();
+    this.closeDecisionConditionBuilder();
+    this.toast.success('Decision', 'Condicion guardada correctamente.');
+  }
+
+  private resolveDefaultDecisionSourceActivity(nodeId: string): string | null {
+    const incomingActivities = this.getDecisionIncomingActivities(nodeId);
+    const firstWithFields = incomingActivities.find(
+      (activity) => (activity.formulario?.length ?? 0) > 0
+    );
+
+    return firstWithFields?.id ?? incomingActivities[0]?.id ?? null;
+  }
+
+  private resolvePreferredDecisionField(
+    nodeId: string | null,
+    sourceActivityId: string | null
+  ): CampoFormulario | null {
+    if (!nodeId || !sourceActivityId) {
+      return null;
+    }
+
+    const sourceNode = this.getDecisionIncomingActivities(nodeId).find(
+      (activity) => activity.id === sourceActivityId
+    );
+
+    return sourceNode?.formulario?.[0] ?? null;
+  }
+
+  private createDecisionGroup(preferredField: CampoFormulario | null): DecisionGroupBuilder {
+    return {
+      id: this.genId(),
+      operadorLogico: 'AND',
+      reglas: [this.createDecisionRule(preferredField)],
+      grupos: [],
+    };
+  }
+
+  private createDecisionRule(preferredField: CampoFormulario | null): DecisionRuleBuilderRow {
+    const fieldType = preferredField?.tipo ?? null;
+    const operator = this.getDecisionOperatorOptionsByType(fieldType)[0]?.value ?? 'IGUAL';
+
+    return {
+      id: this.genId(),
+      campo: preferredField?.campo ?? '',
+      operador: operator,
+      valor: '',
+    };
+  }
+
+  private toDecisionBuilderGroup(
+    group: GrupoCondicionDecision,
+    preferredField: CampoFormulario | null
+  ): DecisionGroupBuilder {
+    const normalizedOperator: OperadorLogicoDecision =
+      group?.operadorLogico === 'OR' ? 'OR' : 'AND';
+
+    const reglas = (group?.reglas ?? []).map((rule) => {
+      const ruleType = rule?.tipo ?? preferredField?.tipo ?? null;
+      const operatorOptions = this.getDecisionOperatorOptionsByType(ruleType);
+      const fallbackOperator = operatorOptions[0]?.value ?? 'IGUAL';
+
+      const selectedOperator = operatorOptions.some(
+        (option) => option.value === rule.operador
+      )
+        ? rule.operador
+        : fallbackOperator;
+
+      return {
+        id: this.genId(),
+        campo: rule?.campo ?? preferredField?.campo ?? '',
+        operador: selectedOperator,
+        valor:
+          rule?.valor === null || rule?.valor === undefined
+            ? ''
+            : String(rule.valor),
+      } as DecisionRuleBuilderRow;
+    });
+
+    return {
+      id: this.genId(),
+      operadorLogico: normalizedOperator,
+      reglas: reglas.length ? reglas : [this.createDecisionRule(preferredField)],
+      grupos: (group?.grupos ?? []).map((child) =>
+        this.toDecisionBuilderGroup(child, preferredField)
+      ),
+    };
+  }
+
+  private normalizeDecisionBuilderForSelectedSource(nodeId: string): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    const fieldsByName = new Map<string, CampoFormulario>(
+      this.getDecisionBuilderFields(nodeId).map((field) => [field.campo, field])
+    );
+    const preferredField = this.resolvePreferredDecisionField(
+      nodeId,
+      this.decisionBuilderState.sourceActivityId
+    );
+
+    const normalizeGroup = (group: DecisionGroupBuilder): DecisionGroupBuilder => ({
+      ...group,
+      reglas: group.reglas.map((rule) => {
+        const currentField = fieldsByName.get(rule.campo);
+        const fallbackField = preferredField;
+        const nextField = currentField ?? fallbackField ?? null;
+        const options = this.getDecisionOperatorOptionsByType(nextField?.tipo ?? null);
+        const nextOperator = options.some((option) => option.value === rule.operador)
+          ? rule.operador
+          : options[0]?.value ?? 'IGUAL';
+
+        return {
+          ...rule,
+          campo: nextField?.campo ?? '',
+          operador: nextOperator,
+          valor: this.decisionOperatorRequiresValue(nextField?.tipo ?? null, nextOperator)
+            ? rule.valor
+            : '',
+        };
+      }),
+      grupos: group.grupos.map((child) => normalizeGroup(child)),
+    });
+
+    this.decisionBuilderState = {
+      ...this.decisionBuilderState,
+      group: normalizeGroup(this.decisionBuilderState.group),
+    };
+  }
+
+  private updateDecisionBuilder(
+    updater: (state: DecisionBuilderState) => DecisionBuilderState
+  ): void {
+    if (!this.decisionBuilderState) {
+      return;
+    }
+
+    this.decisionBuilderState = updater(this.decisionBuilderState);
+  }
+
+  private updateDecisionGroup(
+    groupId: string,
+    updater: (group: DecisionGroupBuilder) => DecisionGroupBuilder
+  ): void {
+    this.updateDecisionBuilder((state) => ({
+      ...state,
+      group: this.mapDecisionGroupById(state.group, groupId, updater),
+    }));
+  }
+
+  private updateDecisionRule(
+    groupId: string,
+    ruleId: string,
+    updater: (rule: DecisionRuleBuilderRow) => DecisionRuleBuilderRow
+  ): void {
+    this.updateDecisionGroup(groupId, (group) => ({
+      ...group,
+      reglas: group.reglas.map((rule) => (rule.id === ruleId ? updater(rule) : rule)),
+    }));
+  }
+
+  private mapDecisionGroupById(
+    group: DecisionGroupBuilder,
+    groupId: string,
+    updater: (group: DecisionGroupBuilder) => DecisionGroupBuilder
+  ): DecisionGroupBuilder {
+    if (group.id === groupId) {
+      return updater(group);
+    }
+
+    return {
+      ...group,
+      grupos: group.grupos.map((child) =>
+        this.mapDecisionGroupById(child, groupId, updater)
+      ),
+    };
+  }
+
+  private removeDecisionGroupById(
+    group: DecisionGroupBuilder,
+    groupId: string
+  ): DecisionGroupBuilder {
+    return {
+      ...group,
+      grupos: group.grupos
+        .filter((child) => child.id !== groupId)
+        .map((child) => this.removeDecisionGroupById(child, groupId)),
+    };
+  }
+
+  private findDecisionRule(
+    group: DecisionGroupBuilder,
+    groupId: string,
+    ruleId: string
+  ): DecisionRuleBuilderRow | null {
+    if (group.id === groupId) {
+      return group.reglas.find((rule) => rule.id === ruleId) ?? null;
+    }
+
+    for (const child of group.grupos) {
+      const found = this.findDecisionRule(child, groupId, ruleId);
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }
+
+  private getDecisionFieldType(nodeId: string, campo: string): TipoCampo | null {
+    if (!campo) {
+      return null;
+    }
+
+    const field = this.getDecisionBuilderFields(nodeId).find(
+      (item) => item.campo === campo
+    );
+
+    return field?.tipo ?? null;
+  }
+
+  private getDecisionOperatorOptionsByType(
+    tipo: TipoCampo | null
+  ): DecisionOperatorOption[] {
+    if (!tipo) {
+      return [];
+    }
+
+    return this.decisionOperatorCatalog[tipo] ?? [];
+  }
+
+  private decisionOperatorRequiresValue(
+    tipo: TipoCampo | null,
+    operador: OperadorCondicionDecision
+  ): boolean {
+    const operatorOption = this.getDecisionOperatorOptionsByType(tipo).find(
+      (option) => option.value === operador
+    );
+
+    return operatorOption?.requiresValue ?? true;
+  }
+
+  private validateDecisionBuilder(nodeId: string): string | null {
+    if (!this.decisionBuilderState) {
+      return 'Abre el constructor de condicion para continuar.';
+    }
+
+    if (!this.hasDecisionBranchesReady(nodeId)) {
+      return 'Debes conectar salida derecha (SI) y salida izquierda (NO).';
+    }
+
+    const sourceActivityId = this.decisionBuilderState.sourceActivityId;
+    if (!sourceActivityId) {
+      return 'Selecciona la actividad origen de la condicion.';
+    }
+
+    const fields = this.getDecisionBuilderFields(nodeId);
+    if (!fields.length) {
+      return 'La actividad origen no tiene campos en su formulario dinamico.';
+    }
+
+    const fieldIndex = new Map(fields.map((field) => [field.campo, field]));
+    const totalRules = this.countDecisionRules(this.decisionBuilderState.group);
+    if (!totalRules) {
+      return 'Agrega al menos una regla para evaluar la decision.';
+    }
+
+    return this.validateDecisionGroup(this.decisionBuilderState.group, fieldIndex, 'grupo principal');
+  }
+
+  private countDecisionRules(group: DecisionGroupBuilder): number {
+    return (
+      group.reglas.length +
+      group.grupos.reduce(
+        (total, child) => total + this.countDecisionRules(child),
+        0
+      )
+    );
+  }
+
+  private validateDecisionGroup(
+    group: DecisionGroupBuilder,
+    fieldsByName: Map<string, CampoFormulario>,
+    scopeLabel: string
+  ): string | null {
+    for (const rule of group.reglas) {
+      const field = fieldsByName.get(rule.campo);
+      if (!field) {
+        return `Hay una regla en ${scopeLabel} con campo invalido.`;
+      }
+
+      const validOperators = this.getDecisionOperatorOptionsByType(field.tipo);
+      const selectedOperator = validOperators.find(
+        (option) => option.value === rule.operador
+      );
+
+      if (!selectedOperator) {
+        return `La regla del campo ${field.campo} tiene un operador invalido.`;
+      }
+
+      if (selectedOperator.requiresValue) {
+        const rawValue = rule.valor?.trim();
+        if (!rawValue) {
+          return `La regla del campo ${field.campo} requiere un valor.`;
+        }
+
+        if (field.tipo === 'NUMERO' && !Number.isFinite(Number(rawValue))) {
+          return `El valor del campo ${field.campo} debe ser numerico.`;
+        }
+
+        if (
+          field.tipo === 'BOOLEANO' &&
+          rawValue.toLowerCase() !== 'true' &&
+          rawValue.toLowerCase() !== 'false'
+        ) {
+          return `El valor del campo ${field.campo} debe ser true o false.`;
+        }
+      }
+    }
+
+    for (const [index, child] of group.grupos.entries()) {
+      const nestedValidation = this.validateDecisionGroup(
+        child,
+        fieldsByName,
+        `subgrupo ${index + 1}`
+      );
+      if (nestedValidation) {
+        return nestedValidation;
+      }
+    }
+
+    return null;
+  }
+
+  private toDecisionPayloadGroup(
+    group: DecisionGroupBuilder,
+    fieldsByName: Map<string, CampoFormulario>
+  ): GrupoCondicionDecision | null {
+    const reglas: ReglaCondicionDecision[] = [];
+
+    for (const rule of group.reglas) {
+      const field = fieldsByName.get(rule.campo);
+      if (!field) {
+        continue;
+      }
+
+      const operatorOption = this.getDecisionOperatorOptionsByType(field.tipo).find(
+        (option) => option.value === rule.operador
+      );
+      if (!operatorOption) {
+        continue;
+      }
+
+      const payloadRule: ReglaCondicionDecision = {
+        campo: field.campo,
+        tipo: field.tipo,
+        operador: rule.operador,
+      };
+
+      if (operatorOption.requiresValue) {
+        payloadRule.valor = this.parseDecisionRuleValue(field.tipo, rule.valor);
+      }
+
+      reglas.push(payloadRule);
+    }
+
+    const grupos = group.grupos
+      .map((child) => this.toDecisionPayloadGroup(child, fieldsByName))
+      .filter((child): child is GrupoCondicionDecision => !!child);
+
+    if (!reglas.length && !grupos.length) {
+      return null;
+    }
+
+    return {
+      operadorLogico: group.operadorLogico,
+      reglas,
+      grupos,
+    };
+  }
+
+  private parseDecisionRuleValue(tipo: TipoCampo, rawValue: string): string | number | boolean {
+    const normalizedValue = rawValue.trim();
+
+    if (tipo === 'NUMERO') {
+      return Number(normalizedValue);
+    }
+
+    if (tipo === 'BOOLEANO') {
+      return normalizedValue.toLowerCase() === 'true';
+    }
+
+    return normalizedValue;
+  }
+
   addCondicion(nodeId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
     if (!this.newCondicion.resultado.trim() || !this.newCondicion.siguiente.trim()) return;
     const cond: CondicionDecision = { resultado: this.newCondicion.resultado.trim(), siguiente: this.newCondicion.siguiente.trim() };
     this.nodos.update((ns) =>
@@ -2413,11 +4404,18 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   removeCondicion(nodeId: string, idx: number): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    this.clearDecisionConditionPreviewForNode(nodeId);
+
     this.nodos.update((ns) =>
       ns.map((n) =>
         n.id === nodeId ? { ...n, condiciones: n.condiciones.filter((_, i) => i !== idx) } : n
       )
     );
+    this.syncDecisionConditionDraftForNode(nodeId);
     const updatedNode = this.nodos().find((node) => node.id === nodeId);
     this.collabFacade.emitUpdateNode(
       nodeId,

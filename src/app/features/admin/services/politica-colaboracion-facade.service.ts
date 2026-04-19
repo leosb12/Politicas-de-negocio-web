@@ -8,7 +8,7 @@ import {
   of,
   catchError,
 } from 'rxjs';
-import { Conexion } from '../models/politica.model';
+import { Conexion, EstadoPolitica } from '../models/politica.model';
 import {
   ColaboracionActor,
   ColaboracionErrorPayload,
@@ -53,6 +53,10 @@ export class PoliticaColaboracionFacadeService {
     null
   );
   readonly flowState$ = this.flowStateSubject.asObservable();
+
+  private readonly politicaEstadoSubject =
+    new BehaviorSubject<EstadoPolitica | null>(null);
+  readonly politicaEstado$ = this.politicaEstadoSubject.asObservable();
 
   private readonly connectedUsersSubject =
     new BehaviorSubject<ColaboracionUsuarioPresente[]>([]);
@@ -100,6 +104,7 @@ export class PoliticaColaboracionFacadeService {
 
     this.connectedUsersSubject.next([]);
     this.nodeLocksSubject.next({});
+    this.politicaEstadoSubject.next(null);
 
     this.watchConnectionState();
     this.socket.connect();
@@ -130,6 +135,7 @@ export class PoliticaColaboracionFacadeService {
     this.actor = null;
     this.connectedUsersSubject.next([]);
     this.nodeLocksSubject.next({});
+    this.politicaEstadoSubject.next(null);
     this.pendingEdgeMutations.clear();
 
     void this.socket.disconnect();
@@ -239,8 +245,8 @@ export class PoliticaColaboracionFacadeService {
     });
   }
 
-  requestResync(reason: string): void {
-    this.performFullResync(reason);
+  requestResync(reason: string, silent = false): void {
+    this.performFullResync(reason, silent);
   }
 
   private requestServerSync(): void {
@@ -615,19 +621,32 @@ export class PoliticaColaboracionFacadeService {
     };
   }
 
-  private applySnapshot(snapshot: ColaboracionEstadoSnapshot): void {
+  private applySnapshot(
+    snapshot: ColaboracionEstadoSnapshot,
+    options?: { force?: boolean }
+  ): void {
     const policyId = this.activePolicyId;
     if (!policyId) {
       return;
+    }
+
+    const forceApply = options?.force === true;
+    const snapshotEstado = this.extractPolicyEstado(snapshot);
+    if (snapshotEstado && snapshotEstado !== this.politicaEstadoSubject.value) {
+      this.politicaEstadoSubject.next(snapshotEstado);
     }
 
     const current = this.flowStateSubject.value;
     const nextSequence =
       snapshot.secuencia ?? snapshot.secuenciaActual ?? current?.secuencia ?? 0;
 
-    if (current && nextSequence <= current.secuencia) {
+    if (current && !forceApply && nextSequence <= current.secuencia) {
       return;
     }
+
+    const appliedSequence = forceApply
+      ? Math.max(nextSequence, current?.secuencia ?? 0)
+      : nextSequence;
 
     const nextNodes = Array.isArray(snapshot.nodos)
       ? [...snapshot.nodos]
@@ -642,7 +661,7 @@ export class PoliticaColaboracionFacadeService {
 
     this.flowStateSubject.next({
       politicaId: policyId,
-      secuencia: nextSequence,
+      secuencia: appliedSequence,
       nodos: nextNodes,
       conexiones: nextConnections,
       updatedAt: snapshot.timestamp ?? new Date().toISOString(),
@@ -1251,17 +1270,32 @@ export class PoliticaColaboracionFacadeService {
       errorPayload.detalle ||
       'Se recibió un error de colaboración en vivo.';
 
-    this.errorMessagesSubject.next(message);
+    const normalizedMessage = message.toLowerCase();
+    const errorCode = String(errorPayload.codigo ?? '').trim();
+    const isRecoverableConsistencyError =
+      normalizedMessage.includes('secuencia') ||
+      normalizedMessage.includes('desactualizado') ||
+      normalizedMessage.includes('versi') ||
+      normalizedMessage.includes('nodo no encontrado') ||
+      normalizedMessage.includes('nodos inexistentes') ||
+      normalizedMessage.includes('evento no enviado') ||
+      errorCode === '404' ||
+      errorCode === '409' ||
+      errorCode === '410' ||
+      errorCode === '412';
 
-    if (message.toLowerCase().includes('secuencia')) {
-      const now = Date.now();
-      if (now - this.lastResyncAt > 2500) {
-        this.performFullResync('Error de secuencia reportado por backend');
-      }
+    if (isRecoverableConsistencyError) {
+      this.errorMessagesSubject.next(
+        'Se detectaron cambios remotos. Sincronizando pizarra...'
+      );
+      this.performFullResync('Error de consistencia reportado por backend', true);
+      return;
     }
+
+    this.errorMessagesSubject.next(message);
   }
 
-  private performFullResync(reason: string): void {
+  private performFullResync(reason: string, silent = false): void {
     if (!this.activePolicyId || this.resyncInFlight) {
       return;
     }
@@ -1273,7 +1307,9 @@ export class PoliticaColaboracionFacadeService {
     this.lastResyncAt = now;
 
     this.resyncInFlight = true;
-    this.errorMessagesSubject.next(`Re-sync de colaboración: ${reason}`);
+    if (!silent) {
+      this.errorMessagesSubject.next(`Re-sync de colaboración: ${reason}`);
+    }
 
     this.rest
       .getEstado(this.activePolicyId)
@@ -1304,7 +1340,7 @@ export class PoliticaColaboracionFacadeService {
             nodos: snapshot.nodos,
             conexiones: snapshot.conexiones,
             timestamp: snapshot.timestamp,
-          });
+          }, { force: true });
 
           if (this.activePolicyId) {
             this.socket.publish(
@@ -1316,12 +1352,57 @@ export class PoliticaColaboracionFacadeService {
           this.resyncInFlight = false;
         },
         error: () => {
-          this.errorMessagesSubject.next(
-            'No se pudo completar el re-sync colaborativo.'
-          );
+          if (!silent) {
+            this.errorMessagesSubject.next(
+              'No se pudo completar el re-sync colaborativo.'
+            );
+          }
           this.resyncInFlight = false;
         },
       });
+  }
+
+  private extractPolicyEstado(snapshot: ColaboracionEstadoSnapshot): EstadoPolitica | null {
+    const raw = snapshot as unknown as Record<string, unknown>;
+
+    const directEstado =
+      this.normalizeEstadoPolitica(raw['estado']) ??
+      this.normalizeEstadoPolitica(raw['estadoPolitica']) ??
+      this.normalizeEstadoPolitica(raw['status']) ??
+      this.normalizeEstadoPolitica(raw['policyStatus']);
+
+    if (directEstado) {
+      return directEstado;
+    }
+
+    const politicaRaw = raw['politica'];
+    if (typeof politicaRaw === 'object' && politicaRaw !== null) {
+      const politicaRecord = politicaRaw as Record<string, unknown>;
+      return (
+        this.normalizeEstadoPolitica(politicaRecord['estado']) ??
+        this.normalizeEstadoPolitica(politicaRecord['status'])
+      );
+    }
+
+    return null;
+  }
+
+  private normalizeEstadoPolitica(value: unknown): EstadoPolitica | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim().toUpperCase();
+    if (
+      normalized === 'BORRADOR' ||
+      normalized === 'ACTIVA' ||
+      normalized === 'PAUSADA' ||
+      normalized === 'DESHABILITADA'
+    ) {
+      return normalized;
+    }
+
+    return null;
   }
 
   private rememberEvent(eventId: string): void {

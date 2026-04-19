@@ -74,6 +74,13 @@
           Borrador guardado en vivo
         }
       </div>
+
+      @if (isCanvasReadOnly()) {
+        <div class="readonly-pill flex items-center gap-1.5">
+          <lucide-icon name="lock" [size]="14"></lucide-icon>
+          Solo visual
+        </div>
+      }
     </div>
   </header>
 
@@ -88,6 +95,8 @@
         <div
           class="palette-item"
           (click)="addNodeFromPalette(item.tipo)"
+          [class.is-disabled]="isCanvasReadOnly()"
+          [attr.aria-disabled]="isCanvasReadOnly()"
           [id]="'palette-' + item.tipo.toLowerCase()"
           [title]="item.description"
         >
@@ -115,6 +124,7 @@
           class="btn-lane-add"
           id="btn-anadir-carril"
           (click)="addManualLane()"
+          [disabled]="isCanvasReadOnly()"
         >
           <lucide-icon name="plus" [size]="14"></lucide-icon>
           Añadir carril
@@ -125,6 +135,7 @@
           [class.is-vertical]="isVerticalLaneOrientation()"
           id="btn-toggle-orientacion-carriles"
           (click)="toggleLaneOrientation()"
+          [disabled]="isCanvasReadOnly()"
         >
           <lucide-icon
             [name]="isVerticalLaneOrientation() ? 'arrow-left-right' : 'arrow-up-down'"
@@ -164,6 +175,7 @@
     <div
       class="canvas-viewport"
       [class.is-panning]="isPanning"
+      [class.is-read-only]="isCanvasReadOnly()"
       #canvasWrap
       (mousedown)="onCanvasMouseDown($event)"
       (wheel)="onWheel($event)"
@@ -241,13 +253,15 @@
               marker-end="url(#arrowhead)"
             />
             <!-- Delete button at midpoint -->
-            @if (getArrowMid(c); as mid) {
-              <g class="conn-delete" (click)="deleteConexion(c.origen, c.destino)" style="cursor:pointer">
-                <circle [attr.cx]="mid.x" [attr.cy]="mid.y" r="10" fill="#1e1b4b" stroke="#f43f5e" stroke-width="1.5" opacity="0"/>
-                <foreignObject [attr.x]="mid.x - 7" [attr.y]="mid.y - 7" width="14" height="14" opacity="0" class="conn-delete-icon">
-                  <lucide-icon name="x" [size]="14" color="#f43f5e"></lucide-icon>
-                </foreignObject>
-              </g>
+            @if (!isCanvasReadOnly()) {
+              @if (getArrowMid(c); as mid) {
+                <g class="conn-delete" (click)="deleteConexion(c.origen, c.destino)" style="cursor:pointer">
+                  <circle [attr.cx]="mid.x" [attr.cy]="mid.y" r="10" fill="#1e1b4b" stroke="#f43f5e" stroke-width="1.5" opacity="0"/>
+                  <foreignObject [attr.x]="mid.x - 7" [attr.y]="mid.y - 7" width="14" height="14" opacity="0" class="conn-delete-icon">
+                    <lucide-icon name="x" [size]="14" color="#f43f5e"></lucide-icon>
+                  </foreignObject>
+                </g>
+              }
             }
           </g>
         }
@@ -282,6 +296,7 @@
             [class.connect-target]="canConnectToNode(node.id)"
             [class.soft-locked]="hasNodeEditorsFromOthers(node.id)"
             [class.soft-collision]="hasNodeCollision(node.id)"
+            [class.read-only]="isCanvasReadOnly()"
           >
             <!-- INICIO shape: circle -->
             @if (node.tipo === 'INICIO') {
@@ -550,6 +565,16 @@
 
       </svg>
 
+      @if (isCanvasReadOnly()) {
+        <div class="canvas-readonly-overlay">
+          <div class="canvas-readonly-card">
+            <lucide-icon name="lock" [size]="18"></lucide-icon>
+            <p>{{ canvasReadOnlyMessage }}</p>
+            <small>Pausa o deshabilita la politica para habilitar edicion.</small>
+          </div>
+        </div>
+      }
+
       <!-- Canvas empty hint -->
       @if (!loading() && nodos().length === 0) {
         <div class="canvas-empty-hint flex items-center gap-2">
@@ -568,7 +593,7 @@
 
     <!-- ── RIGHT SIDEBAR (Properties) ────────────────────────── -->
     @if (showSidebar() && sidebarNode()) {
-      <aside class="sidebar" id="sidebar-propiedades">
+      <aside class="sidebar" id="sidebar-propiedades" [class.is-read-only]="isCanvasReadOnly()">
         <div class="sidebar-header">
           <h3 class="sidebar-title">
             <span [style.color]="nodeColor(sidebarNode()!.tipo)">●</span>
@@ -587,7 +612,7 @@
         }
 
         <!-- Delete node -->
-        <button class="btn-delete-node flex justify-center items-center gap-2" (click)="deleteNode(sidebarNode()!.id)" id="btn-eliminar-nodo">
+        <button class="btn-delete-node flex justify-center items-center gap-2" (click)="deleteNode(sidebarNode()!.id)" id="btn-eliminar-nodo" [disabled]="isCanvasReadOnly()">
           <lucide-icon name="trash-2" [size]="16"></lucide-icon> Eliminar nodo
         </button>
 
@@ -598,7 +623,9 @@
             class="prop-input"
             type="text"
             [value]="sidebarNode()!.nombre"
+            [disabled]="isCanvasReadOnly()"
             (input)="updateNodeName(sidebarNode()!.id, $any($event.target).value)"
+            (blur)="flushNodeNameSync(sidebarNode()!.id)"
             id="input-nombre-nodo"
           />
         </div>
@@ -611,6 +638,7 @@
             [ngModel]="sidebarNode()!.tipo"
             (ngModelChange)="updateNodeTipo(sidebarNode()!.id, $event)"
             [ngModelOptions]="{ standalone: true }"
+            [disabled]="isCanvasReadOnly()"
             id="select-tipo-nodo"
           >
             @for (t of tiposNodoOptions; track t) {
@@ -628,9 +656,9 @@
               [ngModel]="sidebarNode()!.departamentoId ?? ''"
               (ngModelChange)="updateNodeDept(sidebarNode()!.id, $event)"
               [ngModelOptions]="{ standalone: true }"
+              [disabled]="isCanvasReadOnly()"
               id="select-departamento-nodo"
             >
-              <option value="">Sin departamento</option>
               @for (d of departamentos(); track d.id) {
                 <option [value]="d.id">{{ d.nombre }}</option>
               }
@@ -662,6 +690,7 @@
                 [ngModel]="sidebarNode()!.responsableTipo ?? ''"
                 (ngModelChange)="updateNodeResponsableTipo(sidebarNode()!.id, $event)"
                 [ngModelOptions]="{ standalone: true }"
+                [disabled]="isCanvasReadOnly()"
                 id="select-responsable-tipo"
               >
                 <option value="">-- Seleccionar --</option>
@@ -678,6 +707,7 @@
                   [ngModel]="sidebarNode()!.responsableId ?? ''"
                   (ngModelChange)="updateNodeResponsableId(sidebarNode()!.id, $event)"
                   [ngModelOptions]="{ standalone: true }"
+                  [disabled]="isCanvasReadOnly()"
                   id="select-responsable-id"
                 >
                   <option value="">-- Seleccionar --</option>
@@ -734,6 +764,7 @@
               <span class="campo-name">{{ campo.campo }}</span>
               <span class="campo-tipo">{{ campo.tipo }}</span>
               <button class="btn-remove" (click)="removeCampo(sidebarNode()!.id, $index)"
+                      [disabled]="isCanvasReadOnly()"
                       [id]="'btn-remove-campo-' + $index">
                 <lucide-icon name="x" [size]="12"></lucide-icon>
               </button>
@@ -751,15 +782,16 @@
               type="text"
               placeholder="Nombre del campo"
               [(ngModel)]="newCampo.campo"
+              [disabled]="isCanvasReadOnly()"
               id="input-nuevo-campo"
               (keyup.enter)="addCampo(sidebarNode()!.id)"
             />
-            <select class="prop-select" [(ngModel)]="newCampo.tipo" id="select-tipo-campo">
+            <select class="prop-select" [(ngModel)]="newCampo.tipo" id="select-tipo-campo" [disabled]="isCanvasReadOnly()">
               @for (t of tipoCampoOptions; track t) {
                 <option [value]="t">{{ t }}</option>
               }
             </select>
-            <button class="btn-add-campo" (click)="addCampo(sidebarNode()!.id)" id="btn-agregar-campo">
+            <button class="btn-add-campo" (click)="addCampo(sidebarNode()!.id)" id="btn-agregar-campo" [disabled]="isCanvasReadOnly()">
               ＋ Campo
             </button>
           </div>
@@ -772,32 +804,244 @@
             <span>Condiciones de Decisión</span>
           </div>
 
-          @for (cond of sidebarNode()!.condiciones; track $index) {
-            <div class="campo-row">
-              <span class="campo-name">{{ cond.resultado }}</span>
-              <span class="campo-tipo">→ {{ cond.siguiente }}</span>
-              <button class="btn-remove" (click)="removeCondicion(sidebarNode()!.id, $index)"
-                      [id]="'btn-remove-cond-' + $index">
-                <lucide-icon name="x" [size]="12"></lucide-icon>
-              </button>
+          <div class="decision-branch-grid">
+            <div class="decision-branch-card decision-branch-true">
+              <span class="decision-branch-label">Salida SI (derecha)</span>
+              <span class="decision-branch-node">{{ getDecisionBranchNodeName(sidebarNode()!.id, 'RIGHT') }}</span>
             </div>
-          }
-
-          @if (!sidebarNode()!.condiciones.length) {
-            <p class="empty-hint">Sin condiciones aún.</p>
-          }
-
-          <div class="add-campo-form">
-            <input class="prop-input" type="text" placeholder="Resultado (ej: true)"
-                   [(ngModel)]="newCondicion.resultado" id="input-resultado"
-                   (keyup.enter)="addCondicion(sidebarNode()!.id)" />
-            <input class="prop-input" type="text" placeholder="ID Nodo siguiente"
-                   [(ngModel)]="newCondicion.siguiente" id="input-siguiente"
-                   (keyup.enter)="addCondicion(sidebarNode()!.id)" />
-            <button class="btn-add-campo" (click)="addCondicion(sidebarNode()!.id)" id="btn-agregar-condicion">
-              ＋ Condición
-            </button>
+            <div class="decision-branch-card decision-branch-false">
+              <span class="decision-branch-label">Salida NO (izquierda)</span>
+              <span class="decision-branch-node">{{ getDecisionBranchNodeName(sidebarNode()!.id, 'LEFT') }}</span>
+            </div>
           </div>
+
+          @if (!hasDecisionBranchesReady(sidebarNode()!.id)) {
+            <p class="empty-hint">
+              Conecta primero ambas salidas del rombo: derecha para SI e izquierda para NO.
+            </p>
+          }
+
+          @if (sidebarNode()!.condiciones.length) {
+            <ng-template #decisionConditionPreviewGroup let-group>
+              <div class="decision-preview-group">
+                <div class="decision-preview-group-head">
+                  <span>{{ getDecisionLogicalOperatorLabel(group?.operadorLogico) }}</span>
+                </div>
+
+                @for (rule of group?.reglas ?? []; track $index) {
+                  <div class="decision-preview-rule">
+                    <span class="decision-preview-field">{{ rule.campo }}</span>
+                    <span class="decision-preview-operator">{{ getDecisionOperatorDisplayLabel(rule.operador) }}</span>
+                    @if (decisionRulePreviewNeedsValue(rule)) {
+                      <span class="decision-preview-value">{{ formatDecisionRulePreviewValue(rule.valor) }}</span>
+                    }
+                  </div>
+                }
+
+                @if ((group?.grupos ?? []).length) {
+                  <div class="decision-preview-subgroups">
+                    @for (subgroup of group?.grupos ?? []; track $index) {
+                      <ng-container
+                        *ngTemplateOutlet="decisionConditionPreviewGroup; context: { $implicit: subgroup }"
+                      ></ng-container>
+                    }
+                  </div>
+                }
+              </div>
+            </ng-template>
+
+            @for (cond of sidebarNode()!.condiciones; track $index) {
+              <div class="decision-condition-item">
+                <div class="campo-row">
+                  <span class="campo-name">{{ getDecisionConditionLabel(sidebarNode()!.id, cond) }}</span>
+                  <span class="campo-tipo">→ {{ getNodeNameById(cond.siguiente) }}</span>
+
+                  @if (hasDecisionConditionGroup(sidebarNode()!.id, cond)) {
+                    <button
+                      class="decision-cond-preview-toggle"
+                      type="button"
+                      (click)="toggleDecisionConditionPreview(sidebarNode()!.id, $index)"
+                    >
+                      {{ isDecisionConditionPreviewOpen(sidebarNode()!.id, $index) ? 'Ocultar reglas' : 'Ver reglas' }}
+                    </button>
+                  }
+
+                  <button class="btn-remove"
+                          (click)="removeCondicion(sidebarNode()!.id, $index)"
+                          [disabled]="isCanvasReadOnly()"
+                          [id]="'btn-remove-cond-' + $index">
+                    <lucide-icon name="x" [size]="12"></lucide-icon>
+                  </button>
+                </div>
+
+                @if (hasDecisionConditionGroup(sidebarNode()!.id, cond) && isDecisionConditionPreviewOpen(sidebarNode()!.id, $index)) {
+                  <div class="decision-condition-preview">
+                    <ng-container
+                      *ngTemplateOutlet="decisionConditionPreviewGroup; context: { $implicit: getDecisionConditionGroupPreview(sidebarNode()!.id, cond) }"
+                    ></ng-container>
+                  </div>
+                }
+              </div>
+            }
+          } @else {
+            <p class="empty-hint">Sin condiciones configuradas aún.</p>
+          }
+
+          <button
+            class="btn-add-campo"
+            id="btn-seleccionar-condicion"
+            (click)="openDecisionConditionBuilder(sidebarNode()!.id)"
+            [disabled]="isCanvasReadOnly()"
+          >
+            Seleccionar condicion
+          </button>
+
+          @if (decisionBuilderVisible && decisionBuilderNodeId === sidebarNode()!.id && decisionBuilderState) {
+            <div class="decision-builder-shell">
+              <div class="prop-group">
+                <label class="prop-label">Actividad origen</label>
+                <select
+                  class="prop-select"
+                  [ngModel]="decisionBuilderState.sourceActivityId ?? ''"
+                  (ngModelChange)="updateDecisionBuilderSourceActivity($event)"
+                  [ngModelOptions]="{ standalone: true }"
+                  [disabled]="isCanvasReadOnly()"
+                >
+                  <option value="">-- Seleccionar --</option>
+                  @for (actividad of getDecisionIncomingActivities(sidebarNode()!.id); track actividad.id) {
+                    <option [value]="actividad.id">
+                      {{ actividad.nombre }} ({{ actividad.id }})
+                    </option>
+                  }
+                </select>
+              </div>
+
+              @if (!getDecisionBuilderFields(sidebarNode()!.id).length) {
+                <p class="empty-hint">
+                  La actividad origen no tiene campos de formulario dinamico.
+                </p>
+              } @else {
+                <ng-template #decisionGroupTemplate let-group let-nodeId="nodeId" let-isRoot="isRoot">
+                  <div class="decision-group-card" [class.decision-group-card-sub]="!isRoot">
+                    <div class="decision-group-head">
+                      <span>{{ isRoot ? 'Grupo principal' : 'Subgrupo' }}</span>
+                      <select
+                        class="prop-select decision-group-operator"
+                        [ngModel]="group.operadorLogico"
+                        (ngModelChange)="updateDecisionGroupOperator(group.id, $event)"
+                        [ngModelOptions]="{ standalone: true }"
+                        [disabled]="isCanvasReadOnly()"
+                      >
+                        @for (op of decisionLogicalOperatorOptions; track op.value) {
+                          <option [value]="op.value">{{ op.label }}</option>
+                        }
+                      </select>
+                    </div>
+
+                    @for (rule of group.reglas; track rule.id) {
+                      <div class="decision-rule-row">
+                        <select
+                          class="prop-select decision-rule-field"
+                          [ngModel]="rule.campo"
+                          (ngModelChange)="updateDecisionRuleField(group.id, rule.id, $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          [disabled]="isCanvasReadOnly()"
+                        >
+                          <option value="">Campo...</option>
+                          @for (field of getDecisionBuilderFields(nodeId); track field.campo) {
+                            <option [value]="field.campo">{{ field.campo }} ({{ field.tipo }})</option>
+                          }
+                        </select>
+
+                        <select
+                          class="prop-select decision-rule-operator"
+                          [ngModel]="rule.operador"
+                          (ngModelChange)="updateDecisionRuleOperator(group.id, rule.id, $event)"
+                          [ngModelOptions]="{ standalone: true }"
+                          [disabled]="isCanvasReadOnly()"
+                        >
+                          @for (op of getDecisionRuleOperatorOptions(rule.campo); track op.value) {
+                            <option [value]="op.value">{{ op.label }}</option>
+                          }
+                        </select>
+
+                        @if (decisionRuleNeedsValue(rule.campo, rule.operador)) {
+                          @if (getDecisionRuleInputType(rule.campo) === 'boolean') {
+                            <select
+                              class="prop-select decision-rule-value"
+                              [ngModel]="rule.valor"
+                              (ngModelChange)="updateDecisionRuleValue(group.id, rule.id, $event)"
+                              [ngModelOptions]="{ standalone: true }"
+                              [disabled]="isCanvasReadOnly()"
+                            >
+                              <option value="true">true</option>
+                              <option value="false">false</option>
+                            </select>
+                          } @else {
+                            <input
+                              class="prop-input decision-rule-value"
+                              [attr.type]="getDecisionRuleInputType(rule.campo)"
+                              [ngModel]="rule.valor"
+                              (ngModelChange)="updateDecisionRuleValue(group.id, rule.id, $event)"
+                              [ngModelOptions]="{ standalone: true }"
+                              [disabled]="isCanvasReadOnly()"
+                              placeholder="Valor"
+                            />
+                          }
+                        }
+
+                        <button
+                          class="btn-remove"
+                          type="button"
+                          (click)="removeDecisionRule(group.id, rule.id)"
+                          [disabled]="isCanvasReadOnly()"
+                        >
+                          <lucide-icon name="x" [size]="12"></lucide-icon>
+                        </button>
+                      </div>
+                    }
+
+                    <div class="decision-group-actions">
+                      <button class="btn-add-campo" type="button" (click)="addDecisionRule(group.id)" [disabled]="isCanvasReadOnly()">
+                        + Regla
+                      </button>
+                      <button class="btn-add-campo" type="button" (click)="addDecisionSubGroup(group.id)" [disabled]="isCanvasReadOnly()">
+                        + Subgrupo
+                      </button>
+                      @if (!isRoot) {
+                        <button class="btn-delete-node decision-remove-subgroup" type="button" (click)="removeDecisionGroup(group.id)" [disabled]="isCanvasReadOnly()">
+                          Quitar subgrupo
+                        </button>
+                      }
+                    </div>
+
+                    @if (group.grupos.length) {
+                      <div class="decision-subgroups">
+                        @for (subgroup of group.grupos; track subgroup.id) {
+                          <ng-container
+                            *ngTemplateOutlet="decisionGroupTemplate; context: { $implicit: subgroup, nodeId: nodeId, isRoot: false }"
+                          ></ng-container>
+                        }
+                      </div>
+                    }
+                  </div>
+                </ng-template>
+
+                <ng-container
+                  *ngTemplateOutlet="decisionGroupTemplate; context: { $implicit: decisionBuilderState.group, nodeId: sidebarNode()!.id, isRoot: true }"
+                ></ng-container>
+
+                <div class="decision-builder-actions">
+                  <button class="btn-add-campo" type="button" (click)="saveDecisionConditionBuilder(sidebarNode()!.id)" [disabled]="isCanvasReadOnly()">
+                    Guardar condicion
+                  </button>
+                  <button class="btn-delete-node" type="button" (click)="closeDecisionConditionBuilder()" [disabled]="isCanvasReadOnly()">
+                    Cancelar
+                  </button>
+                </div>
+              }
+            </div>
+        }
         }
 
         <!-- Node ID (readonly) -->
@@ -841,12 +1085,6 @@
         </p>
 
         <div class="dept-list">
-          @if (deptModalMode() !== 'LANE') {
-            <button class="dept-opt" (click)="selectDeptFromModal(null)" id="btn-dept-ninguno">
-              <span class="dept-dot" style="background: #475569"></span>
-              Sin departamento
-            </button>
-          }
           @for (d of departamentos(); track d.id) {
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
               @if (editingDeptId() === d.id) {
