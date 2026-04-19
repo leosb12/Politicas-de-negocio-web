@@ -1,0 +1,133 @@
+<form class="space-y-4" [formGroup]="formulario" (ngSubmit)="onSubmit()">
+  @if (definicion()?.titulo || definicion()?.descripcion) {
+    <div>
+      @if (definicion()?.titulo) {
+        <h3 class="text-lg font-semibold text-slate-900">{{ definicion()?.titulo }}</h3>
+      }
+
+      @if (definicion()?.descripcion) {
+        <p class="mt-1 text-sm text-slate-600">{{ definicion()?.descripcion }}</p>
+      }
+    </div>
+  }
+
+  <div class="grid gap-4 md:grid-cols-2">
+    @for (campo of campos(); track campo.clave) {
+      <div class="space-y-2" [class.md:col-span-2]="campo.tipo === 'TEXTO'">
+        @switch (campo.tipo) {
+          @case ('TEXTO') {
+            <app-input
+              [label]="campo.etiqueta"
+              [required]="campo.requerido"
+              [placeholder]="campo.placeholder ?? ''"
+              [hint]="campo.ayuda"
+              [error]="fieldError(campo)"
+              [formControl]="control(campo)"
+            />
+          }
+
+          @case ('NUMERO') {
+            <app-input
+              type="number"
+              [label]="campo.etiqueta"
+              [required]="campo.requerido"
+              [placeholder]="campo.placeholder ?? ''"
+              [hint]="campo.ayuda"
+              [error]="fieldError(campo)"
+              [formControl]="control(campo)"
+            />
+          }
+
+          @case ('BOOLEANO') {
+            <app-select
+              [label]="campo.etiqueta"
+              [required]="campo.requerido"
+              placeholderOption="Selecciona una opcion"
+              [hint]="campo.ayuda"
+              [error]="fieldError(campo)"
+              [formControl]="control(campo)"
+            >
+              <option value="true">Si</option>
+              <option value="false">No</option>
+            </app-select>
+          }
+
+          @case ('FECHA') {
+            <app-input
+              type="date"
+              [label]="campo.etiqueta"
+              [required]="campo.requerido"
+              [hint]="campo.ayuda"
+              [error]="fieldError(campo)"
+              [formControl]="control(campo)"
+            />
+          }
+
+          @case ('ARCHIVO') {
+            <div>
+              <label class="mb-1 block text-sm font-medium text-slate-700">
+                {{ campo.etiqueta }}
+                @if (campo.requerido) {
+                  <span class="text-red-600">*</span>
+                }
+              </label>
+
+              <input
+                type="file"
+                class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                [disabled]="disabled() || pending()"
+                (change)="onFileSelected(campo, $event)"
+              />
+
+              @if (selectedFile(campo)) {
+                <div class="mt-2 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  <div>
+                    <p class="font-semibold text-slate-700">{{ selectedFile(campo)!.nombre }}</p>
+                    <p>
+                      {{ selectedFile(campo)!.tipoMime }} · {{ selectedFile(campo)!.sizeBytes }} bytes
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="rounded-lg border border-slate-300 px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100"
+                    (click)="clearFile(campo)"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              }
+
+              @if (campo.ayuda) {
+                <p class="mt-1 text-xs text-slate-500">{{ campo.ayuda }}</p>
+              }
+
+              @if (fieldError(campo)) {
+                <p class="mt-1 text-xs text-red-600">{{ fieldError(campo) }}</p>
+              }
+            </div>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  <app-textarea
+    [label]="'Observaciones'"
+    [rows]="4"
+    [hint]="'Campo opcional para contexto adicional.'"
+    [formControl]="observacionesControl"
+  />
+
+  <div class="flex justify-end">
+    <app-button
+      variant="workflow-completed"
+      type="submit"
+      [pending]="pending()"
+      pendingLabel="Enviando..."
+      [disabled]="disabled() || pending()"
+    >
+      {{ submitLabel() }}
+    </app-button>
+  </div>
+</form>

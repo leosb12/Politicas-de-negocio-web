@@ -6,31 +6,10 @@
       <p class="text-sm uppercase tracking-wide text-slate-500">Panel del funcionario</p>
       <h2 class="mt-2 text-3xl font-bold text-slate-900">Bienvenido, {{ usuario?.nombre }}</h2>
       <p class="mt-2 text-sm text-slate-600">
-        Administra tus actividades en curso, pendientes y completadas.
+        Ejecuta tus tareas desde este mismo panel, sin salir de tu dashboard.
       </p>
     </section>
 
-    <section class="grid gap-4 md:grid-cols-3">
-      <article class="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-        <h3 class="text-lg font-bold text-red-700">Pendientes</h3>
-        <p class="mt-2 text-sm text-red-600">
-          Actividades que aun no fueron iniciadas.
-        </p>
-      </article>
-
-      <article class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-        <h3 class="text-lg font-bold text-amber-700">En proceso</h3>
-        <p class="mt-2 text-sm text-amber-600">
-          Tareas que estas gestionando en este momento.
-        </p>
-      </article>
-
-      <article class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-        <h3 class="text-lg font-bold text-emerald-700">Completadas</h3>
-        <p class="mt-2 text-sm text-emerald-600">
-          Actividades finalizadas correctamente.
-        </p>
-      </article>
-    </section>
+    <app-funcionario-tareas-page />
   </main>
 </div>

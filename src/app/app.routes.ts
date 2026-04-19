@@ -13,6 +13,13 @@ export const routes: Routes = [
     loadChildren: () =>
       import('./features/admin/admin.routes').then((module) => module.ADMIN_ROUTES),
   },
+  {
+    path: 'funcionario',
+    loadChildren: () =>
+      import('./features/funcionario-workflow/funcionario-workflow.routes').then(
+        (module) => module.FUNCIONARIO_WORKFLOW_ROUTES
+      ),
+  },
   ...DASHBOARD_ROUTES,
   ...ACCESS_ROUTES,
   { path: '**', redirectTo: '' }

@@ -1,0 +1,57 @@
+<app-card className="overflow-hidden">
+  <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
+    <h3 class="text-base font-semibold text-slate-900">Resumen de instancia</h3>
+  </div>
+
+  @if (!instancia()) {
+    <div class="px-5 py-8 text-sm text-slate-600">
+      No se encontro informacion de instancia para esta tarea.
+    </div>
+  } @else {
+    <div class="grid gap-4 px-5 py-5 md:grid-cols-2">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Codigo tramite</p>
+        <p class="text-sm font-semibold text-slate-900">{{ instancia()!.codigoTramite ?? '-' }}</p>
+      </div>
+
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Estado</p>
+        <app-badge [variant]="estadoVariant(instancia()!.estadoInstancia)">
+          {{ instancia()!.estadoInstancia }}
+        </app-badge>
+      </div>
+
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Politica</p>
+        <p class="text-sm font-semibold text-slate-900">{{ instancia()!.politicaNombre }}</p>
+        <p class="text-xs text-slate-500">Version {{ instancia()!.politicaVersion ?? '-' }}</p>
+      </div>
+
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Creada por</p>
+        <p class="text-sm font-semibold text-slate-900">{{ instancia()!.creadaPorNombre ?? '-' }}</p>
+      </div>
+
+      <div class="md:col-span-2">
+        <div class="mb-1 flex items-center justify-between text-xs text-slate-500">
+          <span>Progreso</span>
+          <span>{{ progreso() }}%</span>
+        </div>
+
+        <div class="h-2 w-full rounded-full bg-slate-200">
+          <div
+            class="h-2 rounded-full bg-blue-600 transition-all"
+            [style.width.%]="progreso()"
+          ></div>
+        </div>
+
+        <div class="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-4">
+          <span>Abiertas: {{ instancia()!.tareasAbiertas }}</span>
+          <span>Completadas: {{ instancia()!.tareasCompletadas }}</span>
+          <span>Canceladas: {{ instancia()!.tareasCanceladas }}</span>
+          <span>Rechazadas: {{ instancia()!.tareasRechazadas }}</span>
+        </div>
+      </div>
+    </div>
+  }
+</app-card>

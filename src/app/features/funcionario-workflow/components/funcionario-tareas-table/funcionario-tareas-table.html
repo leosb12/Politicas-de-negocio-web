@@ -1,0 +1,87 @@
+<app-card className="overflow-hidden">
+  <app-table>
+    <thead class="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+      <tr>
+        <th class="px-4 py-3 text-left font-semibold">Actividad</th>
+        <th class="px-4 py-3 text-left font-semibold">Estado tarea</th>
+        <th class="px-4 py-3 text-left font-semibold">Prioridad</th>
+        <th class="px-4 py-3 text-left font-semibold">Tramite</th>
+        <th class="px-4 py-3 text-left font-semibold">Estado instancia</th>
+        <th class="px-4 py-3 text-left font-semibold">Politica</th>
+        <th class="px-4 py-3 text-left font-semibold">Creada</th>
+        <th class="px-4 py-3 text-left font-semibold">Acciones</th>
+      </tr>
+    </thead>
+
+    <tbody class="divide-y divide-slate-200 text-slate-700">
+      @for (tarea of tareas(); track tarea.id) {
+        <tr>
+          <td class="px-4 py-3 align-top">
+            <div class="font-semibold text-slate-900">{{ tarea.nombreActividad }}</div>
+            <p class="text-xs text-slate-500">ID tarea: {{ tarea.id }}</p>
+            @if (resumenContexto(tarea)) {
+              <p class="mt-1 text-xs text-slate-500">{{ resumenContexto(tarea) }}</p>
+            }
+          </td>
+
+          <td class="px-4 py-3 align-top">
+            <app-badge [variant]="estadoVariant(tarea.estadoTarea)">
+              {{ tarea.estadoTarea }}
+            </app-badge>
+          </td>
+
+          <td class="px-4 py-3 align-top">
+            <app-badge [variant]="prioridadVariant(tarea.prioridad)">
+              {{ tarea.prioridad ?? 'SIN_PRIORIDAD' }}
+            </app-badge>
+          </td>
+
+          <td class="px-4 py-3 align-top">
+            <div class="font-medium text-slate-900">{{ tarea.codigoTramite ?? '-' }}</div>
+            <p class="text-xs text-slate-500">Instancia: {{ tarea.instanciaId }}</p>
+          </td>
+
+          <td class="px-4 py-3 align-top">
+            <app-badge [variant]="estadoVariant(tarea.estadoInstancia)">
+              {{ tarea.estadoInstancia ?? 'DESCONOCIDO' }}
+            </app-badge>
+          </td>
+
+          <td class="px-4 py-3 align-top">
+            <div class="font-medium text-slate-900">{{ tarea.politicaNombre }}</div>
+            <p class="text-xs text-slate-500">{{ tarea.politicaId }}</p>
+          </td>
+
+          <td class="px-4 py-3 align-top text-sm">
+            {{ tarea.fechaCreacion | date : 'short' }}
+          </td>
+
+          <td class="px-4 py-3 align-top">
+            <div class="flex flex-wrap gap-2">
+              <app-button
+                [variant]="detalleVariant(tarea)"
+                size="sm"
+                (click)="onVerDetalle(tarea.id)"
+              >
+                Abrir tarea
+              </app-button>
+
+              @if (canTake(tarea)) {
+                <app-button
+                  variant="workflow-in-progress"
+                  size="sm"
+                  [pending]="isPending(tarea.id)"
+                  pendingLabel="Tomando..."
+                  [disabled]="isPending(tarea.id)"
+                  (click)="onTomar(tarea.id)"
+                >
+                  Tomar
+                </app-button>
+              }
+            </div>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </app-table>
+</app-card>

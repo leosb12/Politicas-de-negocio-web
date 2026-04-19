@@ -13,6 +13,9 @@ type AppButtonVariant =
   | 'warning'
   | 'success'
   | 'info'
+  | 'workflow-pending'
+  | 'workflow-in-progress'
+  | 'workflow-completed'
   | 'ghost'
   | 'outline';
 type AppButtonSize = 'sm' | 'md' | 'lg';
@@ -67,6 +70,9 @@ export class AppButtonComponent {
       warning: 'bg-amber-500 text-white hover:bg-amber-600',
       success: 'bg-emerald-600 text-white hover:bg-emerald-700',
       info: 'bg-sky-600 text-white hover:bg-sky-700',
+      'workflow-pending': 'bg-red-600 text-white hover:bg-red-700',
+      'workflow-in-progress': 'bg-amber-500 text-white hover:bg-amber-600',
+      'workflow-completed': 'bg-emerald-600 text-white hover:bg-emerald-700',
       ghost: 'text-slate-700 hover:bg-slate-100',
       outline: 'border border-slate-300 text-slate-700 hover:bg-slate-100',
     };

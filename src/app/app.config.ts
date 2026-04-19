@@ -4,6 +4,8 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { routes } from './app.routes';
 import { adminUserHeaderInterceptor } from './core/interceptors/admin-user-header.interceptor';
 import { adminAuthErrorInterceptor } from './core/interceptors/admin-auth-error.interceptor';
+import { funcionarioUserHeaderInterceptor } from './core/interceptors/funcionario-user-header.interceptor';
+import { funcionarioAuthErrorInterceptor } from './core/interceptors/funcionario-auth-error.interceptor';
 import {
   LucideAngularModule,
   Settings2,
@@ -42,13 +44,23 @@ import {
   Wifi,
   WifiOff,
   AlertTriangle,
+  AlertCircle,
+  CloudCheck,
+  User,
+  UserCheck,
+  Ban,
 } from 'lucide-angular';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideHttpClient(
-      withInterceptors([adminUserHeaderInterceptor, adminAuthErrorInterceptor])
+      withInterceptors([
+        adminUserHeaderInterceptor,
+        funcionarioUserHeaderInterceptor,
+        adminAuthErrorInterceptor,
+        funcionarioAuthErrorInterceptor,
+      ])
     ),
     importProvidersFrom(
       LucideAngularModule.pick({
@@ -85,9 +97,14 @@ export const appConfig: ApplicationConfig = {
         ArrowUpDown,
         ArrowLeftRight,
         Users,
+        User,
         Wifi,
         WifiOff,
         AlertTriangle,
+        AlertCircle,
+        CloudCheck,
+        UserCheck,
+        Ban,
       })
     )
   ]

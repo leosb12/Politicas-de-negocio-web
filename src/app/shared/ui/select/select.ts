@@ -4,6 +4,7 @@ import {
   computed,
   forwardRef,
   input,
+  signal,
   booleanAttribute,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -68,7 +69,7 @@ export class AppSelectComponent implements ControlValueAccessor {
   readonly controlClass = input('');
 
   private readonly generatedId = `app-select-${AppSelectComponent.nextId++}`;
-  private cvaDisabled = false;
+  private readonly cvaDisabled = signal(false);
 
   value = '';
 
@@ -76,7 +77,7 @@ export class AppSelectComponent implements ControlValueAccessor {
   private onTouched: () => void = () => {};
 
   readonly resolvedId = computed(() => this.id() ?? this.generatedId);
-  readonly isDisabled = computed(() => this.disabled() || this.cvaDisabled);
+  readonly isDisabled = computed(() => this.disabled() || this.cvaDisabled());
 
   readonly wrapperClasses = computed(() => ['w-full', this.wrapperClass()].filter(Boolean).join(' '));
 
@@ -113,7 +114,7 @@ export class AppSelectComponent implements ControlValueAccessor {
   }
 
   setDisabledState(isDisabled: boolean): void {
-    this.cvaDisabled = isDisabled;
+    this.cvaDisabled.set(isDisabled);
   }
 
   onChangeEvent(event: Event): void {

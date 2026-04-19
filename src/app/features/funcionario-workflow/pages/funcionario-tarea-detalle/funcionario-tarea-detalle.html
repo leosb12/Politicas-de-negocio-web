@@ -1,0 +1,150 @@
+<section class="space-y-5">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <app-button variant="outline" (click)="volver()">Volver a bandeja</app-button>
+
+    @if (facade.detalleSyncing()) {
+      <span class="text-xs text-slate-500">Sincronizando automaticamente...</span>
+    }
+  </div>
+
+  @if (facade.detalleLoading() && !tareaDetalleVisible()) {
+    <app-loader message="Cargando detalle de tarea..." />
+  } @else if (!tareaDetalleVisible()) {
+    <app-empty-state
+      title="No se pudo cargar la tarea"
+      message="El detalle no esta disponible en este momento."
+      actionLabel="Reintentar"
+      (action)="refresh()"
+    />
+  } @else {
+    <app-card className="p-5">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500">Actividad</p>
+          <h2 class="mt-1 text-2xl font-bold text-slate-900">
+            {{ tareaDetalleVisible()!.actividad.nombreActividad }}
+          </h2>
+          <p class="mt-1 text-sm text-slate-600">Tarea ID: {{ tareaDetalleVisible()!.id }}</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 md:justify-end">
+          <app-badge [variant]="estadoVariant(tareaDetalleVisible()!.estadoTarea)">
+            {{ tareaDetalleVisible()!.estadoTarea }}
+          </app-badge>
+
+          @if (facade.instanciaDetalle()) {
+            <app-badge [variant]="estadoVariant(facade.instanciaDetalle()!.estadoInstancia)">
+              Instancia {{ facade.instanciaDetalle()!.estadoInstancia }}
+            </app-badge>
+          }
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+        <p><span class="font-semibold">Creacion:</span> {{ tareaDetalleVisible()!.fechaCreacion | date : 'medium' }}</p>
+        <p><span class="font-semibold">Inicio:</span> {{ tareaDetalleVisible()!.fechaInicio ? (tareaDetalleVisible()!.fechaInicio | date : 'medium') : '-' }}</p>
+        <p><span class="font-semibold">Asignado a:</span> {{ tareaDetalleVisible()!.asignadoANombre ?? '-' }}</p>
+        <p><span class="font-semibold">Ultima sync:</span> {{ facade.detalleLastRefreshAt() ? (facade.detalleLastRefreshAt() | date : 'mediumTime') : '-' }}</p>
+      </div>
+
+      <div class="mt-5 flex flex-wrap gap-2">
+        @if (puedeTomar()) {
+          <app-button
+            variant="workflow-in-progress"
+            [pending]="facade.detalleAction() === 'tomar'"
+            pendingLabel="Tomando..."
+            [disabled]="facade.detalleAction() !== null"
+            (click)="tomarTarea()"
+          >
+            Tomar tarea
+          </app-button>
+        }
+
+        @if (!puedeTomar() && !puedeCompletar()) {
+          <app-button variant="secondary" [disabled]="true">
+            Sin acciones disponibles
+          </app-button>
+        }
+      </div>
+    </app-card>
+
+    @if (facade.detalleError()) {
+      <app-alert
+        variant="danger"
+        [title]="facade.detalleError()!.title"
+        [message]="facade.detalleError()!.message"
+      />
+    }
+
+    @if (facade.detalleConflictMessage()) {
+      <app-alert
+        variant="warning"
+        title="Conflicto de negocio"
+        [message]="facade.detalleConflictMessage()"
+      />
+    }
+
+    @if (facade.instanciaPausedWarning()) {
+      <app-alert
+        variant="warning"
+        title="Instancia pausada"
+        [message]="facade.instanciaPausedWarning()"
+      />
+    }
+
+    @if (debeTomarAntesDeCompletar()) {
+      <app-alert
+        variant="warning"
+        title="Toma requerida"
+        message="Primero debe tomar la tarea antes de completar los campos."
+      />
+    }
+
+    @if (!mostrarFormulario() && tieneResumenEnviado()) {
+      <app-card className="overflow-hidden">
+        <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
+          <h3 class="text-base font-semibold text-slate-900">Resumen enviado</h3>
+        </div>
+
+        <div class="space-y-3 px-5 py-4">
+          @if (tareaDetalleVisible()!.observaciones) {
+            <div>
+              <p class="text-xs uppercase tracking-wide text-slate-500">Observaciones</p>
+              <p class="mt-1 text-sm text-slate-700">{{ tareaDetalleVisible()!.observaciones }}</p>
+            </div>
+          }
+
+          @if (tieneFormularioRespuesta()) {
+            <div>
+              <p class="text-xs uppercase tracking-wide text-slate-500">Datos enviados</p>
+              <pre class="mt-1 max-h-72 overflow-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-100">{{ resumenRespuestaJson() }}</pre>
+            </div>
+          }
+        </div>
+      </app-card>
+    }
+
+    @if (mostrarFormulario()) {
+      <app-card className="p-5">
+        <h3 class="text-lg font-semibold text-slate-900">Completar tarea</h3>
+        <p class="mt-1 text-sm text-slate-600">
+          Responde el formulario de la actividad y confirma para avanzar el workflow.
+        </p>
+
+        <div class="mt-4">
+          <app-tarea-formulario-dinamico
+            [tareaId]="tareaDetalleVisible()!.id"
+            [definicion]="tareaDetalleVisible()!.actividad.formularioDefinicion"
+            [respuestaInicial]="tareaDetalleVisible()!.formularioRespuesta"
+            [observacionesInicial]="tareaDetalleVisible()!.observaciones"
+            [disabled]="!puedeCompletar()"
+            [pending]="facade.detalleAction() === 'completar'"
+            submitLabel="Completar tarea"
+            (submitted)="completarTarea($event)"
+          />
+        </div>
+      </app-card>
+    }
+
+  }
+</section>

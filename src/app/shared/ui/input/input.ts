@@ -4,6 +4,7 @@ import {
   computed,
   forwardRef,
   input,
+  signal,
   booleanAttribute,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -14,6 +15,7 @@ type AppInputType =
   | 'password'
   | 'search'
   | 'number'
+  | 'date'
   | 'url'
   | 'tel';
 
@@ -78,7 +80,7 @@ export class AppInputComponent implements ControlValueAccessor {
   readonly controlClass = input('');
 
   private readonly generatedId = `app-input-${AppInputComponent.nextId++}`;
-  private cvaDisabled = false;
+  private readonly cvaDisabled = signal(false);
 
   value = '';
 
@@ -87,7 +89,7 @@ export class AppInputComponent implements ControlValueAccessor {
 
   readonly resolvedId = computed(() => this.id() ?? this.generatedId);
 
-  readonly isDisabled = computed(() => this.disabled() || this.cvaDisabled);
+  readonly isDisabled = computed(() => this.disabled() || this.cvaDisabled());
 
   readonly wrapperClasses = computed(() => ['w-full', this.wrapperClass()].filter(Boolean).join(' '));
 
@@ -124,7 +126,7 @@ export class AppInputComponent implements ControlValueAccessor {
   }
 
   setDisabledState(isDisabled: boolean): void {
-    this.cvaDisabled = isDisabled;
+    this.cvaDisabled.set(isDisabled);
   }
 
   onInput(event: Event): void {

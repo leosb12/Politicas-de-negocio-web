@@ -56,6 +56,20 @@
         </a>
 
         <a
+          routerLink="/funcionario/tareas"
+          routerLinkActive
+          #soporteWorkflowLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            soporteWorkflowLink.isActive
+              ? 'rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100'
+          "
+        >
+          Soporte tareas
+        </a>
+
+        <a
           routerLink="/admin/usuarios"
           routerLinkActive
           #usuariosLink="routerLinkActive"
@@ -126,6 +140,20 @@
           "
         >
           Dashboard funcionario
+        </a>
+
+        <a
+          routerLink="/funcionario/tareas"
+          routerLinkActive
+          #tareasFuncionarioLink="routerLinkActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+          [class]="
+            tareasFuncionarioLink.isActive
+              ? 'rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white'
+              : 'rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100'
+          "
+        >
+          Mis tareas
         </a>
       }
 

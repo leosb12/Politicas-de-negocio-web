@@ -1,0 +1,90 @@
+<section class="space-y-5">
+  <app-card className="p-5">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Workflow funcionario</p>
+        <h2 class="mt-1 text-2xl font-bold text-slate-900">Bandeja de tareas</h2>
+        <p class="mt-1 text-sm text-slate-600">
+          El funcionario solo ejecuta tareas: al completar una, el sistema avanza automaticamente al siguiente paso.
+        </p>
+      </div>
+
+      @if (facade.bandejaSyncing()) {
+        <span class="text-xs text-slate-500">Sincronizando automaticamente...</span>
+      }
+    </div>
+
+    <div class="mt-4 grid gap-3 sm:grid-cols-3">
+      <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-red-700">Pendientes</p>
+        <p class="text-2xl font-bold text-red-800">{{ totalPendientes() }}</p>
+      </div>
+
+      <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-amber-700">En proceso</p>
+        <p class="text-2xl font-bold text-amber-800">{{ totalEnProceso() }}</p>
+      </div>
+
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-emerald-700">Completadas</p>
+        <p class="text-2xl font-bold text-emerald-800">{{ totalCompletadas() }}</p>
+      </div>
+    </div>
+  </app-card>
+
+  @if (facade.bandejaError()) {
+    <app-alert
+      variant="danger"
+      [title]="facade.bandejaError()!.title"
+      [message]="facade.bandejaError()!.message"
+    />
+  }
+
+  <app-card className="p-5">
+    <div class="grid gap-3 md:grid-cols-3">
+      <app-input
+        [label]="'Buscar tarea'"
+        type="search"
+        [placeholder]="'Actividad o codigo de tramite'"
+        [formControl]="searchControl"
+      />
+
+      <app-select
+        [label]="'Estado de tarea'"
+        [formControl]="estadoControl"
+      >
+        @for (option of estadoOptions; track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </app-select>
+
+      <div class="flex items-end">
+        <app-button
+          variant="outline"
+          [disabled]="facade.bandejaLoading()"
+          (click)="limpiarFiltros()"
+        >
+          Limpiar filtros
+        </app-button>
+      </div>
+    </div>
+  </app-card>
+
+  @if (facade.bandejaLoading()) {
+    <app-loader message="Cargando bandeja del funcionario..." />
+  } @else if (tareasFiltradas().length === 0) {
+    <app-empty-state
+      title="Sin tareas para mostrar"
+      message="No hay resultados para los filtros aplicados."
+      actionLabel="Quitar filtros"
+      (action)="limpiarFiltros()"
+    />
+  } @else {
+    <app-funcionario-tareas-table
+      [tareas]="tareasFiltradas()"
+      [actionTareaId]="facade.bandejaActionTareaId()"
+      (verDetalle)="verDetalle($event)"
+      (tomar)="tomarTarea($event)"
+    />
+  }
+</section>

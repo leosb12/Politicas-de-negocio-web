@@ -190,7 +190,14 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const node = this.sidebarNode();
     if (!node || node.tipo !== 'ACTIVIDAD') return [];
     if (node.responsableTipo === 'USUARIO') {
-      return this.usuarios().map(u => ({ id: u.id, nombre: u.nombre }));
+      return this.usuarios()
+        .filter(
+          (u) =>
+            Boolean(u.activo) &&
+            typeof u.rol === 'string' &&
+            u.rol.trim().toUpperCase() === 'FUNCIONARIO'
+        )
+        .map((u) => ({ id: u.id, nombre: u.nombre }));
     }
     if (node.responsableTipo === 'DEPARTAMENTO') {
       return this.departamentos().map(d => ({ id: d.id, nombre: d.nombre }));
