@@ -56,6 +56,14 @@ interface DragState {
   startNodeY: number;
 }
 
+interface LaneResizeState {
+  startMouseX: number;
+  startMouseY: number;
+  startLaneWidth: number;
+  startLaneHeight: number;
+  initialActivityPositions: Record<string, { x: number; y: number }>;
+}
+
 // ── Connection drawing state ──────────────────────────────────────
 interface ConnectState {
   fromNodeId: string;
@@ -66,12 +74,14 @@ interface ConnectState {
 
 type ConnectionPort = 'LEFT' | 'RIGHT' | 'TOP' | 'BOTTOM';
 type ConnectionTargetPort = ConnectionPort;
-type DeptModalMode = 'NODE' | 'LANE';
 type LaneOrientation = 'HORIZONTAL' | 'VERTICAL';
 
 interface FlujoPayload {
   nodos: Nodo[];
   conexiones: Conexion[];
+  laneOrientation?: LaneOrientation | null;
+  laneWidth?: number | null;
+  laneHeight?: number | null;
 }
 
 interface PendingFlowBackup {
@@ -80,8 +90,6 @@ interface PendingFlowBackup {
 }
 
 interface CanvasUiPrefsBackup {
-  laneOrientation: LaneOrientation;
-  manualLaneDeptIds: string[];
   connectionSourcePorts?: Record<string, ConnectionPort>;
   connectionTargetPorts?: Record<string, ConnectionTargetPort>;
 }
@@ -92,6 +100,13 @@ interface DeferredCollaborativeFlow {
 
 interface PendingNodeNameGuard {
   nombre: string;
+  expiresAt: number;
+}
+
+interface PendingLaneConfigGuard {
+  laneOrientation: LaneOrientation;
+  laneWidth: number;
+  laneHeight: number;
   expiresAt: number;
 }
 
@@ -175,6 +190,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   selectedNodeId = signal<string | null>(null);
   connectState = signal<ConnectState | null>(null);
   dragState: DragState | null = null;
+  laneResizeState: LaneResizeState | null = null;
 
   readonly CANVAS_WIDTH = 100_000;
   readonly CANVAS_HEIGHT = 100_000;
@@ -331,9 +347,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   // ── Swimlane / Dept control ────────────────────────────────────
   showDeptModal = signal(false);
   pendingNodeFromPalette: { tipo: TipoNodo; x: number; y: number } | null = null;
-  manualLaneDeptIds = signal<string[]>([]);
-  deptModalMode = signal<DeptModalMode>('NODE');
   laneOrientation = signal<LaneOrientation>('VERTICAL');
+  laneWidth = signal(320);
+  laneHeight = signal(220);
   isVerticalLaneOrientation = computed(() => this.laneOrientation() === 'VERTICAL');
 
   creatingNewDept = signal(false);
@@ -366,11 +382,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   >();
   private pendingNodeNameSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private pendingNodeNameGuards = new Map<string, PendingNodeNameGuard>();
+  private pendingLaneConfigGuard: PendingLaneConfigGuard | null = null;
   private readonly nodeNameSyncDebounceMs = 280;
   private readonly nodeNameGuardTtlMs = 1200;
+  private readonly RESPONSABLE_USUARIO_FINAL_ID = '__RESPONSABLE_USUARIO_FINAL__';
+  private readonly RESPONSABLE_INICIADOR_TRAMITE_ID = '__RESPONSABLE_INICIADOR_TRAMITE__';
+  private readonly laneConfigGuardTtlMs = 1800;
+  private readonly laneConfigSyncIntervalMs = 120;
+  private lastLaneConfigSyncAt = 0;
   private deferredCollaborativeFlow: DeferredCollaborativeFlow | null = null;
-  readonly LANE_WIDTH = 320;
-  readonly LANE_HEIGHT = 220;
+  readonly MIN_LANE_WIDTH = 220;
+  readonly MAX_LANE_WIDTH = 960;
+  readonly MIN_LANE_HEIGHT = 140;
+  readonly MAX_LANE_HEIGHT = 680;
 
   // ── Computed ──────────────────────────────────────────────────
   swimlanes = computed(() => {
@@ -389,10 +413,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       laneIdSet.add(deptId);
       laneIds.push(deptId);
     };
-
-    for (const deptId of this.manualLaneDeptIds()) {
-      addLane(deptId);
-    }
 
     for (const node of activityNodes) {
       const deptId = node.departamentoId;
@@ -502,7 +522,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           return;
         }
 
-        this.applyCollaborativeFlow(flowState.nodos, flowState.conexiones);
+        this.applyCollaborativeFlow(
+          flowState.nodos,
+          flowState.conexiones,
+          flowState.laneOrientation,
+          flowState.laneWidth,
+          flowState.laneHeight
+        );
       });
 
     this.collabFacade.politicaEstado$
@@ -612,13 +638,36 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           return;
         }
 
-        if (remotePolicy.estado === localPolicy.estado) {
+        const nextLaneOrientation =
+          remotePolicy.laneOrientation === 'HORIZONTAL' ||
+          remotePolicy.laneOrientation === 'VERTICAL'
+            ? remotePolicy.laneOrientation
+            : localPolicy.laneOrientation;
+        const nextLaneWidth =
+          typeof remotePolicy.laneWidth === 'number'
+            ? this.normalizeLaneWidth(remotePolicy.laneWidth)
+            : localPolicy.laneWidth;
+        const nextLaneHeight =
+          typeof remotePolicy.laneHeight === 'number'
+            ? this.normalizeLaneHeight(remotePolicy.laneHeight)
+            : localPolicy.laneHeight;
+
+        const laneConfigChanged =
+          nextLaneOrientation !== localPolicy.laneOrientation ||
+          nextLaneWidth !== localPolicy.laneWidth ||
+          nextLaneHeight !== localPolicy.laneHeight;
+        const estadoChanged = remotePolicy.estado !== localPolicy.estado;
+
+        if (!estadoChanged && !laneConfigChanged) {
           return;
         }
 
         this.setPoliticaState({
           ...localPolicy,
           estado: remotePolicy.estado,
+          laneOrientation: nextLaneOrientation,
+          laneWidth: nextLaneWidth,
+          laneHeight: nextLaneHeight,
         });
       },
       error: () => {
@@ -650,13 +699,23 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       },
       initialNodos: this.nodos().map((node) => this.toCollaborativeNode(node)),
       initialConexiones: this.withResolvedConnectionPorts(this.conexiones()),
+      initialLaneOrientation: this.laneOrientation(),
+      initialLaneWidth: this.laneWidth(),
+      initialLaneHeight: this.laneHeight(),
     });
   }
 
   private applyCollaborativeFlow(
     rawNodes: ColaboracionNodo[],
-    connections: Conexion[]
+    connections: Conexion[],
+    laneOrientation?: LaneOrientation,
+    laneWidth?: number,
+    laneHeight?: number
   ): void {
+    if (!this.laneResizeState) {
+      this.applyCollaborativeLaneConfig(laneOrientation, laneWidth, laneHeight);
+    }
+
     const resolvedConnections = this.withResolvedConnectionPorts(connections);
     const canvasNodes = rawNodes.map((node, index) =>
       this.applyPendingNodeNameGuard(
@@ -685,6 +744,137 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     this.deferredCollaborativeFlow = null;
     this.applyCollaborativeCanvasState(canvasNodes, resolvedConnections);
+  }
+
+  private applyCollaborativeLaneConfig(
+    laneOrientation?: LaneOrientation,
+    laneWidth?: number,
+    laneHeight?: number
+  ): void {
+    if (
+      this.shouldIgnoreIncomingLaneConfig(
+        laneOrientation,
+        laneWidth,
+        laneHeight
+      )
+    ) {
+      return;
+    }
+
+    let configChanged = false;
+
+    if (
+      (laneOrientation === 'HORIZONTAL' || laneOrientation === 'VERTICAL') &&
+      laneOrientation !== this.laneOrientation()
+    ) {
+      this.laneOrientation.set(laneOrientation);
+      configChanged = true;
+    }
+
+    if (typeof laneWidth === 'number') {
+      const normalizedWidth = this.normalizeLaneWidth(laneWidth);
+      if (normalizedWidth !== this.laneWidth()) {
+        this.laneWidth.set(normalizedWidth);
+        configChanged = true;
+      }
+    }
+
+    if (typeof laneHeight === 'number') {
+      const normalizedHeight = this.normalizeLaneHeight(laneHeight);
+      if (normalizedHeight !== this.laneHeight()) {
+        this.laneHeight.set(normalizedHeight);
+        configChanged = true;
+      }
+    }
+
+    if (configChanged) {
+      this.enforceActivitiesAssignedToLane();
+    }
+  }
+
+  private shouldIgnoreIncomingLaneConfig(
+    laneOrientation?: LaneOrientation,
+    laneWidth?: number,
+    laneHeight?: number
+  ): boolean {
+    const guard = this.pendingLaneConfigGuard;
+    if (!guard) {
+      return false;
+    }
+
+    if (Date.now() > guard.expiresAt) {
+      this.pendingLaneConfigGuard = null;
+      return false;
+    }
+
+    const hasOrientation =
+      laneOrientation === 'HORIZONTAL' || laneOrientation === 'VERTICAL';
+    const hasWidth = typeof laneWidth === 'number' && Number.isFinite(laneWidth);
+    const hasHeight =
+      typeof laneHeight === 'number' && Number.isFinite(laneHeight);
+
+    if (!hasOrientation && !hasWidth && !hasHeight) {
+      return false;
+    }
+
+    const orientationMatches =
+      !hasOrientation || laneOrientation === guard.laneOrientation;
+    const widthMatches =
+      !hasWidth || this.normalizeLaneWidth(laneWidth) === guard.laneWidth;
+    const heightMatches =
+      !hasHeight || this.normalizeLaneHeight(laneHeight) === guard.laneHeight;
+
+    if (orientationMatches && widthMatches && heightMatches) {
+      this.pendingLaneConfigGuard = null;
+      return false;
+    }
+
+    return true;
+  }
+
+  private syncLaneConfigFromPolicy(policy: PoliticaNegocio): void {
+    if (this.laneResizeState) {
+      return;
+    }
+
+    this.applyCollaborativeLaneConfig(
+      policy.laneOrientation === 'HORIZONTAL' || policy.laneOrientation === 'VERTICAL'
+        ? policy.laneOrientation
+        : undefined,
+      typeof policy.laneWidth === 'number' ? policy.laneWidth : undefined,
+      typeof policy.laneHeight === 'number' ? policy.laneHeight : undefined
+    );
+  }
+
+  private emitLaneConfigSync(force = false): void {
+    const laneOrientation = this.laneOrientation();
+    const laneWidth = this.laneWidth();
+    const laneHeight = this.laneHeight();
+
+    if (!force) {
+      const now = Date.now();
+      if (now - this.lastLaneConfigSyncAt < this.laneConfigSyncIntervalMs) {
+        return;
+      }
+      this.lastLaneConfigSyncAt = now;
+    } else {
+      const now = Date.now();
+      this.lastLaneConfigSyncAt = now;
+      this.pendingLaneConfigGuard = {
+        laneOrientation,
+        laneWidth,
+        laneHeight,
+        expiresAt: now + this.laneConfigGuardTtlMs,
+      };
+    }
+
+    this.collabFacade.emitUpdateCanvasConfig({
+      laneOrientation,
+      laneWidth,
+      laneHeight,
+    }, {
+      requestSnapshot: false,
+    });
   }
 
   private shouldProtectLocalFlowFromRemoteSnapshot(): boolean {
@@ -855,6 +1045,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   private setPoliticaState(policy: PoliticaNegocio): void {
     this.politica.set(policy);
+    this.syncLaneConfigFromPolicy(policy);
     this.syncReadOnlyUiState();
   }
 
@@ -864,6 +1055,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     this.dragState = null;
+    this.laneResizeState = null;
+    this.pendingLaneConfigGuard = null;
     this.isPanning = false;
     this.panMoved = false;
     this.connectState.set(null);
@@ -1002,6 +1195,26 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     return firstDepartment?.id ?? null;
   }
 
+  private normalizeLaneWidth(value: number): number {
+    if (!Number.isFinite(value)) {
+      return this.laneWidth();
+    }
+
+    return Math.round(
+      Math.min(Math.max(value, this.MIN_LANE_WIDTH), this.MAX_LANE_WIDTH)
+    );
+  }
+
+  private normalizeLaneHeight(value: number): number {
+    if (!Number.isFinite(value)) {
+      return this.laneHeight();
+    }
+
+    return Math.round(
+      Math.min(Math.max(value, this.MIN_LANE_HEIGHT), this.MAX_LANE_HEIGHT)
+    );
+  }
+
   private getActivityLaneBounds(deptId: string):
     | { minX: number; maxX: number; minY: number; maxY: number }
     | null {
@@ -1013,19 +1226,21 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     const nodeWidth = this.getNodeWidth('ACTIVIDAD');
     const nodeHeight = this.getNodeHeight('ACTIVIDAD');
+    const laneWidth = this.laneWidth();
+    const laneHeight = this.laneHeight();
 
     if (this.isVerticalLaneOrientation()) {
-      const laneX = this.CANVAS_ORIGIN_X + laneIndex * this.LANE_WIDTH;
+      const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
       const minX = laneX;
-      const maxX = Math.max(minX, laneX + this.LANE_WIDTH - nodeWidth);
+      const maxX = Math.max(minX, laneX + laneWidth - nodeWidth);
       const minY = this.CANVAS_ORIGIN_Y;
       const maxY = Math.max(minY, this.CANVAS_HEIGHT - nodeHeight);
       return { minX, maxX, minY, maxY };
     }
 
-    const laneY = this.CANVAS_ORIGIN_Y + laneIndex * this.LANE_HEIGHT;
+    const laneY = this.CANVAS_ORIGIN_Y + laneIndex * laneHeight;
     const minY = laneY;
-    const maxY = Math.max(minY, laneY + this.LANE_HEIGHT - nodeHeight);
+    const maxY = Math.max(minY, laneY + laneHeight - nodeHeight);
     const minX = this.CANVAS_ORIGIN_X;
     const maxX = Math.max(minX, this.CANVAS_WIDTH - nodeWidth);
     return { minX, maxX, minY, maxY };
@@ -1165,6 +1380,12 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const backendPayload: FlujoPayload = {
       nodos: [...(p.nodos ?? [])],
       conexiones: [...(p.conexiones ?? [])],
+      laneOrientation:
+        p.laneOrientation === 'HORIZONTAL' || p.laneOrientation === 'VERTICAL'
+          ? p.laneOrientation
+          : this.laneOrientation(),
+      laneWidth: typeof p.laneWidth === 'number' ? p.laneWidth : this.laneWidth(),
+      laneHeight: typeof p.laneHeight === 'number' ? p.laneHeight : this.laneHeight(),
     };
 
     // In collaborative mode we must prioritize server snapshot to avoid stale
@@ -1281,6 +1502,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private withResolvedConnectionPorts(connections: Conexion[]): Conexion[] {
     const sourceMap = this.connectionSourcePorts();
     const targetMap = this.connectionTargetPorts();
+    const nodeById = new Map(this.nodos().map((node) => [node.id, node]));
 
     return connections.map((connection) => {
       const key = this.connectionKey(connection.origen, connection.destino);
@@ -1289,17 +1511,50 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       const targetPort =
         this.normalizeConnectionPort(connection.puertoDestino) ?? targetMap[key];
 
+      const fromNode = nodeById.get(connection.origen);
+      const toNode = nodeById.get(connection.destino);
+
+      let resolvedSourcePort = sourcePort;
+      let resolvedTargetPort = targetPort;
+
+      if (fromNode?.tipo === 'FORK') {
+        if (!resolvedSourcePort || resolvedSourcePort === 'TOP' || resolvedSourcePort === 'BOTTOM') {
+          resolvedSourcePort = 'RIGHT';
+        }
+      }
+
+      if (toNode?.tipo === 'FORK') {
+        resolvedTargetPort = 'TOP';
+      }
+
+      if (fromNode?.tipo === 'JOIN') {
+        resolvedSourcePort = 'BOTTOM';
+      }
+
+      if (toNode?.tipo === 'JOIN') {
+        const preferredJoinInput =
+          fromNode && toNode
+            ? this.autoTargetPort(fromNode, toNode)
+            : 'LEFT';
+        resolvedTargetPort =
+          resolvedTargetPort === 'LEFT' || resolvedTargetPort === 'RIGHT'
+            ? resolvedTargetPort
+            : preferredJoinInput === 'RIGHT'
+              ? 'RIGHT'
+              : 'LEFT';
+      }
+
       const normalized: Conexion = {
         origen: connection.origen,
         destino: connection.destino,
       };
 
-      if (sourcePort) {
-        normalized.puertoOrigen = sourcePort;
+      if (resolvedSourcePort) {
+        normalized.puertoOrigen = resolvedSourcePort;
       }
 
-      if (targetPort) {
-        normalized.puertoDestino = targetPort;
+      if (resolvedTargetPort) {
+        normalized.puertoDestino = resolvedTargetPort;
       }
 
       return normalized;
@@ -1400,8 +1655,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     const backup: CanvasUiPrefsBackup = {
-      laneOrientation: this.laneOrientation(),
-      manualLaneDeptIds: [...this.manualLaneDeptIds()],
       connectionSourcePorts,
       connectionTargetPorts,
     };
@@ -1432,24 +1685,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
       const backup = JSON.parse(raw) as Partial<CanvasUiPrefsBackup>;
 
-      if (
-        backup.laneOrientation === 'HORIZONTAL' ||
-        backup.laneOrientation === 'VERTICAL'
-      ) {
-        this.laneOrientation.set(backup.laneOrientation);
-      }
-
-      if (Array.isArray(backup.manualLaneDeptIds)) {
-        const uniqueIds = Array.from(
-          new Set(
-            backup.manualLaneDeptIds.filter(
-              (id): id is string => typeof id === 'string' && id.trim().length > 0
-            )
-          )
-        );
-        this.manualLaneDeptIds.set(uniqueIds);
-      }
-
       this.connectionSourcePorts.set(
         this.normalizeConnectionPortMap(backup.connectionSourcePorts)
       );
@@ -1479,6 +1714,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         condiciones: n.condiciones ?? [],
       })),
       conexiones: this.withResolvedConnectionPorts(this.conexiones()),
+      laneOrientation: this.laneOrientation(),
+      laneWidth: this.laneWidth(),
+      laneHeight: this.laneHeight(),
     };
   }
 
@@ -1616,6 +1854,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         return;
       }
 
+      const parallelGatewayValidation = this.validateParallelGatewayTopology();
+      if (parallelGatewayValidation) {
+        this.toast.error('No se puede activar', parallelGatewayValidation.message);
+        this.selectNode(parallelGatewayValidation.nodeId);
+        return;
+      }
+
       // Backend valida contra el flujo persistido: guardamos antes de activar.
       this.svc.saveFlujo(p.id, this.buildFlujoPayload()).subscribe({
         next: (updated) => {
@@ -1672,7 +1917,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     this.pendingNodeFromPalette = { tipo, x: cx, y: cy };
     this.creatingNewDept.set(false);
-    this.deptModalMode.set('NODE');
 
     if (tipo === 'ACTIVIDAD') {
       this.showDeptModal.set(true);
@@ -1690,11 +1934,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.laneOrientation.update((orientation) =>
       orientation === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL'
     );
-    const policyId = this.politica()?.id;
-    if (policyId) {
-      this.persistUiPreferences(policyId);
-    }
     this.realignActivityNodesToLaneOrientation();
+    this.emitLaneConfigSync(true);
+    this.scheduleAutoSave(true);
   }
 
   get laneOrientationLabel(): string {
@@ -1703,26 +1945,57 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   getLaneX(index: number): number {
     return this.isVerticalLaneOrientation()
-      ? this.CANVAS_ORIGIN_X + index * this.LANE_WIDTH
+      ? this.CANVAS_ORIGIN_X + index * this.laneWidth()
       : this.CANVAS_ORIGIN_X;
   }
 
   getLaneY(index: number): number {
     return this.isVerticalLaneOrientation()
       ? this.CANVAS_ORIGIN_Y
-      : this.CANVAS_ORIGIN_Y + index * this.LANE_HEIGHT;
+      : this.CANVAS_ORIGIN_Y + index * this.laneHeight();
   }
 
   getLaneWidth(): number {
     return this.isVerticalLaneOrientation()
-      ? this.LANE_WIDTH
+      ? this.laneWidth()
       : this.CANVAS_WIDTH - this.CANVAS_ORIGIN_X;
   }
 
   getLaneHeight(): number {
     return this.isVerticalLaneOrientation()
       ? this.CANVAS_HEIGHT - this.CANVAS_ORIGIN_Y
-      : this.LANE_HEIGHT;
+      : this.laneHeight();
+  }
+
+  startLaneResize(event: MouseEvent): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    event.stopPropagation();
+    event.preventDefault();
+
+    const initialActivityPositions: Record<string, { x: number; y: number }> = {};
+    for (const node of this.nodos()) {
+      if (node.tipo !== 'ACTIVIDAD') {
+        continue;
+      }
+
+      initialActivityPositions[node.id] = { x: node.x, y: node.y };
+    }
+
+    this.dragState = null;
+    this.isPanning = false;
+    this.panMoved = false;
+    this.pendingLaneConfigGuard = null;
+
+    this.laneResizeState = {
+      startMouseX: event.clientX,
+      startMouseY: event.clientY,
+      startLaneWidth: this.laneWidth(),
+      startLaneHeight: this.laneHeight(),
+      initialActivityPositions,
+    };
   }
 
   private randomOffset(spread: number): number {
@@ -1750,8 +2023,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     if (this.isVerticalLaneOrientation()) {
-      const laneX = this.CANVAS_ORIGIN_X + laneIndex * this.LANE_WIDTH;
-      const centeredX = laneX + (this.LANE_WIDTH - this.getNodeWidth('ACTIVIDAD')) / 2;
+      const laneWidth = this.laneWidth();
+      const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
+      const centeredX = laneX + (laneWidth - this.getNodeWidth('ACTIVIDAD')) / 2;
       return this.clampActivityPositionToLane(
         deptId,
         centeredX + this.randomOffset(26),
@@ -1759,8 +2033,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       );
     }
 
-    const laneY = this.CANVAS_ORIGIN_Y + laneIndex * this.LANE_HEIGHT;
-    const centeredY = laneY + (this.LANE_HEIGHT - this.getNodeHeight('ACTIVIDAD')) / 2;
+    const laneHeight = this.laneHeight();
+    const laneY = this.CANVAS_ORIGIN_Y + laneIndex * laneHeight;
+    const centeredY = laneY + (laneHeight - this.getNodeHeight('ACTIVIDAD')) / 2;
     return this.clampActivityPositionToLane(
       deptId,
       baseX + this.randomOffset(36),
@@ -1804,8 +2079,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         }
 
         if (this.isVerticalLaneOrientation()) {
-          const laneX = this.CANVAS_ORIGIN_X + laneIndex * this.LANE_WIDTH;
-          const centeredX = laneX + (this.LANE_WIDTH - this.getNodeWidth(node.tipo)) / 2;
+          const laneWidth = this.laneWidth();
+          const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
+          const centeredX = laneX + (laneWidth - this.getNodeWidth(node.tipo)) / 2;
           const clamped = this.clampActivityPositionToLane(node.departamentoId, centeredX, node.y);
           const nextNode = { ...node, x: clamped.x, y: clamped.y };
           if (nextNode.x !== node.x || nextNode.y !== node.y) {
@@ -1814,8 +2090,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           return nextNode;
         }
 
-        const laneY = this.CANVAS_ORIGIN_Y + laneIndex * this.LANE_HEIGHT;
-        const centeredY = laneY + (this.LANE_HEIGHT - this.getNodeHeight(node.tipo)) / 2;
+        const laneHeight = this.laneHeight();
+        const laneY = this.CANVAS_ORIGIN_Y + laneIndex * laneHeight;
+        const centeredY = laneY + (laneHeight - this.getNodeHeight(node.tipo)) / 2;
         const clamped = this.clampActivityPositionToLane(node.departamentoId, node.x, centeredY);
         const nextNode = { ...node, x: clamped.x, y: clamped.y };
         if (nextNode.x !== node.x || nextNode.y !== node.y) {
@@ -1879,60 +2156,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.deptModalMode() === 'LANE') {
-      if (!deptId) {
-        this.toast.info('Carriles', 'Para añadir carril debes seleccionar un departamento.');
-        return;
-      }
-
-      this.addManualLaneByDeptId(deptId);
-      return;
-    }
-
     if (!deptId) {
       return;
     }
 
     this.selectDeptForPending(deptId);
-  }
-
-  addManualLane(): void {
-    if (this.isCanvasEditBlocked(true)) {
-      return;
-    }
-
-    this.pendingNodeFromPalette = null;
-    this.creatingNewDept.set(false);
-    this.newDeptName.set('');
-    this.editingDeptId.set(null);
-    this.editDeptName.set('');
-    this.deptModalMode.set('LANE');
-    this.showDeptModal.set(true);
-  }
-
-  private addManualLaneByDeptId(deptId: string): void {
-    if (this.isCanvasEditBlocked(true)) {
-      return;
-    }
-
-    const dept = this.departamentos().find((d) => d.id === deptId);
-    if (!dept) {
-      this.toast.error('Carriles', 'El departamento seleccionado no existe.');
-      return;
-    }
-
-    const laneExists = this.swimlanes().some((lane) => lane.id === deptId);
-    if (laneExists) {
-      this.toast.info('Carriles', `El carril de ${dept.nombre} ya existe.`);
-      return;
-    }
-
-    this.manualLaneDeptIds.update((laneIds) => [...laneIds, deptId]);
-    const policyId = this.politica()?.id;
-    if (policyId) {
-      this.persistUiPreferences(policyId);
-    }
-    this.closeDeptModal();
   }
 
   private defaultName(tipo: TipoNodo): string {
@@ -2063,6 +2291,36 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.laneResizeState) {
+      const dx = (event.clientX - this.laneResizeState.startMouseX) / this.zoom();
+      const dy = (event.clientY - this.laneResizeState.startMouseY) / this.zoom();
+
+      let laneSizeChanged = false;
+      if (this.isVerticalLaneOrientation()) {
+        const nextLaneWidth = this.normalizeLaneWidth(
+          this.laneResizeState.startLaneWidth + dx
+        );
+        if (nextLaneWidth !== this.laneWidth()) {
+          this.laneWidth.set(nextLaneWidth);
+          laneSizeChanged = true;
+        }
+      } else {
+        const nextLaneHeight = this.normalizeLaneHeight(
+          this.laneResizeState.startLaneHeight + dy
+        );
+        if (nextLaneHeight !== this.laneHeight()) {
+          this.laneHeight.set(nextLaneHeight);
+          laneSizeChanged = true;
+        }
+      }
+
+      if (laneSizeChanged) {
+        this.enforceActivitiesAssignedToLane();
+      }
+
+      return;
+    }
+
     if (this.dragState) {
       const dx = (event.clientX - this.dragState.startMouseX) / this.zoom();
       const dy = (event.clientY - this.dragState.startMouseY) / this.zoom();
@@ -2109,6 +2367,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   @HostListener('window:mouseup')
   onMouseUp(): void {
     if (this.isCanvasReadOnly()) {
+      this.laneResizeState = null;
       const wasPanning = this.isPanning;
       const didPan = this.panMoved;
 
@@ -2118,6 +2377,54 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       if (wasPanning && !didPan) {
         this.deselectAll();
       }
+      return;
+    }
+
+    const laneResizeSnapshot = this.laneResizeState;
+    if (laneResizeSnapshot) {
+      this.laneResizeState = null;
+
+      const laneWidthChanged =
+        Math.abs(this.laneWidth() - laneResizeSnapshot.startLaneWidth) > 0.5;
+      const laneHeightChanged =
+        Math.abs(this.laneHeight() - laneResizeSnapshot.startLaneHeight) > 0.5;
+      const laneConfigChanged = laneWidthChanged || laneHeightChanged;
+
+      // Publish final lane config first so subsequent MOVE_NODE optimistic
+      // updates do not reuse stale lane dimensions and rollback locally.
+      if (laneConfigChanged) {
+        this.emitLaneConfigSync(true);
+      }
+
+      const movedNodes: NodoCanvas[] = this.nodos().filter((node) => {
+        if (node.tipo !== 'ACTIVIDAD') {
+          return false;
+        }
+
+        const initialPos = laneResizeSnapshot.initialActivityPositions[node.id];
+        if (!initialPos) {
+          return false;
+        }
+
+        return (
+          Math.abs(node.x - initialPos.x) > 0.5 ||
+          Math.abs(node.y - initialPos.y) > 0.5
+        );
+      });
+
+      for (const movedNode of movedNodes) {
+        this.setPendingMoveGuard(movedNode.id, movedNode.x, movedNode.y);
+        this.collabFacade.emitMoveNode(
+          movedNode.id,
+          this.toPersistedCoordinate(movedNode.x, this.CANVAS_ORIGIN_X),
+          this.toPersistedCoordinate(movedNode.y, this.CANVAS_ORIGIN_Y)
+        );
+      }
+
+      if (movedNodes.length || laneConfigChanged) {
+        this.scheduleAutoSave(true);
+      }
+
       return;
     }
 
@@ -2234,6 +2541,20 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private autoTargetPort(from: NodoCanvas, to: NodoCanvas): ConnectionTargetPort {
+    if (to.tipo === 'FORK') {
+      return 'TOP';
+    }
+
+    if (to.tipo === 'JOIN') {
+      const fromCenterX = from.x + this.getNodeWidth(from.tipo) / 2;
+      const toCenterX = to.x + this.getNodeWidth(to.tipo) / 2;
+      return fromCenterX <= toCenterX ? 'LEFT' : 'RIGHT';
+    }
+
+    if (to.tipo === 'DECISION' && !this.canDecisionUseBranchPorts(to.id)) {
+      return 'TOP';
+    }
+
     if (to.tipo === 'ACTIVIDAD') {
       const fromCenterX = from.x + this.getNodeWidth(from.tipo) / 2;
       const fromCenterY = from.y + this.getNodeHeight(from.tipo) / 2;
@@ -2362,8 +2683,29 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const node = this.nodos().find((item) => item.id === nodeId);
+    if (!node) {
+      return;
+    }
+
     if (this.connectState()) {
+      if (!this.isNodePortInput(node, port)) {
+        this.toast.error(
+          'Conexión inválida',
+          'Ese puerto es de salida. Termina la conexión en un puerto de entrada.'
+        );
+        return;
+      }
+
       this.finishConnect(nodeId, port, event);
+      return;
+    }
+
+    if (!this.isNodePortOutput(node, port)) {
+      this.toast.info(
+        'Puerto de entrada',
+        'Inicia la conexión desde un puerto de salida.'
+      );
       return;
     }
 
@@ -2391,15 +2733,50 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     const fromNode = this.nodos().find((n) => n.id === cs.fromNodeId);
     const toNode = this.nodos().find((n) => n.id === toId);
-    const resolvedPort: ConnectionTargetPort =
+    let resolvedPort: ConnectionTargetPort =
       targetPort ?? (fromNode && toNode ? this.autoTargetPort(fromNode, toNode) : 'LEFT');
+
+    if (toNode?.tipo === 'DECISION' && !this.canDecisionUseBranchPorts(toId)) {
+      resolvedPort = 'TOP';
+    }
+
     const resolvedSourcePort: ConnectionPort = cs.fromPort;
+
+    if (fromNode && !this.isNodePortOutput(fromNode, resolvedSourcePort)) {
+      this.toast.error(
+        'Conexión inválida',
+        'El puerto de origen seleccionado no permite salida.'
+      );
+      return;
+    }
+
+    if (toNode && !this.isNodePortInput(toNode, resolvedPort)) {
+      this.toast.error(
+        'Conexión inválida',
+        'El puerto de destino seleccionado no permite entrada.'
+      );
+      return;
+    }
 
     const limitToSingleDecisionBranch =
       fromNode?.tipo === 'DECISION' &&
       (resolvedSourcePort === 'LEFT' || resolvedSourcePort === 'RIGHT');
 
     const previousConnections = this.conexiones();
+    const parallelGatewayConnectionError = this.validateParallelGatewayConnectionRules(
+      fromNode,
+      toNode,
+      cs.fromNodeId,
+      toId,
+      resolvedSourcePort,
+      resolvedPort,
+      previousConnections
+    );
+    if (parallelGatewayConnectionError) {
+      this.toast.error('Conexión inválida', parallelGatewayConnectionError);
+      return;
+    }
+
     const removedBranchConnections = limitToSingleDecisionBranch
       ? previousConnections.filter(
           (connection) =>
@@ -2486,9 +2863,90 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     return this.connectState()?.fromNodeId === nodeId;
   }
 
+  isConnectSourcePort(nodeId: string, port: ConnectionPort): boolean {
+    const cs = this.connectState();
+    return !!cs && cs.fromNodeId === nodeId && cs.fromPort === port;
+  }
+
   canConnectToNode(nodeId: string): boolean {
     const cs = this.connectState();
     return !!cs && cs.fromNodeId !== nodeId;
+  }
+
+  canConnectToPort(node: NodoCanvas, port: ConnectionPort): boolean {
+    const cs = this.connectState();
+    return !!cs && cs.fromNodeId !== node.id && this.isNodePortInput(node, port);
+  }
+
+  isDirectionalGateway(node: NodoCanvas): boolean {
+    return node.tipo === 'FORK' || node.tipo === 'JOIN';
+  }
+
+  hasNodePort(node: NodoCanvas, port: ConnectionPort): boolean {
+    return this.isNodePortInput(node, port) || this.isNodePortOutput(node, port);
+  }
+
+  isNodePortInput(node: NodoCanvas, port: ConnectionPort): boolean {
+    switch (node.tipo) {
+      case 'INICIO':
+        return false;
+      case 'FIN':
+        return port === 'LEFT';
+      case 'ACTIVIDAD':
+        return (
+          port === 'LEFT' ||
+          port === 'RIGHT' ||
+          port === 'TOP' ||
+          port === 'BOTTOM'
+        );
+      case 'DECISION':
+        if (!this.canDecisionUseBranchPorts(node.id)) {
+          return port === 'TOP';
+        }
+        return port === 'LEFT' || port === 'RIGHT' || port === 'TOP';
+      case 'FORK':
+        return port === 'TOP';
+      case 'JOIN':
+        return port === 'LEFT' || port === 'RIGHT';
+      default:
+        return false;
+    }
+  }
+
+  isNodePortOutput(node: NodoCanvas, port: ConnectionPort): boolean {
+    switch (node.tipo) {
+      case 'INICIO':
+        return port === 'RIGHT';
+      case 'FIN':
+        return false;
+      case 'ACTIVIDAD':
+        return (
+          port === 'LEFT' ||
+          port === 'RIGHT' ||
+          port === 'TOP' ||
+          port === 'BOTTOM'
+        );
+      case 'DECISION':
+        if (!this.canDecisionUseBranchPorts(node.id)) {
+          return port === 'TOP';
+        }
+        return port === 'LEFT' || port === 'RIGHT' || port === 'TOP';
+      case 'FORK':
+        return port === 'LEFT' || port === 'RIGHT';
+      case 'JOIN':
+        return port === 'BOTTOM';
+      default:
+        return false;
+    }
+  }
+
+  canDecisionUseBranchPorts(nodeId: string): boolean {
+    const node = this.nodos().find((n) => n.id === nodeId);
+    if (!node || node.tipo !== 'DECISION') {
+      return true;
+    }
+
+    return this.hasDecisionIncomingConnection(nodeId);
   }
 
   hasDecisionBranchConnection(nodeId: string, sourcePort: 'LEFT' | 'RIGHT'): boolean {
@@ -2497,6 +2955,122 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         connection.origen === nodeId &&
         this.getConnectionSourcePort(connection) === sourcePort
     );
+  }
+
+  private hasDecisionIncomingConnection(nodeId: string): boolean {
+    return this.conexiones().some((connection) => connection.destino === nodeId);
+  }
+
+  private validateParallelGatewayConnectionRules(
+    fromNode: NodoCanvas | undefined,
+    toNode: NodoCanvas | undefined,
+    fromId: string,
+    toId: string,
+    sourcePort: ConnectionPort,
+    targetPort: ConnectionTargetPort,
+    connections: ReadonlyArray<Conexion>
+  ): string | null {
+    if (!fromNode || !toNode) {
+      return null;
+    }
+
+    if (fromNode.tipo === 'FORK' && sourcePort !== 'LEFT' && sourcePort !== 'RIGHT') {
+      return 'El nodo FORK debe salir por los puertos laterales (izquierda/derecha).';
+    }
+
+    if (toNode.tipo === 'FORK' && targetPort !== 'TOP') {
+      return 'El nodo FORK recibe su entrada por el puerto superior.';
+    }
+
+    if (toNode.tipo === 'JOIN' && targetPort !== 'LEFT' && targetPort !== 'RIGHT') {
+      return 'El nodo JOIN recibe entradas por los puertos laterales (izquierda/derecha).';
+    }
+
+    if (fromNode.tipo === 'JOIN' && sourcePort !== 'BOTTOM') {
+      return 'El nodo JOIN sale por el puerto inferior.';
+    }
+
+    if (toNode.tipo === 'FORK') {
+      const hasIncomingFromAnotherNode = connections.some(
+        (connection) => connection.destino === toId && connection.origen !== fromId
+      );
+      if (hasIncomingFromAnotherNode) {
+        return 'El nodo FORK solo permite una entrada.';
+      }
+    }
+
+    if (fromNode.tipo === 'JOIN') {
+      const hasOutgoingToAnotherNode = connections.some(
+        (connection) => connection.origen === fromId && connection.destino !== toId
+      );
+      if (hasOutgoingToAnotherNode) {
+        return 'El nodo JOIN solo permite una salida.';
+      }
+    }
+
+    return null;
+  }
+
+  private validateParallelGatewayTopology(
+    nodes: ReadonlyArray<NodoCanvas> = this.nodos(),
+    connections: ReadonlyArray<Conexion> = this.conexiones()
+  ): { nodeId: string; message: string } | null {
+    for (const node of nodes) {
+      if (node.tipo !== 'FORK' && node.tipo !== 'JOIN') {
+        continue;
+      }
+
+      const incoming = connections.filter(
+        (connection) => connection.destino === node.id
+      ).length;
+      const outgoing = connections.filter(
+        (connection) => connection.origen === node.id
+      ).length;
+      const nodeLabel = this.getNodeValidationLabel(node);
+
+      if (node.tipo === 'FORK') {
+        if (incoming !== 1) {
+          return {
+            nodeId: node.id,
+            message: `${nodeLabel} debe tener exactamente 1 entrada.`,
+          };
+        }
+
+        if (outgoing < 2) {
+          return {
+            nodeId: node.id,
+            message: `${nodeLabel} debe tener 2 o más salidas.`,
+          };
+        }
+
+        continue;
+      }
+
+      if (incoming < 2) {
+        return {
+          nodeId: node.id,
+          message: `${nodeLabel} debe tener 2 o más entradas.`,
+        };
+      }
+
+      if (outgoing !== 1) {
+        return {
+          nodeId: node.id,
+          message: `${nodeLabel} debe tener exactamente 1 salida.`,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  private getNodeValidationLabel(node: Pick<NodoCanvas, 'id' | 'nombre'>): string {
+    const name = node.nombre?.trim();
+    if (!name) {
+      return `El nodo ${node.id}`;
+    }
+
+    return `El nodo "${name}" (${node.id})`;
   }
 
   deleteConexion(origen: string, destino: string): void {
@@ -2651,11 +3225,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   hasTopInputPort(tipo: TipoNodo): boolean {
-    return tipo === 'ACTIVIDAD' || tipo === 'DECISION' || tipo === 'FORK' || tipo === 'JOIN';
+    return tipo === 'ACTIVIDAD' || tipo === 'DECISION' || tipo === 'FORK';
   }
 
   hasBottomPort(tipo: TipoNodo): boolean {
-    return tipo === 'ACTIVIDAD';
+    return tipo === 'ACTIVIDAD' || tipo === 'JOIN';
   }
 
   getNodeTopInputLocalY(tipo: TipoNodo): number {
@@ -2666,6 +3240,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   getNodeBottomInputLocalY(tipo: TipoNodo): number {
+    if (tipo === 'JOIN') return 20;
     return this.getNodeHeight(tipo);
   }
 
@@ -2801,12 +3376,63 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   getResponsableNombre(node: NodoCanvas): string {
     if (node.tipo !== 'ACTIVIDAD' || !node.responsableId || !node.responsableTipo) return 'Sin asignar';
     if (node.responsableTipo === 'USUARIO') {
+      if (
+        node.responsableId === this.RESPONSABLE_USUARIO_FINAL_ID ||
+        node.responsableId === this.RESPONSABLE_INICIADOR_TRAMITE_ID
+      ) {
+        return 'Quien inicio el tramite';
+      }
+
       const u = this.usuarios().find(x => x.id === node.responsableId);
       return u ? u.nombre : 'Usuario no encontrado';
     } else {
       const d = this.departamentos().find(x => x.id === node.responsableId);
       return d ? d.nombre : 'Depto no encontrado';
     }
+  }
+
+  getResponsableTipoSelectValue(node: NodoCanvas | null | undefined): string {
+    if (!node || node.tipo !== 'ACTIVIDAD' || !node.responsableTipo) {
+      return '';
+    }
+
+    if (node.responsableTipo === 'DEPARTAMENTO') {
+      return 'DEPARTAMENTO';
+    }
+
+    if (
+      node.responsableId === this.RESPONSABLE_USUARIO_FINAL_ID ||
+      node.responsableId === this.RESPONSABLE_INICIADOR_TRAMITE_ID
+    ) {
+      return 'INICIADOR_TRAMITE';
+    }
+
+    return 'USUARIO';
+  }
+
+  isResponsableUsuarioEspecifico(node: NodoCanvas | null | undefined): boolean {
+    return this.getResponsableTipoSelectValue(node) === 'USUARIO';
+  }
+
+  isResponsableNodeInvalid(node: NodoCanvas | null | undefined): boolean {
+    if (!node || node.tipo !== 'ACTIVIDAD') {
+      return false;
+    }
+
+    const selection = this.getResponsableTipoSelectValue(node);
+    if (!selection) {
+      return true;
+    }
+
+    if (selection === 'USUARIO') {
+      return !node.responsableId;
+    }
+
+    if (selection === 'DEPARTAMENTO') {
+      return !node.departamentoId;
+    }
+
+    return false;
   }
 
   private getNodeVersion(nodeId: string): number | undefined {
@@ -2988,7 +3614,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     if (deptId === 'CREATE_NEW') {
       this.pendingNodeFromPalette = null;
       this.creatingNewDept.set(true);
-      this.deptModalMode.set('NODE');
       this.showDeptModal.set(true);
       return;
     }
@@ -3062,16 +3687,39 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const responsableTipo = (tipo === 'USUARIO' || tipo === 'DEPARTAMENTO') ? tipo as ResponsableTipo : null;
+    const selection = (tipo || '').trim();
+
     this.nodos.update((ns) =>
       ns.map((n) => {
         if (n.id !== id) return n;
 
-        if (n.responsableTipo === responsableTipo) {
+        const nextResponsableTipo: ResponsableTipo | null =
+          selection === 'DEPARTAMENTO' ||
+          selection === 'USUARIO' ||
+          selection === 'INICIADOR_TRAMITE'
+            ? (selection === 'DEPARTAMENTO' ? 'DEPARTAMENTO' : 'USUARIO')
+            : null;
+
+        const nextResponsableId =
+          selection === 'DEPARTAMENTO'
+            ? n.departamentoId
+            : selection === 'USUARIO'
+              ? n.responsableId === this.RESPONSABLE_USUARIO_FINAL_ID ||
+                n.responsableId === this.RESPONSABLE_INICIADOR_TRAMITE_ID
+                ? null
+                : n.responsableId
+              : selection === 'INICIADOR_TRAMITE'
+                  ? this.RESPONSABLE_INICIADOR_TRAMITE_ID
+                  : null;
+
+        if (
+          n.responsableTipo === nextResponsableTipo &&
+          n.responsableId === nextResponsableId
+        ) {
           return n;
         }
 
-        if (!responsableTipo) {
+        if (!nextResponsableTipo) {
           return {
             ...n,
             responsableTipo: null,
@@ -3079,19 +3727,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           };
         }
 
-        if (responsableTipo === 'DEPARTAMENTO') {
+        if (nextResponsableTipo === 'DEPARTAMENTO') {
           return {
             ...n,
-            responsableTipo,
+            responsableTipo: nextResponsableTipo,
             // Para DEPARTAMENTO no se selecciona usuario; se usa el depto del carril.
-            responsableId: n.departamentoId,
+            responsableId: nextResponsableId,
           };
         }
 
         return {
           ...n,
-          responsableTipo,
-          responsableId: null,
+          responsableTipo: nextResponsableTipo,
+          responsableId: nextResponsableId,
         };
       })
     );
@@ -3165,7 +3813,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.editingDeptId.set(null);
     this.editDeptName.set('');
     this.pendingNodeFromPalette = null;
-    this.deptModalMode.set('NODE');
     this.showDeptModal.set(false);
   }
 
@@ -3188,11 +3835,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         this.savingDept.set(false);
         this.creatingNewDept.set(false);
         this.toast.success('Éxito', 'Departamento creado');
-
-        if (this.deptModalMode() === 'LANE') {
-          this.addManualLaneByDeptId(d.id);
-          return;
-        }
 
         if (this.pendingNodeFromPalette) {
           this.selectDeptForPending(d.id);
@@ -3329,12 +3971,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
             this.toPersistedCoordinate(reassignedNode.x, this.CANVAS_ORIGIN_X),
             this.toPersistedCoordinate(reassignedNode.y, this.CANVAS_ORIGIN_Y)
           );
-        }
-
-        this.manualLaneDeptIds.update((laneIds) => laneIds.filter((laneId) => laneId !== id));
-        const policyId = this.politica()?.id;
-        if (policyId) {
-          this.persistUiPreferences(policyId);
         }
         this.savingDept.set(false);
         this.scheduleAutoSave(true);

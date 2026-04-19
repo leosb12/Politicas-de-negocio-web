@@ -1,9 +1,10 @@
-import { Conexion, Nodo } from './politica.model';
+import { Conexion, LaneOrientation, Nodo } from './politica.model';
 
 export type ColaboracionEventTipo =
   | 'CREATE_NODE'
   | 'UPDATE_NODE'
   | 'MOVE_NODE'
+  | 'UPDATE_CANVAS_CONFIG'
   | 'DELETE_NODE'
   | 'CREATE_EDGE'
   | 'DELETE_EDGE'
@@ -34,6 +35,9 @@ export interface ColaboracionEventoRequest {
   expectedNodeVersion?: number;
   posX?: number;
   posY?: number;
+  laneOrientation?: LaneOrientation;
+  laneWidth?: number;
+  laneHeight?: number;
   nodo?: Partial<ColaboracionNodo>;
   conexion?: Conexion;
   nodos?: ColaboracionNodo[];
@@ -52,6 +56,9 @@ export interface ColaboracionEventoAplicado {
   nodeVersion?: number;
   posX?: number;
   posY?: number;
+  laneOrientation?: LaneOrientation;
+  laneWidth?: number;
+  laneHeight?: number;
   nodo?: ColaboracionNodo;
   conexion?: Conexion;
   nodos?: ColaboracionNodo[];
@@ -63,6 +70,9 @@ export interface ColaboracionEstadoSnapshot {
   politicaId?: string;
   secuencia?: number;
   secuenciaActual?: number;
+  laneOrientation?: LaneOrientation;
+  laneWidth?: number;
+  laneHeight?: number;
   nodos?: ColaboracionNodo[];
   conexiones?: Conexion[];
   timestamp?: string;
@@ -125,6 +135,9 @@ export interface ColaboracionFlowState {
   secuencia: number;
   nodos: ColaboracionNodo[];
   conexiones: Conexion[];
+  laneOrientation?: LaneOrientation;
+  laneWidth?: number;
+  laneHeight?: number;
   lastEventId?: string;
   updatedAt?: string;
 }

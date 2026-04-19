@@ -7,6 +7,7 @@
 export type TipoNodo = 'INICIO' | 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' | 'FIN';
 export type TipoCampo = 'TEXTO' | 'NUMERO' | 'BOOLEANO' | 'ARCHIVO' | 'FECHA';
 export type EstadoPolitica = 'BORRADOR' | 'ACTIVA' | 'PAUSADA' | 'DESHABILITADA';
+export type LaneOrientation = 'HORIZONTAL' | 'VERTICAL';
 
 /**
  * Tipo del responsable LÓGICO de ejecución de una ACTIVIDAD.
@@ -101,6 +102,9 @@ export interface PoliticaNegocio {
   nombre: string;
   descripcion: string;
   estado: EstadoPolitica;
+  laneOrientation?: LaneOrientation | null;
+  laneWidth?: number | null;
+  laneHeight?: number | null;
   nodos: Nodo[];
   conexiones: Conexion[];
   fechaCreacion: string;
@@ -121,6 +125,9 @@ export interface UpdatePoliticaRequest {
 export interface UpdateFlujoRequest {
   nodos: Nodo[];
   conexiones: Conexion[];
+  laneOrientation?: LaneOrientation | null;
+  laneWidth?: number | null;
+  laneHeight?: number | null;
 }
 
 export interface CambiarEstadoRequest {

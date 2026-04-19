@@ -365,44 +365,11 @@
   line-height: 1.4;
 }
 
-.palette-divider {
-  height: 1px;
-  background: rgba(255,255,255,0.07);
-  margin: 0.5rem 0;
-}
-
 .lane-controls {
   display: flex;
   flex-direction: column;
   gap: 0.38rem;
   padding: 0.15rem 0 0.35rem;
-}
-
-.btn-lane-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  width: 100%;
-  border: 1px solid rgba(99, 102, 241, 0.45);
-  background: rgba(99, 102, 241, 0.17);
-  color: #c7d2fe;
-  border-radius: 8px;
-  padding: 0.42rem 0.5rem;
-  font-size: 0.74rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-lane-add:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.26);
-  color: #eef2ff;
-}
-
-.btn-lane-add:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .btn-lane-orientation {
@@ -454,7 +421,6 @@
   flex-shrink: 0;
 }
 
-/* ─── Canvas Viewport ──────────────────────────────────────────── */
 .canvas-viewport {
   flex: 1;
   overflow: hidden;
@@ -466,20 +432,17 @@
   cursor: grab;
 }
 
-.canvas-viewport.is-panning {
-  cursor: grabbing;
-}
-
-.canvas-viewport.is-read-only {
-  cursor: grab;
-}
-
 .canvas-svg {
   display: block;
   will-change: transform;
   position: absolute;
   top: 0;
   left: 0;
+}
+
+.lane-resize-handle {
+  fill: rgba(165, 180, 252, 0.18);
+  stroke: rgba(165, 180, 252, 0.45);
 }
 
 .canvas-readonly-overlay {
@@ -520,7 +483,6 @@
   font-size: 0.72rem;
 }
 
-/* ─── Node interactions (via SVG) ──────────────────────────────── */
 .node-group {
   cursor: move;
   user-select: none;
@@ -567,7 +529,7 @@
 .node-port .port-ring {
   stroke: #6366f1;
   stroke-width: 2;
-  fill: rgba(99, 102, 241, 0.18);
+  fill: rgba(99, 102, 241, 0.14);
   transition: all 0.18s ease;
 }
 
@@ -576,6 +538,16 @@
   stroke: #312e81;
   stroke-width: 1.2;
   transition: all 0.18s ease;
+}
+
+.node-port.port-input .port-ring {
+  stroke: #22d3ee;
+  fill: rgba(34, 211, 238, 0.16);
+}
+
+.node-port.port-output .port-ring {
+  stroke: #22c55e;
+  fill: rgba(34, 197, 94, 0.18);
 }
 
 .node-port:hover .port-ring {
@@ -600,39 +572,28 @@
   fill: #4ade80;
 }
 
-.port-input-top .port-ring {
+.node-port.port-input.port-input-top .port-ring {
   stroke: #22d3ee;
   fill: rgba(34, 211, 238, 0.16);
 }
 
-.port-input-top .port-core {
+.node-port.port-input.port-input-top .port-core {
   fill: #67e8f9;
 }
 
-.port-input-bottom .port-ring {
+.node-port.port-input.port-input-bottom .port-ring {
   stroke: #f97316;
   fill: rgba(249, 115, 22, 0.16);
 }
 
-.port-input-bottom .port-core {
+.node-port.port-input.port-input-bottom .port-core {
   fill: #fdba74;
 }
 
 .decision-port-label {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   pointer-events: none;
-  user-select: none;
-}
-
-.decision-port-label-left {
-  fill: #fda4af;
-}
-
-.decision-port-label-right {
-  fill: #86efac;
 }
 
 .node-collab-outline {

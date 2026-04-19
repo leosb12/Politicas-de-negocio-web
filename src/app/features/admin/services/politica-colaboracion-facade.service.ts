@@ -8,7 +8,7 @@ import {
   of,
   catchError,
 } from 'rxjs';
-import { Conexion, EstadoPolitica } from '../models/politica.model';
+import { Conexion, EstadoPolitica, LaneOrientation } from '../models/politica.model';
 import {
   ColaboracionActor,
   ColaboracionErrorPayload,
@@ -31,6 +31,9 @@ interface StartSessionInput {
   actor: ColaboracionActor;
   initialNodos: ColaboracionNodo[];
   initialConexiones: Conexion[];
+  initialLaneOrientation?: LaneOrientation;
+  initialLaneWidth?: number;
+  initialLaneHeight?: number;
 }
 
 interface PendingEdgeMutation {
@@ -99,6 +102,9 @@ export class PoliticaColaboracionFacadeService {
       secuencia: 0,
       nodos: [...input.initialNodos],
       conexiones: [...input.initialConexiones],
+      laneOrientation: input.initialLaneOrientation,
+      laneWidth: input.initialLaneWidth,
+      laneHeight: input.initialLaneHeight,
       updatedAt: new Date().toISOString(),
     });
 
@@ -243,6 +249,37 @@ export class PoliticaColaboracionFacadeService {
       nodos: nodos.map((n) => this.normalizeNodePayload(n) as ColaboracionNodo),
       conexiones,
     });
+  }
+
+  emitUpdateCanvasConfig(config: {
+    laneOrientation?: LaneOrientation;
+    laneWidth?: number;
+    laneHeight?: number;
+  }, options?: { requestSnapshot?: boolean }): void {
+    const current = this.flowStateSubject.value;
+    if (current) {
+      this.flowStateSubject.next({
+        ...current,
+        laneOrientation:
+          this.resolveLaneOrientation(config.laneOrientation) ??
+          current.laneOrientation,
+        laneWidth: this.resolveLaneDimension(config.laneWidth) ?? current.laneWidth,
+        laneHeight:
+          this.resolveLaneDimension(config.laneHeight) ?? current.laneHeight,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    this.publishEvent({
+      tipo: 'UPDATE_CANVAS_CONFIG',
+      laneOrientation: this.resolveLaneOrientation(config.laneOrientation) ?? undefined,
+      laneWidth: this.resolveLaneDimension(config.laneWidth) ?? undefined,
+      laneHeight: this.resolveLaneDimension(config.laneHeight) ?? undefined,
+    });
+
+    if (options?.requestSnapshot) {
+      this.requestServerSync();
+    }
   }
 
   requestResync(reason: string, silent = false): void {
@@ -450,6 +487,9 @@ export class PoliticaColaboracionFacadeService {
   ): ColaboracionFlowState {
     let nextNodes = [...current.nodos];
     let nextConnections = [...current.conexiones];
+    let nextLaneOrientation = current.laneOrientation;
+    let nextLaneWidth = current.laneWidth;
+    let nextLaneHeight = current.laneHeight;
 
     switch (event.tipo) {
       case 'CREATE_NODE': {
@@ -532,6 +572,26 @@ export class PoliticaColaboracionFacadeService {
         break;
       }
 
+      case 'UPDATE_CANVAS_CONFIG': {
+        const eventOrientation = this.resolveLaneOrientation(event.laneOrientation);
+        const eventWidth = this.resolveLaneDimension(event.laneWidth);
+        const eventHeight = this.resolveLaneDimension(event.laneHeight);
+
+        if (eventOrientation) {
+          nextLaneOrientation = eventOrientation;
+        }
+
+        if (typeof eventWidth === 'number') {
+          nextLaneWidth = eventWidth;
+        }
+
+        if (typeof eventHeight === 'number') {
+          nextLaneHeight = eventHeight;
+        }
+
+        break;
+      }
+
       case 'DELETE_NODE': {
         const nodeId = event.nodeId ?? event.nodo?.id;
         if (!nodeId) {
@@ -607,6 +667,19 @@ export class PoliticaColaboracionFacadeService {
           [...event.conexiones],
           current.conexiones
         );
+
+        const eventOrientation = this.resolveLaneOrientation(event.laneOrientation);
+        const eventWidth = this.resolveLaneDimension(event.laneWidth);
+        const eventHeight = this.resolveLaneDimension(event.laneHeight);
+        if (eventOrientation) {
+          nextLaneOrientation = eventOrientation;
+        }
+        if (typeof eventWidth === 'number') {
+          nextLaneWidth = eventWidth;
+        }
+        if (typeof eventHeight === 'number') {
+          nextLaneHeight = eventHeight;
+        }
         break;
       }
 
@@ -618,6 +691,9 @@ export class PoliticaColaboracionFacadeService {
       ...current,
       nodos: nextNodes,
       conexiones: nextConnections,
+      laneOrientation: nextLaneOrientation,
+      laneWidth: nextLaneWidth,
+      laneHeight: nextLaneHeight,
     };
   }
 
@@ -658,12 +734,26 @@ export class PoliticaColaboracionFacadeService {
         )
       : current?.conexiones ?? [];
     const nextConnections = this.applyPendingEdgeMutations(snapshotConnections);
+    const snapshotLaneOrientation = this.resolveLaneOrientation(
+      snapshot.laneOrientation
+    );
+    const snapshotLaneWidth = this.resolveLaneDimension(snapshot.laneWidth);
+    const snapshotLaneHeight = this.resolveLaneDimension(snapshot.laneHeight);
 
     this.flowStateSubject.next({
       politicaId: policyId,
       secuencia: appliedSequence,
       nodos: nextNodes,
       conexiones: nextConnections,
+      laneOrientation: snapshotLaneOrientation ?? current?.laneOrientation,
+      laneWidth:
+        typeof snapshotLaneWidth === 'number'
+          ? snapshotLaneWidth
+          : current?.laneWidth,
+      laneHeight:
+        typeof snapshotLaneHeight === 'number'
+          ? snapshotLaneHeight
+          : current?.laneHeight,
       updatedAt: snapshot.timestamp ?? new Date().toISOString(),
     });
   }
@@ -715,6 +805,22 @@ export class PoliticaColaboracionFacadeService {
     }
 
     return null;
+  }
+
+  private resolveLaneOrientation(value: unknown): LaneOrientation | null {
+    if (value === 'VERTICAL' || value === 'HORIZONTAL') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private resolveLaneDimension(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return null;
+    }
+
+    return value;
   }
 
   private mergeConnectionsPreservingPorts(
@@ -1320,6 +1426,9 @@ export class PoliticaColaboracionFacadeService {
             snapshot.secuenciaActual ??
             this.flowStateSubject.value?.secuencia ??
             0,
+          laneOrientation: snapshot.laneOrientation,
+          laneWidth: snapshot.laneWidth,
+          laneHeight: snapshot.laneHeight,
           nodos: snapshot.nodos,
           conexiones: snapshot.conexiones,
           timestamp: snapshot.timestamp,
@@ -1327,6 +1436,9 @@ export class PoliticaColaboracionFacadeService {
         catchError(() =>
           of({
             secuencia: this.flowStateSubject.value?.secuencia ?? 0,
+            laneOrientation: this.flowStateSubject.value?.laneOrientation,
+            laneWidth: this.flowStateSubject.value?.laneWidth,
+            laneHeight: this.flowStateSubject.value?.laneHeight,
             nodos: this.flowStateSubject.value?.nodos ?? [],
             conexiones: this.flowStateSubject.value?.conexiones ?? [],
             timestamp: new Date().toISOString(),
@@ -1337,6 +1449,9 @@ export class PoliticaColaboracionFacadeService {
         next: (snapshot) => {
           this.applySnapshot({
             secuencia: snapshot.secuencia,
+            laneOrientation: snapshot.laneOrientation,
+            laneWidth: snapshot.laneWidth,
+            laneHeight: snapshot.laneHeight,
             nodos: snapshot.nodos,
             conexiones: snapshot.conexiones,
             timestamp: snapshot.timestamp,

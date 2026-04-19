@@ -231,7 +231,7 @@ export class FuncionarioWorkflowFacadeService {
           this.instanciaPausedWarning.set(null);
           this.toast.success(
             'Tarea completada',
-            'La tarea se completo y el estado fue reconciliado con el backend.'
+            'La tarea se completó y el flujo avanzó correctamente.'
           );
         }),
         catchError((error: unknown) =>

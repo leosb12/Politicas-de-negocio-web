@@ -121,16 +121,6 @@
       <div class="lane-controls">
         <button
           type="button"
-          class="btn-lane-add"
-          id="btn-anadir-carril"
-          (click)="addManualLane()"
-          [disabled]="isCanvasReadOnly()"
-        >
-          <lucide-icon name="plus" [size]="14"></lucide-icon>
-          Añadir carril
-        </button>
-        <button
-          type="button"
           class="btn-lane-orientation"
           [class.is-vertical]="isVerticalLaneOrientation()"
           id="btn-toggle-orientacion-carriles"
@@ -150,7 +140,7 @@
       </div>
 
       <div class="palette-hint">
-        <span>Los nuevos carriles se crean según esta orientación.</span>
+        <span>La orientación se aplica al orden visual de los carriles.</span>
       </div>
 
       <div class="palette-hint">
@@ -159,7 +149,7 @@
 
       @if (!swimlanes().length) {
         <div class="palette-hint">
-          <span>No hay carriles añadidos todavía.</span>
+          <span>No hay carriles aún: se crean automáticamente al asignar actividades a departamentos.</span>
         </div>
       }
 
@@ -237,6 +227,32 @@
               opacity="0.9"
               font-family="Inter, system-ui, sans-serif"
             >{{ lane.label }}</text>
+
+            @if (!isCanvasReadOnly()) {
+              @if (isVerticalLaneOrientation()) {
+                <rect
+                  class="lane-resize-handle"
+                  style="cursor: col-resize;"
+                  [attr.x]="getLaneX(i) + getLaneWidth() - 4"
+                  [attr.y]="getLaneY(i) + 30"
+                  width="8"
+                  height="56"
+                  rx="4"
+                  (mousedown)="startLaneResize($event)"
+                />
+              } @else {
+                <rect
+                  class="lane-resize-handle"
+                  style="cursor: row-resize;"
+                  [attr.x]="getLaneX(i) + 30"
+                  [attr.y]="getLaneY(i) + getLaneHeight() - 4"
+                  width="56"
+                  height="8"
+                  rx="4"
+                  (mousedown)="startLaneResize($event)"
+                />
+              }
+            }
           </g>
         }
 
@@ -334,22 +350,24 @@
               <text x="65" y="44" text-anchor="middle" [attr.fill]="nodeColor(node.tipo)"
                     font-size="11" font-weight="600">{{ node.nombre }}</text>
 
-              @if (hasDecisionBranchConnection(node.id, 'LEFT')) {
+              @if (canDecisionUseBranchPorts(node.id)) {
                 <text
                   x="-12"
                   y="43"
                   text-anchor="end"
-                  class="decision-port-label decision-port-label-left"
-                >no</text>
+                  class="decision-port-label"
+                  fill="#fda4af"
+                >NO</text>
               }
 
-              @if (hasDecisionBranchConnection(node.id, 'RIGHT')) {
+              @if (canDecisionUseBranchPorts(node.id)) {
                 <text
                   x="142"
                   y="43"
                   text-anchor="start"
-                  class="decision-port-label decision-port-label-right"
-                >si</text>
+                  class="decision-port-label"
+                  fill="#86efac"
+                >SI</text>
               }
             }
 
@@ -359,6 +377,18 @@
                     [attr.fill]="nodeColor(node.tipo)" opacity="0.9" />
               <text x="80" y="5" text-anchor="middle" [attr.fill]="nodeColor(node.tipo)"
                     font-size="10" font-weight="700">{{ node.tipo }}</text>
+
+              @if (node.tipo === 'FORK') {
+                <text x="80" y="-3" text-anchor="middle" class="decision-port-label" fill="#67e8f9">IN</text>
+                <text x="-8" y="26" text-anchor="end" class="decision-port-label" fill="#86efac">OUT</text>
+                <text x="168" y="26" text-anchor="start" class="decision-port-label" fill="#86efac">OUT</text>
+              }
+
+              @if (node.tipo === 'JOIN') {
+                <text x="-8" y="26" text-anchor="end" class="decision-port-label" fill="#67e8f9">IN</text>
+                <text x="168" y="26" text-anchor="start" class="decision-port-label" fill="#67e8f9">IN</text>
+                <text x="80" y="34" text-anchor="middle" class="decision-port-label" fill="#86efac">OUT</text>
+              }
             }
 
             <!-- ACTIVIDAD shape: rounded rect -->
@@ -430,12 +460,15 @@
               >{{ getNodeEditorLabel(node.id) }}</text>
             }
 
-            <!-- Connection port (right edge) -->
-            @if (node.tipo !== 'FIN') {
+            <!-- Right edge port -->
+            @if (hasNodePort(node, 'RIGHT')) {
               <g
-                class="node-port port-output"
-                [class.is-active]="isConnectSource(node.id)"
-                [class.is-target]="canConnectToNode(node.id)"
+                class="node-port"
+                [class.port-generic]="!isDirectionalGateway(node)"
+                [class.port-input]="isDirectionalGateway(node) && isNodePortInput(node, 'RIGHT')"
+                [class.port-output]="isDirectionalGateway(node) && isNodePortOutput(node, 'RIGHT')"
+                [class.is-active]="isConnectSourcePort(node.id, 'RIGHT')"
+                [class.is-target]="canConnectToPort(node, 'RIGHT')"
                 (mousedown)="onNodePortMouseDown($event, node.id, 'RIGHT')"
                 (click)="$event.stopPropagation()"
               >
@@ -460,11 +493,15 @@
               </g>
             }
 
-            <!-- Incoming port (left edge) -->
-            @if (node.tipo !== 'INICIO') {
+            <!-- Left edge port -->
+            @if (hasNodePort(node, 'LEFT')) {
               <g
-                class="node-port port-input"
-                [class.is-target]="canConnectToNode(node.id)"
+                class="node-port"
+                [class.port-generic]="!isDirectionalGateway(node)"
+                [class.port-input]="isDirectionalGateway(node) && isNodePortInput(node, 'LEFT')"
+                [class.port-output]="isDirectionalGateway(node) && isNodePortOutput(node, 'LEFT')"
+                [class.is-active]="isConnectSourcePort(node.id, 'LEFT')"
+                [class.is-target]="canConnectToPort(node, 'LEFT')"
                 (mousedown)="onNodePortMouseDown($event, node.id, 'LEFT')"
                 (click)="$event.stopPropagation()"
               >
@@ -489,11 +526,15 @@
               </g>
             }
 
-            <!-- Incoming port (top edge for DECISION/FORK/JOIN) -->
-            @if (hasTopInputPort(node.tipo)) {
+            <!-- Top edge port -->
+            @if (hasNodePort(node, 'TOP')) {
               <g
-                class="node-port port-input port-input-top"
-                [class.is-target]="canConnectToNode(node.id)"
+                class="node-port port-input-top"
+                [class.port-generic]="!isDirectionalGateway(node)"
+                [class.port-input]="isDirectionalGateway(node) && isNodePortInput(node, 'TOP')"
+                [class.port-output]="isDirectionalGateway(node) && isNodePortOutput(node, 'TOP')"
+                [class.is-active]="isConnectSourcePort(node.id, 'TOP')"
+                [class.is-target]="canConnectToPort(node, 'TOP')"
                 (mousedown)="onNodePortMouseDown($event, node.id, 'TOP')"
                 (click)="$event.stopPropagation()"
               >
@@ -518,11 +559,15 @@
               </g>
             }
 
-            <!-- Incoming/Outgoing port (bottom edge for ACTIVIDAD) -->
-            @if (hasBottomPort(node.tipo)) {
+            <!-- Bottom edge port -->
+            @if (hasNodePort(node, 'BOTTOM')) {
               <g
-                class="node-port port-input port-input-bottom"
-                [class.is-target]="canConnectToNode(node.id)"
+                class="node-port port-input-bottom"
+                [class.port-generic]="!isDirectionalGateway(node)"
+                [class.port-input]="isDirectionalGateway(node) && isNodePortInput(node, 'BOTTOM')"
+                [class.port-output]="isDirectionalGateway(node) && isNodePortOutput(node, 'BOTTOM')"
+                [class.is-active]="isConnectSourcePort(node.id, 'BOTTOM')"
+                [class.is-target]="canConnectToPort(node, 'BOTTOM')"
                 (mousedown)="onNodePortMouseDown($event, node.id, 'BOTTOM')"
                 (click)="$event.stopPropagation()"
               >
@@ -586,7 +631,7 @@
       @if (connectState()) {
         <div class="connect-hint flex items-center gap-2">
           <lucide-icon name="link" [size]="14"></lucide-icon>
-          <span>Modo conexión: haz clic en el nodo destino. Clic en fondo para cancelar.</span>
+          <span>Modo conexión: conecta puertos. En JOIN/FORK respeta IN y OUT. Clic en fondo para cancelar.</span>
         </div>
       }
     </div>
@@ -677,17 +722,13 @@
 
           <div
             class="responsable-block"
-            [class.has-error]="
-              !sidebarNode()!.responsableTipo ||
-              (sidebarNode()!.responsableTipo === 'USUARIO' && !sidebarNode()!.responsableId) ||
-              (sidebarNode()!.responsableTipo === 'DEPARTAMENTO' && !sidebarNode()!.departamentoId)
-            "
+            [class.has-error]="isResponsableNodeInvalid(sidebarNode()!)"
           >
             <div class="prop-group" style="margin-bottom: 0.5rem">
               <label class="prop-label">Tipo de Responsable</label>
               <select
                 class="prop-select"
-                [ngModel]="sidebarNode()!.responsableTipo ?? ''"
+                [ngModel]="getResponsableTipoSelectValue(sidebarNode()!)"
                 (ngModelChange)="updateNodeResponsableTipo(sidebarNode()!.id, $event)"
                 [ngModelOptions]="{ standalone: true }"
                 [disabled]="isCanvasReadOnly()"
@@ -695,11 +736,12 @@
               >
                 <option value="">-- Seleccionar --</option>
                 <option value="USUARIO">Usuario Específico</option>
+                <option value="INICIADOR_TRAMITE">Quien inicio el tramite</option>
                 <option value="DEPARTAMENTO">Cualquiera del Departamento</option>
               </select>
             </div>
 
-            @if (sidebarNode()!.responsableTipo === 'USUARIO') {
+            @if (isResponsableUsuarioEspecifico(sidebarNode()!)) {
               <div class="prop-group mb-0">
                 <label class="prop-label">Usuario responsable (funcionarios activos):</label>
                 <select
@@ -729,22 +771,34 @@
                 />
               </div>
             }
+
+            @if (getResponsableTipoSelectValue(sidebarNode()!) === 'INICIADOR_TRAMITE') {
+              <div class="prop-group mb-0">
+                <label class="prop-label">Asignacion automatica:</label>
+                <input
+                  class="prop-input"
+                  type="text"
+                  value="Usuario que inicio el tramite"
+                  readonly
+                />
+              </div>
+            }
             
-            @if (!sidebarNode()!.responsableTipo) {
+            @if (!getResponsableTipoSelectValue(sidebarNode()!)) {
               <div class="responsable-alert mt-2 flex items-start gap-1">
                 <lucide-icon name="alert-circle" [size]="14" class="mt-0.5 text-rose-500 flex-shrink-0"></lucide-icon>
                 <span class="text-xs text-rose-600 font-medium">Selecciona un tipo de responsable.</span>
               </div>
             }
 
-            @if (sidebarNode()!.responsableTipo === 'USUARIO' && !sidebarNode()!.responsableId) {
+            @if (isResponsableUsuarioEspecifico(sidebarNode()!) && !sidebarNode()!.responsableId) {
               <div class="responsable-alert mt-2 flex items-start gap-1">
                 <lucide-icon name="alert-circle" [size]="14" class="mt-0.5 text-rose-500 flex-shrink-0"></lucide-icon>
                 <span class="text-xs text-rose-600 font-medium">Selecciona un usuario responsable.</span>
               </div>
             }
 
-            @if (sidebarNode()!.responsableTipo === 'DEPARTAMENTO' && !sidebarNode()!.departamentoId) {
+            @if (getResponsableTipoSelectValue(sidebarNode()!) === 'DEPARTAMENTO' && !sidebarNode()!.departamentoId) {
               <div class="responsable-alert mt-2 flex items-start gap-1">
                 <lucide-icon name="alert-circle" [size]="14" class="mt-0.5 text-rose-500 flex-shrink-0"></lucide-icon>
                 <span class="text-xs text-rose-600 font-medium">Primero asigna un departamento (carril) a esta actividad.</span>
@@ -1074,14 +1128,10 @@
       
       @if (!creatingNewDept()) {
         <h3 class="modal-sm-title">
-          {{ deptModalMode() === 'LANE' ? 'Añadir carril' : 'Asignar Departamento (Carril)' }}
+          Asignar Departamento (Carril)
         </h3>
         <p class="modal-sm-hint">
-          @if (deptModalMode() === 'LANE') {
-            Selecciona un departamento para crear su carril en orientación {{ laneOrientationLabel }}.
-          } @else {
-            ¿A qué departamento pertenece esta actividad?
-          }
+          ¿A qué departamento pertenece esta actividad?
         </p>
 
         <div class="dept-list">
