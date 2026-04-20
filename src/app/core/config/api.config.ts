@@ -8,4 +8,5 @@ export const API_ENDPOINTS = {
   politicas: `${API_BASE_URL}/api/politicas`,
   tareas: `${API_BASE_URL}/api/tareas`,
   instancias: `${API_BASE_URL}/api/instancias`,
+  archivos: `${API_BASE_URL}/api/archivos`,
 } as const;

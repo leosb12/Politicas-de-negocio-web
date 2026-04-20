@@ -7,7 +7,9 @@ export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
   next
 ) => {
   const isWorkflowRequest =
-    request.url.includes('/api/tareas') || request.url.includes('/api/instancias');
+    request.url.includes('/api/tareas') ||
+    request.url.includes('/api/instancias') ||
+    request.url.includes('/api/archivos');
 
   if (!isWorkflowRequest) {
     return next(request);

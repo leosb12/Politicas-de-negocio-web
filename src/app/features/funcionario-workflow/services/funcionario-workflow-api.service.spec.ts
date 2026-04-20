@@ -6,6 +6,7 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { API_ENDPOINTS } from '../../../core/config/api.config';
 import {
+  ArchivoMetadataResponseDto,
   TareaDetalleResponseDto,
   TareaMiaResponseDto,
 } from '../models/funcionario-workflow.dto';
@@ -181,5 +182,59 @@ describe('FuncionarioWorkflowApiService', () => {
     req.flush(detalleMock);
 
     expect(response?.estadoTarea).toBe('EN_PROCESO');
+  });
+
+  it('sube archivo de tarea a /api/archivos como multipart/form-data', () => {
+    const archivo = new File(['contenido'], 'evidencia.pdf', {
+      type: 'application/pdf',
+    });
+
+    let response: ArchivoMetadataResponseDto | undefined;
+
+    service
+      .subirArchivo({
+        archivo,
+        instanciaId: 'INS-1',
+        tareaId: 'TASK-1',
+        usuarioId: 'USR-1',
+        descripcion: 'Adjunto de prueba',
+      })
+      .subscribe((data) => {
+        response = data;
+      });
+
+    const req = httpMock.expectOne(API_ENDPOINTS.archivos);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body instanceof FormData).toBeTrue();
+
+    const body = req.request.body as FormData;
+    expect(body.get('archivo')).toBe(archivo);
+    expect(body.get('instanciaId')).toBe('INS-1');
+    expect(body.get('tareaId')).toBe('TASK-1');
+    expect(body.get('usuarioId')).toBe('USR-1');
+    expect(body.get('descripcion')).toBe('Adjunto de prueba');
+
+    req.flush({
+      id: 'ARCH-1',
+      nombreOriginal: 'evidencia.pdf',
+      nombreGuardado: 'abc123.pdf',
+      rutaOKey: 'instancias/INS-1/tareas/TASK-1/abc123.pdf',
+      storageType: 'local',
+      contentType: 'application/pdf',
+      extension: 'pdf',
+      tamanoBytes: 9,
+      fechaSubida: '2026-04-19T15:00:00Z',
+      subidoPor: 'USR-1',
+      instanciaId: 'INS-1',
+      actividadId: null,
+      tareaId: 'TASK-1',
+      usuarioId: 'USR-1',
+      estado: 'ACTIVO',
+      descripcion: 'Adjunto de prueba',
+      urlAcceso: 'local://instancias/INS-1/tareas/TASK-1/abc123.pdf',
+      bucket: null,
+    });
+
+    expect(response?.id).toBe('ARCH-1');
   });
 });

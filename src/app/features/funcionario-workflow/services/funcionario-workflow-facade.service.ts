@@ -14,14 +14,20 @@ import {
   tap,
   timer,
 } from 'rxjs';
+import { AuthService } from '../../../core/auth/services/auth.service';
 import { ToastService } from '../../../shared/services/toast.service';
 import {
   CompletarTareaPayload,
   InstanciaDetalle,
   TareaDetalle,
   TareaResumen,
+  WorkflowArchivoMetadata,
   WorkflowUiError,
 } from '../models/funcionario-workflow.model';
+import {
+  ArchivoMetadataResponseDto,
+  SubirArchivoRequestDto,
+} from '../models/funcionario-workflow.dto';
 import {
   classifyWorkflowConflict,
   mapWorkflowUiError,
@@ -43,6 +49,7 @@ import { FuncionarioWorkflowApiService } from './funcionario-workflow-api.servic
 })
 export class FuncionarioWorkflowFacadeService {
   private readonly api = inject(FuncionarioWorkflowApiService);
+  private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
 
   readonly tareas = signal<TareaResumen[]>([]);
@@ -216,9 +223,11 @@ export class FuncionarioWorkflowFacadeService {
     this.detalleAction.set('completar');
     this.detalleError.set(null);
 
-    this.api
-      .completarTarea(tareaId, payload)
+    this.uploadArchivosDePayload$(tareaId, payload)
       .pipe(
+        switchMap((payloadConArchivos) =>
+          this.api.completarTarea(tareaId, payloadConArchivos)
+        ),
         switchMap(() =>
           this.safeParallelRefresh$(
             this.loadDetalleContextRequest$(tareaId, true),
@@ -244,6 +253,73 @@ export class FuncionarioWorkflowFacadeService {
         finalize(() => this.detalleAction.set(null))
       )
       .subscribe();
+  }
+
+  private uploadArchivosDePayload$(
+    tareaId: string,
+    payload: CompletarTareaPayload
+  ): Observable<CompletarTareaPayload> {
+    const archivosPorSubir = Object.entries(payload.formularioRespuesta).filter(
+      (entry): entry is [string, File] => entry[1] instanceof File
+    );
+
+    if (archivosPorSubir.length === 0) {
+      return of(payload);
+    }
+
+    const detalleActual = this.tareaDetalle();
+    const contexto =
+      detalleActual && detalleActual.id === tareaId ? detalleActual : null;
+    const actorId = this.auth.obtenerSesion()?.id ?? null;
+
+    const uploads = archivosPorSubir.map(([campoClave, archivo]) => {
+      const request: SubirArchivoRequestDto = {
+        archivo,
+        tareaId,
+        instanciaId: contexto?.instanciaId ?? null,
+        actividadId: contexto?.actividad.nodoId ?? null,
+        usuarioId: actorId,
+        descripcion: `Adjunto del campo ${campoClave} para tarea ${tareaId}`,
+      };
+
+      return this.api.subirArchivo(request).pipe(
+        map((metadata) =>
+          [campoClave, this.toWorkflowArchivoMetadata(metadata)] as const
+        )
+      );
+    });
+
+    return forkJoin(uploads).pipe(
+      map((metadatas) => {
+        const formularioRespuesta = { ...payload.formularioRespuesta };
+
+        for (const [campoClave, metadata] of metadatas) {
+          formularioRespuesta[campoClave] = metadata;
+        }
+
+        return {
+          ...payload,
+          formularioRespuesta,
+        };
+      })
+    );
+  }
+
+  private toWorkflowArchivoMetadata(
+    metadata: ArchivoMetadataResponseDto
+  ): WorkflowArchivoMetadata {
+    return {
+      archivoId: metadata.id,
+      nombre: metadata.nombreOriginal,
+      nombreOriginal: metadata.nombreOriginal,
+      tipoMime: metadata.contentType ?? 'application/octet-stream',
+      sizeBytes: metadata.tamanoBytes ?? 0,
+      fechaCarga: metadata.fechaSubida ?? new Date().toISOString(),
+      rutaOKey: metadata.rutaOKey ?? null,
+      storageType: metadata.storageType ?? null,
+      urlAcceso: metadata.urlAcceso ?? null,
+      bucket: metadata.bucket ?? null,
+    };
   }
 
   refreshInstanciaPage(instanciaId: string): void {

@@ -85,10 +85,16 @@ describe('TareaFormularioDinamicoComponent', () => {
     component.control(definition.campos[3]).setValue('2026-04-18');
 
     const archivo: WorkflowArchivoMetadata = {
+      archivoId: 'ARCH-1',
       nombre: 'evidencia.pdf',
+      nombreOriginal: 'evidencia.pdf',
       tipoMime: 'application/pdf',
       sizeBytes: 1024,
       fechaCarga: '2026-04-18T10:30:00.000Z',
+      rutaOKey: 'tareas/TASK-1/evidencia.pdf',
+      storageType: 'local',
+      urlAcceso: 'local://tareas/TASK-1/evidencia.pdf',
+      bucket: null,
     };
 
     component.control(definition.campos[4]).setValue(archivo);
@@ -130,5 +136,30 @@ describe('TareaFormularioDinamicoComponent', () => {
 
     expect(component.fieldError(definition.campos[0])).toBeNull();
     expect(component.fieldError(definition.campos[1])).toBeNull();
+  });
+
+  it('emite el File real cuando el usuario selecciona adjunto nuevo', () => {
+    let emittedPayload: unknown;
+
+    component.submitted.subscribe((payload) => {
+      emittedPayload = payload;
+    });
+
+    const archivo = new File(['contenido'], 'evidencia.pdf', {
+      type: 'application/pdf',
+    });
+
+    component.control(definition.campos[0]).setValue('Aprobado con archivo');
+    component.control(definition.campos[1]).setValue('1000');
+    component.control(definition.campos[2]).setValue('true');
+    component.control(definition.campos[4]).setValue(archivo);
+
+    component.onSubmit();
+
+    const payload = emittedPayload as {
+      formularioRespuesta: Record<string, unknown>;
+    };
+
+    expect(payload.formularioRespuesta['adjunto']).toBe(archivo);
   });
 });

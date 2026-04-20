@@ -86,6 +86,9 @@
                     <p>
                       {{ selectedFile(campo)!.tipoMime }} · {{ selectedFile(campo)!.sizeBytes }} bytes
                     </p>
+                    @if (isPendingUpload(campo)) {
+                      <p class="text-amber-700">Pendiente de subir al guardar la tarea</p>
+                    }
                   </div>
 
                   <button

@@ -111,6 +111,36 @@ export interface TareaDetalleResponseDto {
   historialRelevante: HistorialInstanciaEventoDto[] | null;
 }
 
+export interface SubirArchivoRequestDto {
+  archivo: File;
+  instanciaId?: string | null;
+  actividadId?: string | null;
+  tareaId?: string | null;
+  usuarioId?: string | null;
+  descripcion?: string | null;
+}
+
+export interface ArchivoMetadataResponseDto {
+  id: string;
+  nombreOriginal: string;
+  nombreGuardado: string;
+  rutaOKey: string;
+  storageType: string;
+  contentType: string;
+  extension: string | null;
+  tamanoBytes: number;
+  fechaSubida: string;
+  subidoPor: string;
+  instanciaId: string | null;
+  actividadId: string | null;
+  tareaId: string | null;
+  usuarioId: string | null;
+  estado: string;
+  descripcion: string | null;
+  urlAcceso: string | null;
+  bucket: string | null;
+}
+
 export interface CompletarTareaRequestDto {
   formularioRespuesta: Record<string, unknown>;
   observaciones: string | null;

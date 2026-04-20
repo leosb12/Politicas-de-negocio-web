@@ -6,10 +6,16 @@ export type WorkflowFormularioCampoTipo =
   | 'FECHA';
 
 export interface WorkflowArchivoMetadata {
+  archivoId: string | null;
   nombre: string;
+  nombreOriginal: string | null;
   tipoMime: string;
   sizeBytes: number;
   fechaCarga: string;
+  rutaOKey: string | null;
+  storageType: string | null;
+  urlAcceso: string | null;
+  bucket: string | null;
 }
 
 export interface WorkflowFormularioCampo {

@@ -31,7 +31,7 @@ import {
   WorkflowFormularioDefinicion,
 } from '../../models/funcionario-workflow.model';
 
-type DynamicControlValue = string | WorkflowArchivoMetadata | null;
+type DynamicControlValue = string | WorkflowArchivoMetadata | File | null;
 
 @Component({
   selector: 'app-tarea-formulario-dinamico',
@@ -170,16 +170,7 @@ export class TareaFormularioDinamicoComponent {
     const inputElement = event.target as HTMLInputElement;
     const selectedFile = inputElement.files?.[0] ?? null;
 
-    const metadata = selectedFile
-      ? {
-          nombre: selectedFile.name,
-          tipoMime: selectedFile.type || 'application/octet-stream',
-          sizeBytes: selectedFile.size,
-          fechaCarga: new Date().toISOString(),
-        }
-      : null;
-
-    this.control(campo).setValue(metadata);
+    this.control(campo).setValue(selectedFile);
     this.control(campo).markAsTouched();
   }
 
@@ -190,7 +181,15 @@ export class TareaFormularioDinamicoComponent {
 
   selectedFile(campo: WorkflowFormularioCampo): WorkflowArchivoMetadata | null {
     const value = this.control(campo).value;
+    if (value instanceof File) {
+      return this.toLocalFileMetadata(value);
+    }
+
     return this.isArchivoMetadata(value) ? value : null;
+  }
+
+  isPendingUpload(campo: WorkflowFormularioCampo): boolean {
+    return this.control(campo).value instanceof File;
   }
 
   fieldError(campo: WorkflowFormularioCampo): string | null {
@@ -383,6 +382,10 @@ export class TareaFormularioDinamicoComponent {
     rawValue: DynamicControlValue
   ): unknown {
     if (campo.tipo === 'ARCHIVO') {
+      if (rawValue instanceof File) {
+        return rawValue;
+      }
+
       return this.isArchivoMetadata(rawValue) ? rawValue : null;
     }
 
@@ -426,6 +429,21 @@ export class TareaFormularioDinamicoComponent {
   private normalizeText(value: string | null | undefined): string | null {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  private toLocalFileMetadata(file: File): WorkflowArchivoMetadata {
+    return {
+      archivoId: null,
+      nombre: file.name,
+      nombreOriginal: file.name,
+      tipoMime: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      fechaCarga: new Date(file.lastModified || Date.now()).toISOString(),
+      rutaOKey: null,
+      storageType: null,
+      urlAcceso: null,
+      bucket: null,
+    };
   }
 
   private isArchivoMetadata(value: unknown): value is WorkflowArchivoMetadata {

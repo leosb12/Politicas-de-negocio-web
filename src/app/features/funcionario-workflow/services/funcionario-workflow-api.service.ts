@@ -3,8 +3,10 @@ import { inject, Injectable } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
 import { API_ENDPOINTS } from '../../../core/config/api.config';
 import {
+  ArchivoMetadataResponseDto,
   CompletarTareaRequestDto,
   InstanciaDetalleResponseDto,
+  SubirArchivoRequestDto,
   TareaDetalleResponseDto,
   TareaMiaResponseDto,
 } from '../models/funcionario-workflow.dto';
@@ -44,6 +46,19 @@ export class FuncionarioWorkflowApiService {
     return this.withMethodFallback(url, payload);
   }
 
+  subirArchivo(request: SubirArchivoRequestDto): Observable<ArchivoMetadataResponseDto> {
+    const formData = new FormData();
+    formData.append('archivo', request.archivo);
+
+    this.appendFormDataText(formData, 'instanciaId', request.instanciaId);
+    this.appendFormDataText(formData, 'actividadId', request.actividadId);
+    this.appendFormDataText(formData, 'tareaId', request.tareaId);
+    this.appendFormDataText(formData, 'usuarioId', request.usuarioId);
+    this.appendFormDataText(formData, 'descripcion', request.descripcion);
+
+    return this.http.post<ArchivoMetadataResponseDto>(API_ENDPOINTS.archivos, formData);
+  }
+
   getTareasPorInstancia(instanciaId: string): Observable<TareaMiaResponseDto[]> {
     return this.http.get<TareaMiaResponseDto[]>(
       `${this.tareasApiUrl}/instancia/${instanciaId}`
@@ -54,6 +69,19 @@ export class FuncionarioWorkflowApiService {
     return this.http.get<InstanciaDetalleResponseDto>(
       `${this.instanciasApiUrl}/${instanciaId}`
     );
+  }
+
+  private appendFormDataText(
+    formData: FormData,
+    key: string,
+    value: string | null | undefined
+  ): void {
+    const normalized = value?.trim();
+    if (!normalized) {
+      return;
+    }
+
+    formData.append(key, normalized);
   }
 
   private getTareasCompat(path: 'mias' | 'mis'): Observable<TareaMiaResponseDto[]> {
