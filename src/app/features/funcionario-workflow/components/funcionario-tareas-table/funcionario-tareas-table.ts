@@ -67,43 +67,6 @@ export class FuncionarioTareasTableComponent {
     return getPrioridadBadgeVariant(prioridad);
   }
 
-  resumenContexto(tarea: TareaResumen): string | null {
-    const contexto = tarea.contextoResumen;
-    if (!contexto) {
-      return null;
-    }
-
-    const entries = Object.entries(contexto);
-    if (entries.length === 0) {
-      return null;
-    }
-
-    return entries
-      .slice(0, 4)
-      .map(([key, value]) => `${key}: ${this.formatearValor(value)}`)
-      .join(' | ');
-  }
-
-  private formatearValor(value: unknown): string {
-    if (value === null || value === undefined) {
-      return '-';
-    }
-
-    if (
-      typeof value === 'string' ||
-      typeof value === 'number' ||
-      typeof value === 'boolean'
-    ) {
-      return String(value);
-    }
-
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return String(value);
-    }
-  }
-
   detalleVariant(
     tarea: TareaResumen
   ):

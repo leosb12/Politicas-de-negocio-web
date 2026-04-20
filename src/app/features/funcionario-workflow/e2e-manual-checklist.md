@@ -1,7 +1,7 @@
 # Checklist E2E Manual - Funcionario Workflow
 
 1. Iniciar backend Spring Boot en `http://localhost:8080`.
-2. Iniciar frontend con `npm start`.
+2. Iniciar frontend con `npm start` (usa proxy `/api` y `/ws-politicas` hacia `http://localhost:8080`).
 3. Iniciar sesion con usuario `FUNCIONARIO`.
 4. Abrir `/funcionario/tareas` y verificar carga de bandeja real.
 5. Aplicar filtros y busqueda por actividad/codigo tramite.
