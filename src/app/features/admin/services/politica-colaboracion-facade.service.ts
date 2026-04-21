@@ -1233,16 +1233,32 @@ export class PoliticaColaboracionFacadeService {
       return;
     }
 
+    const destination = `/app/politicas/${this.activePolicyId}/eventos`;
+    const eventId = this.generateEventId();
+
     const event: ColaboracionEventoRequest = {
       ...payload,
-      eventId: crypto.randomUUID(),
+      eventId,
       actorUserId: this.actor.userId,
     };
 
-    const wasSent = this.socket.publish(
-      `/app/politicas/${this.activePolicyId}/eventos`,
-      event
-    );
+    // Temporary diagnostics for production socket troubleshooting.
+    console.debug('[COLLAB] publishEvent entered');
+    console.debug('[COLLAB] publishEvent destination', destination);
+    console.debug('[COLLAB] publishEvent payload', event);
+    console.debug('[COLLAB] publishEvent eventId', eventId);
+
+    let wasSent = false;
+    try {
+      wasSent = this.socket.publish(destination, event);
+    } catch (error) {
+      console.error(
+        '[COLLAB] publishEvent failed unexpectedly',
+        { destination, event },
+        error
+      );
+      wasSent = false;
+    }
 
     if (!wasSent) {
       this.errorMessagesSubject.next(
@@ -1250,6 +1266,21 @@ export class PoliticaColaboracionFacadeService {
       );
       this.performFullResync('Evento no enviado por desconexión');
     }
+  }
+
+  private generateEventId(): string {
+    if (globalThis.crypto?.randomUUID) {
+      return globalThis.crypto.randomUUID();
+    }
+
+    return (
+      'evt-' +
+      Date.now() +
+      '-' +
+      Math.random().toString(36).slice(2) +
+      '-' +
+      Math.random().toString(36).slice(2)
+    );
   }
 
   private publishNodeEditing(nodeId: string, editing: boolean): void {
