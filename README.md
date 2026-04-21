@@ -58,12 +58,12 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
 
-## Docker (frontend + backend)
+## Docker (solo frontend)
 
 Este frontend quedo configurado para usar rutas relativas (`/api` y `/ws-politicas`) y evitar hardcodear `localhost`.
 
 - En desarrollo (`npm start`): Angular usa `proxy.conf.json` y reenvia `/api` y `/ws-politicas` a `http://localhost:8080`.
-- En Docker produccion: Nginx sirve el frontend y hace reverse proxy al backend con `FRONTEND_API_UPSTREAM`.
+- En Docker produccion: Nginx sirve el frontend y hace reverse proxy al backend configurado en `FRONTEND_API_UPSTREAM`.
 - En AWS: puedes mantener proxy relativo (recomendado) o definir `API_BASE_URL` con URL completa.
 
 ### Archivos principales
@@ -72,33 +72,34 @@ Este frontend quedo configurado para usar rutas relativas (`/api` y `/ws-politic
 - `.dockerignore`: reduce contexto de build
 - `docker/nginx/default.conf.template`: SPA fallback + reverse proxy API/WS
 - `docker/nginx/runtime-config.js.template`: runtime config por variable de entorno
-- `docker-compose.yml`: levanta backend + frontend (sin MongoDB)
-- `.env.example`: variables de entorno de referencia
+- `docker-compose.yml`: levanta solo frontend
+- `.env`: variables de entorno para runtime
 
-### Levantar todo con Docker Compose
+### Levantar solo frontend con Docker Compose
 
-1. Crear `.env` desde `.env.example` y completar `MONGODB_URI` (MongoDB Atlas).
-2. Construir el JAR del backend (si aun no existe):
+1. Configurar `.env` con alguna de estas opciones:
 
 ```powershell
-cd ..\politicas-de-negocio
-.\mvnw.cmd clean package -DskipTests
+# Opcion A: backend local fuera de Docker (Windows)
+FRONTEND_API_UPSTREAM=host.docker.internal:8080
+API_BASE_URL=
+
+# Opcion B: backend remoto por URL completa
+API_BASE_URL=https://tu-backend.com
 ```
 
-3. Levantar frontend + backend:
+2. Levantar frontend:
 
 ```powershell
-cd ..\politicas-negocio-web
 docker compose up --build -d
 ```
 
-4. URLs locales:
+3. URL local:
 
 - Frontend: `http://localhost:4200`
-- Backend publicado: `http://localhost:8080`
 
 ### URL de API por entorno
 
 - `npm start`: frontend llama a `/api` y el proxy de Angular redirige a `http://localhost:8080`.
-- `docker compose`: frontend llama a `/api` y Nginx redirige internamente a `backend:8080`.
+- `docker compose`: frontend llama a `/api` y Nginx redirige a `FRONTEND_API_UPSTREAM` (por defecto `host.docker.internal:8080`).
 - AWS: dejar `API_BASE_URL` vacio para proxy relativo, o definir una URL completa si separas frontend/backend por dominio.
