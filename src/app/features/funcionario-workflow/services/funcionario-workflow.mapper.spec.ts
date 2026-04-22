@@ -27,7 +27,7 @@ describe('funcionario-workflow.mapper', () => {
       responsableId: 'USR-1',
       codigoTramite: 'TRM-001',
       estadoInstancia: 'EN_PROCESO',
-      contextoResumen: 'Proveedor nuevo',
+      contextoResumen: { detalle: 'Proveedor nuevo' },
     };
 
     const mapped = mapTareaMiaDto(dto);

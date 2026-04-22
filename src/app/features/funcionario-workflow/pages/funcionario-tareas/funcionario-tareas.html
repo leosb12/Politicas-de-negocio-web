@@ -1,36 +1,56 @@
-<section class="space-y-5">
-  <app-card className="p-5">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <p class="text-xs uppercase tracking-wide text-slate-500">Workflow funcionario</p>
-        <h2 class="mt-1 text-2xl font-bold text-slate-900">Bandeja de tareas</h2>
-        <p class="mt-1 text-sm text-slate-600">
-          El funcionario solo ejecuta tareas: al completar una, el sistema avanza automaticamente al siguiente paso.
-        </p>
-      </div>
-
+<section class="space-y-4 pb-8">
+  <!-- Header -->
+  <div class="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-900">Dashboard Funcionario</h2>
+    </div>
+    
+    <div class="flex items-center gap-3">
       @if (facade.bandejaSyncing()) {
-        <span class="text-xs text-slate-500">Sincronizando automaticamente...</span>
+        <span class="text-xs font-medium text-slate-500">Sincronizando...</span>
       }
+      <app-button variant="outline" (click)="recargar()" [disabled]="facade.bandejaLoading()">
+        Refrescar
+      </app-button>
     </div>
+  </div>
 
-    <div class="mt-4 grid gap-3 sm:grid-cols-3">
-      <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-        <p class="text-xs uppercase tracking-wide text-red-700">Pendientes</p>
-        <p class="text-2xl font-bold text-red-800">{{ totalPendientes() }}</p>
-      </div>
-
-      <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-        <p class="text-xs uppercase tracking-wide text-amber-700">En proceso</p>
-        <p class="text-2xl font-bold text-amber-800">{{ totalEnProceso() }}</p>
-      </div>
-
-      <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p class="text-xs uppercase tracking-wide text-emerald-700">Completadas</p>
-        <p class="text-2xl font-bold text-emerald-800">{{ totalCompletadas() }}</p>
-      </div>
+  <!-- Filters -->
+  <div class="rounded-xl bg-white p-4 shadow-sm border border-slate-200 flex flex-wrap gap-4 items-end mb-2">
+    <div class="flex-1 min-w-[200px]">
+      <app-input
+        [label]="'Búsqueda inteligente'"
+        type="search"
+        [placeholder]="'Actividad, código, política...'"
+        [formControl]="searchControl"
+      />
     </div>
-  </app-card>
+    <div class="w-full sm:w-48">
+      <app-select
+        [label]="'Estado'"
+        [formControl]="estadoControl"
+      >
+        @for (option of estadoOptions; track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </app-select>
+    </div>
+    <div class="w-full sm:w-48">
+      <app-select
+        [label]="'Prioridad'"
+        [formControl]="prioridadControl"
+      >
+        @for (option of prioridadOptions; track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </app-select>
+    </div>
+    <div>
+      <app-button variant="outline" (click)="limpiarFiltros()">
+        Limpiar
+      </app-button>
+    </div>
+  </div>
 
   @if (facade.bandejaError()) {
     <app-alert
@@ -40,51 +60,110 @@
     />
   }
 
-  <app-card className="p-5">
-    <div class="grid gap-3 md:grid-cols-3">
-      <app-input
-        [label]="'Buscar tarea'"
-        type="search"
-        [placeholder]="'Actividad o codigo de tramite'"
-        [formControl]="searchControl"
-      />
+  @if (facade.bandejaLoading()) {
+    <div class="p-8 text-center text-slate-500">Cargando tablero...</div>
+  } @else {
+    <!-- KANBAN BOARD LEAN -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+      
+      <!-- COLUMN: PENDIENTE -->
+      <div class="flex flex-col rounded-xl bg-red-100 border border-red-200">
+        <div class="px-4 py-3 border-b border-red-200 bg-red-200/50 rounded-t-xl">
+          <h3 class="font-bold text-red-900 flex justify-between items-center">
+            Pendientes
+            <span class="bg-red-50 text-red-900 px-2 py-0.5 rounded-full text-xs font-bold">{{ tareasPendientes().length }}</span>
+          </h3>
+        </div>
+        <div class="p-3 grid grid-cols-1 xl:grid-cols-2 gap-3 min-h-[200px] content-start items-start">
+          @for (tarea of tareasPendientes(); track tarea.id) {
+            <ng-container *ngTemplateOutlet="taskCard; context: { $implicit: tarea, type: 'pending' }"></ng-container>
+          } @empty {
+            <p class="text-center text-red-600 text-sm py-4">No hay tareas pendientes</p>
+          }
+        </div>
+      </div>
 
-      <app-select
-        [label]="'Estado de tarea'"
-        [formControl]="estadoControl"
-      >
-        @for (option of estadoOptions; track option) {
-          <option [value]="option">{{ option }}</option>
-        }
-      </app-select>
+      <!-- COLUMN: EN PROCESO -->
+      <div class="flex flex-col rounded-xl bg-amber-100 border border-amber-200">
+        <div class="px-4 py-3 border-b border-amber-200 bg-amber-200/50 rounded-t-xl">
+          <h3 class="font-bold text-amber-900 flex justify-between items-center">
+            En Proceso
+            <span class="bg-amber-50 text-amber-900 px-2 py-0.5 rounded-full text-xs font-bold">{{ tareasEnProcesoList().length }}</span>
+          </h3>
+        </div>
+        <div class="p-3 grid grid-cols-1 xl:grid-cols-2 gap-3 min-h-[200px] content-start items-start">
+          @for (tarea of tareasEnProcesoList(); track tarea.id) {
+            <ng-container *ngTemplateOutlet="taskCard; context: { $implicit: tarea, type: 'progress' }"></ng-container>
+          } @empty {
+            <p class="text-center text-amber-700 text-sm py-4">No hay tareas en proceso</p>
+          }
+        </div>
+      </div>
 
-      <div class="flex items-end">
-        <app-button
-          variant="outline"
-          [disabled]="facade.bandejaLoading()"
-          (click)="limpiarFiltros()"
-        >
-          Limpiar filtros
-        </app-button>
+      <!-- COLUMN: COMPLETADA -->
+      <div class="flex flex-col rounded-xl bg-emerald-100 border border-emerald-200">
+        <div class="px-4 py-3 border-b border-emerald-200 bg-emerald-200/50 rounded-t-xl">
+          <h3 class="font-bold text-emerald-900 flex justify-between items-center">
+            Completadas
+            <span class="bg-emerald-50 text-emerald-900 px-2 py-0.5 rounded-full text-xs font-bold">{{ tareasCompletadasList().length }}</span>
+          </h3>
+        </div>
+        <div class="p-3 grid grid-cols-1 xl:grid-cols-2 gap-3 min-h-[200px] content-start items-start">
+          @for (tarea of tareasCompletadasList(); track tarea.id) {
+            <ng-container *ngTemplateOutlet="taskCard; context: { $implicit: tarea, type: 'completed' }"></ng-container>
+          } @empty {
+            <p class="text-center text-emerald-700 text-sm py-4">No hay tareas completadas</p>
+          }
+        </div>
       </div>
     </div>
-  </app-card>
-
-  @if (facade.bandejaLoading()) {
-    <app-loader message="Cargando bandeja del funcionario..." />
-  } @else if (tareasFiltradas().length === 0) {
-    <app-empty-state
-      title="Sin tareas para mostrar"
-      message="No hay resultados para los filtros aplicados."
-      actionLabel="Quitar filtros"
-      (action)="limpiarFiltros()"
-    />
-  } @else {
-    <app-funcionario-tareas-table
-      [tareas]="tareasFiltradas()"
-      [actionTareaId]="facade.bandejaActionTareaId()"
-      (verDetalle)="verDetalle($event)"
-      (tomar)="tomarTarea($event)"
-    />
   }
 </section>
+
+<!-- Reusable Task Card Template (Lean) -->
+<ng-template #taskCard let-tarea let-type="type">
+  <div 
+    (click)="verDetalle(tarea.id)"
+    class="bg-white rounded-lg p-3 shadow-sm border border-slate-200 cursor-pointer hover:bg-slate-50 hover:border-slate-300 flex flex-col gap-2 transition-colors"
+  >
+    <div class="flex justify-between items-start">
+      <div class="text-xs text-slate-500 font-medium">
+        {{ tarea.codigoTramite || 'Sin código' }}
+      </div>
+      <div class="text-[10px] text-slate-400 font-medium text-right">
+        {{ tarea.fechaCreacion | date:'dd/MM/yyyy HH:mm':'-0400' }}<br/>
+        <span class="text-[8px] opacity-70">Hora Bolivia</span>
+      </div>
+    </div>
+    
+    <div class="font-bold text-slate-800 text-sm leading-tight">
+      {{ tarea.nombreActividad }}
+    </div>
+
+    <div class="text-xs text-slate-600 bg-slate-50 p-2 rounded flex flex-col gap-1.5">
+      <p class="truncate"><span class="font-semibold text-slate-700">Política:</span> {{ tarea.politicaNombre }}</p>
+      <div class="flex items-center gap-1.5">
+        <span class="font-semibold text-slate-700">Prioridad:</span> 
+        <span class="px-1.5 py-0.5 rounded font-bold text-[10px] leading-none" [ngClass]="getPrioridadClass(tarea.prioridad)">
+          {{ tarea.prioridad || 'NORMAL' }}
+        </span>
+      </div>
+    </div>
+
+    @if (type === 'pending' && canTake(tarea)) {
+      <div class="pt-2 mt-1 border-t border-slate-100">
+        <button 
+          (click)="$event.stopPropagation(); tomarTarea(tarea.id)"
+          [disabled]="facade.bandejaActionTareaId() !== null"
+          class="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold py-2 rounded text-sm disabled:opacity-50 transition-colors"
+        >
+          @if (facade.bandejaActionTareaId() === tarea.id) {
+             Tomando...
+          } @else {
+             TOMAR TAREA
+          }
+        </button>
+      </div>
+    }
+  </div>
+</ng-template>

@@ -63,7 +63,7 @@ export class FuncionarioWorkflowFacadeService {
   readonly instanciaDetalle = signal<InstanciaDetalle | null>(null);
   readonly detalleLoading = signal(false);
   readonly detalleSyncing = signal(false);
-  readonly detalleAction = signal<'tomar' | 'completar' | null>(null);
+  readonly detalleAction = signal<'tomar' | 'completar' | 'tomar-y-completar' | null>(null);
   readonly detalleError = signal<WorkflowUiError | null>(null);
   readonly detalleConflictMessage = signal<string | null>(null);
   readonly detalleCompleteBlocked = signal(false);
@@ -88,6 +88,7 @@ export class FuncionarioWorkflowFacadeService {
   private inboxPollingSubscription: Subscription | null = null;
   private detailPollingSubscription: Subscription | null = null;
   private detailRequestSequence = 0;
+  private queuedCompletarPayload: CompletarTareaPayload | null = null;
 
   startInboxPolling(intervalMs = 12000): void {
     this.stopInboxPolling();
@@ -167,10 +168,14 @@ export class FuncionarioWorkflowFacadeService {
     this.detalleAction.set('tomar');
     this.detalleError.set(null);
 
+    const snapshot = this.tareaDetalle();
+    this.aplicarEstadoTomadaEnDetalle(tareaId);
+
+    let success = false;
+
     this.api
       .tomarTarea(tareaId)
       .pipe(
-        tap(() => this.aplicarEstadoTomadaEnDetalle(tareaId)),
         switchMap(() =>
           this.safeParallelRefresh$(
             this.loadDetalleContextRequest$(tareaId, true),
@@ -179,18 +184,37 @@ export class FuncionarioWorkflowFacadeService {
         ),
         switchMap(() => this.forceReloadDetalleAfterTake$(tareaId)),
         tap(() => {
-          this.toast.success('Tarea tomada', 'La tarea ahora esta en proceso.');
+          success = true;
         }),
-        catchError((error: unknown) =>
-          this.handleTaskActionError$(
+        catchError((error: unknown) => {
+          if (snapshot) {
+            this.tareaDetalle.set(snapshot);
+          }
+          return this.handleTaskActionError$(
             error,
             tareaId,
             'No fue posible tomar la tarea.'
-          )
-        ),
-        finalize(() => this.detalleAction.set(null))
+          );
+        })
       )
-      .subscribe();
+      .subscribe({
+        complete: () => {
+          if (success) {
+            if (this.detalleAction() === 'tomar-y-completar' && this.queuedCompletarPayload) {
+              const payload = this.queuedCompletarPayload;
+              this.queuedCompletarPayload = null;
+              this.detalleAction.set('completar');
+              this.ejecutarCompletarTarea(tareaId, payload);
+            } else {
+              this.toast.success('Tarea tomada', 'La tarea ahora esta en proceso.');
+              this.detalleAction.set(null);
+            }
+          } else {
+            this.detalleAction.set(null);
+            this.queuedCompletarPayload = null;
+          }
+        }
+      });
   }
 
   private forceReloadDetalleAfterTake$(tareaId: string): Observable<void> {
@@ -216,13 +240,23 @@ export class FuncionarioWorkflowFacadeService {
   }
 
   completarTarea(tareaId: string, payload: CompletarTareaPayload): void {
-    if (this.detalleAction()) {
+    if (this.detalleAction() === 'completar' || this.detalleAction() === 'tomar-y-completar') {
+      return;
+    }
+
+    if (this.detalleAction() === 'tomar') {
+      this.detalleAction.set('tomar-y-completar');
+      this.queuedCompletarPayload = payload;
       return;
     }
 
     this.detalleAction.set('completar');
     this.detalleError.set(null);
 
+    this.ejecutarCompletarTarea(tareaId, payload);
+  }
+
+  private ejecutarCompletarTarea(tareaId: string, payload: CompletarTareaPayload): void {
     this.uploadArchivosDePayload$(tareaId, payload)
       .pipe(
         switchMap((payloadConArchivos) =>
@@ -339,6 +373,7 @@ export class FuncionarioWorkflowFacadeService {
     this.detalleCompleteBlocked.set(false);
     this.instanciaPausedWarning.set(null);
     this.detalleLastRefreshAt.set(null);
+    this.queuedCompletarPayload = null;
   }
 
   private loadInboxRequest$(silent: boolean): Observable<void> {
@@ -471,8 +506,9 @@ export class FuncionarioWorkflowFacadeService {
   private reconciliarDetalleDuranteTomar(detalle: TareaDetalle): TareaDetalle {
     const detalleActual = this.tareaDetalle();
 
+    const isTaking = this.detalleAction() === 'tomar' || this.detalleAction() === 'tomar-y-completar';
     if (
-      this.detalleAction() !== 'tomar' ||
+      !isTaking ||
       !detalleActual ||
       detalleActual.id !== detalle.id
     ) {

@@ -103,6 +103,13 @@ interface PendingNodeNameGuard {
   expiresAt: number;
 }
 
+interface PendingNodeMoveGuard {
+  x: number;
+  y: number;
+  expiresAt: number;
+  version?: number;
+}
+
 interface PendingLaneConfigGuard {
   laneOrientation: LaneOrientation;
   laneWidth: number;
@@ -376,15 +383,15 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly storageSyncHandler = (event: StorageEvent): void => {
     this.handleUiPrefsStorageSync(event);
   };
-  private pendingNodeMoveGuards = new Map<
-    string,
-    { x: number; y: number; expiresAt: number }
-  >();
+  private pendingNodeMoveGuards = new Map<string, PendingNodeMoveGuard>();
   private pendingNodeNameSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private pendingNodeNameGuards = new Map<string, PendingNodeNameGuard>();
   private pendingLaneConfigGuard: PendingLaneConfigGuard | null = null;
   private readonly nodeNameSyncDebounceMs = 280;
   private readonly nodeNameGuardTtlMs = 1200;
+  private readonly nodeMoveGuardTtlMs = 5000;
+  private readonly autoSaveProtectionMs = 1400;
+  private lastAutoSaveQueuedAt = 0;
   private readonly RESPONSABLE_USUARIO_FINAL_ID = '__RESPONSABLE_USUARIO_FINAL__';
   private readonly RESPONSABLE_INICIADOR_TRAMITE_ID = '__RESPONSABLE_INICIADOR_TRAMITE__';
   private readonly laneConfigGuardTtlMs = 1800;
@@ -717,11 +724,18 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     const resolvedConnections = this.withResolvedConnectionPorts(connections);
-    const canvasNodes = rawNodes.map((node, index) =>
-      this.applyPendingNodeNameGuard(
-        this.applyPendingMoveGuard(this.toCanvasNode(node, index))
-      )
-    );
+    const currentNodesById = new Map(this.nodos().map((node) => [node.id, node]));
+    const canvasNodes = rawNodes.map((node, index) => {
+      const incomingNode = this.toCanvasNode(node, index);
+      const guardedNode = this.applyStaleNodeVersionGuard(
+        incomingNode,
+        currentNodesById.get(incomingNode.id)
+      );
+
+      return this.applyPendingNodeNameGuard(
+        this.applyPendingMoveGuard(guardedNode)
+      );
+    });
 
     const incomingSignature = this.buildFlowSyncSignature(
       canvasNodes,
@@ -878,9 +892,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private shouldProtectLocalFlowFromRemoteSnapshot(): boolean {
+    const shouldProtectQueuedDraft =
+      this.autoSaveQueued &&
+      Date.now() - this.lastAutoSaveQueuedAt < this.autoSaveProtectionMs;
+
     return (
       this.saving() ||
-      this.autoSaveQueued ||
+      shouldProtectQueuedDraft ||
       this.autoSaveTimer !== null ||
       this.pendingNodeNameSyncTimers.size > 0
     );
@@ -926,8 +944,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.setPendingNodeNameGuard(nodeId, nombre);
     this.collabFacade.emitUpdateNode(
       nodeId,
-      { nombre },
-      this.getNodeVersion(nodeId)
+      { nombre }
     );
   }
 
@@ -1345,16 +1362,47 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private setPendingMoveGuard(nodeId: string, x: number, y: number): void {
+    const version = this.getNodeVersion(nodeId);
+
     this.pendingNodeMoveGuards.set(nodeId, {
       x,
       y,
-      expiresAt: Date.now() + 5000,
+      expiresAt: Date.now() + this.nodeMoveGuardTtlMs,
+      version,
     });
+  }
+
+  private applyStaleNodeVersionGuard(
+    incomingNode: NodoCanvas,
+    currentNode: NodoCanvas | undefined
+  ): NodoCanvas {
+    if (!currentNode) {
+      return incomingNode;
+    }
+
+    if (
+      typeof incomingNode.version === 'number' &&
+      typeof currentNode.version === 'number' &&
+      incomingNode.version < currentNode.version
+    ) {
+      return currentNode;
+    }
+
+    return incomingNode;
   }
 
   private applyPendingMoveGuard(node: NodoCanvas): NodoCanvas {
     const guard = this.pendingNodeMoveGuards.get(node.id);
     if (!guard) {
+      return node;
+    }
+
+    if (
+      typeof node.version === 'number' &&
+      typeof guard.version === 'number' &&
+      node.version > guard.version
+    ) {
+      this.pendingNodeMoveGuards.delete(node.id);
       return node;
     }
 
@@ -1735,6 +1783,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     this.autoSaveQueued = true;
+    this.lastAutoSaveQueuedAt = Date.now();
     this.persistPendingFlowBackup(currentPolicy.id, this.buildFlujoPayload());
 
     if (this.autoSaveTimer) {
@@ -1807,10 +1856,27 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         this.toast.error('Error', msg);
 
         const status = Number(err?.status);
+        const isRecoverableSyncError =
+          status === 404 || status === 409 || status === 410 || status === 412;
+        if (isRecoverableSyncError) {
+          this.autoSaveQueued = false;
+          this.toast.info(
+            'Colaboración',
+            'Se detectó un conflicto de sincronización. Re-sincronizando pizarra...'
+          );
+          this.collabFacade.requestResync(
+            'Conflicto detectado durante autosave',
+            true
+          );
+          this.tryApplyDeferredCollaborativeFlow();
+          return;
+        }
+
         const isValidationError = Number.isFinite(status) && status >= 400 && status < 500;
         if (isValidationError) {
           // Validation/business errors require user action, not background retries.
           this.autoSaveQueued = false;
+          this.tryApplyDeferredCollaborativeFlow();
           return;
         }
 

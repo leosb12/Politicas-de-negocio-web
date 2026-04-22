@@ -79,7 +79,7 @@ describe('FuncionarioTareasPageComponent', () => {
         responsableId: 'USR-1',
         codigoTramite: 'TRM-001',
         estadoInstancia: 'EN_PROCESO',
-        contextoResumen: 'Contrato anual',
+        contextoResumen: { detalle: 'Contrato anual' },
       },
       {
         id: 'TASK-2',
@@ -96,7 +96,7 @@ describe('FuncionarioTareasPageComponent', () => {
         responsableId: 'USR-2',
         codigoTramite: 'TRM-002',
         estadoInstancia: 'FINALIZADA',
-        contextoResumen: 'Pago proveedor',
+        contextoResumen: { detalle: 'Pago proveedor' },
       },
     ]);
 

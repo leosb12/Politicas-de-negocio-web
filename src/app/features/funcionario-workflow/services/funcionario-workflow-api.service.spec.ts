@@ -205,7 +205,7 @@ describe('FuncionarioWorkflowApiService', () => {
 
     const req = httpMock.expectOne(API_ENDPOINTS.archivos);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body instanceof FormData).toBeTrue();
+    expect(req.request.body instanceof FormData).toBe(true);
 
     const body = req.request.body as FormData;
     expect(body.get('archivo')).toBe(archivo);

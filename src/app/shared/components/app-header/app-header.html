@@ -9,168 +9,114 @@
       </div>
 
       @if (session()) {
-        <div class="flex items-center gap-3">
-          <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span class="font-semibold text-slate-700">{{ session()?.nombre }}</span>
-            <span class="text-slate-500"> · {{ session()?.rol }}</span>
-          </div>
-          <button
-            type="button"
-            (click)="cerrarSesion()"
-            class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-          >
-            Cerrar sesion
-          </button>
+      <div class="flex items-center gap-3">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <span class="font-semibold text-slate-700">{{ session()?.nombre }}</span>
+          <span class="text-slate-500"> · {{ session()?.rol }}</span>
         </div>
+        <button type="button" (click)="cerrarSesion()"
+          class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
+          Cerrar sesion
+        </button>
+      </div>
       }
     </div>
 
     <nav class="flex flex-wrap gap-2">
-      <a
-        routerLink="/"
-        routerLinkActive
-        #homeLink="routerLinkActive"
-        [routerLinkActiveOptions]="{ exact: true }"
+      <a routerLink="/" routerLinkActive #homeLink="routerLinkActive" [routerLinkActiveOptions]="{ exact: true }"
         [class]="
           homeLink.isActive
             ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
             : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
-        "
-      >
+        ">
         Inicio
       </a>
 
       @if (session()?.rol === 'ADMIN') {
-        <a
-          routerLink="/dashboard-admin"
-          routerLinkActive
-          #dashAdminLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/dashboard-admin" routerLinkActive #dashAdminLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }" [class]="
             dashAdminLink.isActive
               ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
-          "
-        >
-          Dashboard admin
-        </a>
+          ">
+        Dashboard admin
+      </a>
 
-        <a
-          routerLink="/funcionario/tareas"
-          routerLinkActive
-          #soporteWorkflowLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/funcionario/tareas" routerLinkActive #soporteWorkflowLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }" [class]="
             soporteWorkflowLink.isActive
               ? 'rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100'
-          "
-        >
-          Soporte tareas
-        </a>
+          ">
+        Soporte tareas
+      </a>
 
-        <a
-          routerLink="/admin/usuarios"
-          routerLinkActive
-          #usuariosLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/admin/usuarios" routerLinkActive #usuariosLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }" [class]="
             usuariosLink.isActive
               ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
-          "
-        >
-          Usuarios
-        </a>
+          ">
+        Usuarios
+      </a>
 
-        <a
-          routerLink="/admin/roles"
-          routerLinkActive
-          #rolesLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/admin/roles" routerLinkActive #rolesLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }" [class]="
             rolesLink.isActive
               ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
-          "
-        >
-          Roles
-        </a>
+          ">
+        Roles
+      </a>
 
-        <a
-          routerLink="/admin/departamentos"
-          routerLinkActive
-          #departamentosLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/admin/departamentos" routerLinkActive #departamentosLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }" [class]="
             departamentosLink.isActive
               ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
-          "
-        >
-          Departamentos
-        </a>
+          ">
+        Departamentos
+      </a>
 
-        <a
-          routerLink="/admin/politicas"
-          routerLinkActive
-          #politicasLink="routerLinkActive"
-          [class]="
+      <a routerLink="/admin/politicas" routerLinkActive #politicasLink="routerLinkActive" [class]="
             politicasLink.isActive
               ? 'rounded-xl border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-semibold text-white flex items-center gap-2'
               : 'rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 flex items-center gap-2'
-          "
-          id="nav-politicas"
-        >
-          <lucide-icon name="settings-2" [size]="16"></lucide-icon>
-          Políticas
-        </a>
+          " id="nav-politicas">
+        <lucide-icon name="settings-2" [size]="16"></lucide-icon>
+        Políticas
+      </a>
       }
 
       @if (session()?.rol === 'FUNCIONARIO') {
-        <a
-          routerLink="/dashboard-funcionario"
-          routerLinkActive
-          #dashFuncLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/dashboard-funcionario" routerLinkActive #dashFuncLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }" [class]="
             dashFuncLink.isActive
               ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
-          "
-        >
-          Dashboard funcionario
-        </a>
+          ">
+        Dashboard funcionario
+      </a>
 
-        <a
-          routerLink="/funcionario/tareas"
-          routerLinkActive
-          #tareasFuncionarioLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/funcionario/tareas" routerLinkActive #tareasFuncionarioLink="routerLinkActive"
+        [routerLinkActiveOptions]="{ exact: true }" [class]="
             tareasFuncionarioLink.isActive
               ? 'rounded-xl border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100'
-          "
-        >
-          Mis tareas
-        </a>
+          ">
+        Mis tareas
+      </a>
       }
 
       @if (!session()) {
-        <a
-          routerLink="/login"
-          routerLinkActive
-          #loginLink="routerLinkActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-          [class]="
+      <a routerLink="/login" routerLinkActive #loginLink="routerLinkActive" [routerLinkActiveOptions]="{ exact: true }"
+        [class]="
             loginLink.isActive
               ? 'rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-sm font-semibold text-white'
               : 'rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100'
-          "
-        >
-          Login
-        </a>
+          ">
+        Login
+      </a>
       }
     </nav>
   </div>

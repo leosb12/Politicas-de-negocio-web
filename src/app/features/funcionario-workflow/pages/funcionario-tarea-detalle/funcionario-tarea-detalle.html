@@ -138,7 +138,7 @@
             [respuestaInicial]="tareaDetalleVisible()!.formularioRespuesta"
             [observacionesInicial]="tareaDetalleVisible()!.observaciones"
             [disabled]="!puedeCompletar()"
-            [pending]="facade.detalleAction() === 'completar'"
+            [pending]="facade.detalleAction() === 'completar' || facade.detalleAction() === 'tomar-y-completar'"
             submitLabel="Completar tarea"
             (submitted)="completarTarea($event)"
           />

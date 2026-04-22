@@ -80,6 +80,8 @@ export class PoliticaColaboracionFacadeService {
   private sessionEnabled = false;
   private resyncInFlight = false;
   private lastResyncAt = 0;
+  private lastServerSyncRequestAt = 0;
+  private readonly serverSyncMinIntervalMs = 700;
 
   private readonly rememberedEventIds = new Set<string>();
   private readonly rememberedEventQueue: string[] = [];
@@ -93,6 +95,7 @@ export class PoliticaColaboracionFacadeService {
     this.actor = input.actor;
     this.sessionEnabled = true;
     this.editingNodeId = null;
+    this.lastServerSyncRequestAt = 0;
     this.rememberedEventIds.clear();
     this.rememberedEventQueue.length = 0;
     this.pendingEdgeMutations.clear();
@@ -139,6 +142,7 @@ export class PoliticaColaboracionFacadeService {
 
     this.activePolicyId = null;
     this.actor = null;
+    this.lastServerSyncRequestAt = 0;
     this.connectedUsersSubject.next([]);
     this.nodeLocksSubject.next({});
     this.politicaEstadoSubject.next(null);
@@ -206,6 +210,8 @@ export class PoliticaColaboracionFacadeService {
       posY,
       expectedNodeVersion,
     });
+
+    this.requestServerSync();
   }
 
   emitDeleteNode(nodeId: string, expectedNodeVersion?: number): void {
@@ -286,10 +292,17 @@ export class PoliticaColaboracionFacadeService {
     this.performFullResync(reason, silent);
   }
 
-  private requestServerSync(): void {
+  private requestServerSync(options?: { force?: boolean }): void {
     if (!this.activePolicyId) {
       return;
     }
+
+    const now = Date.now();
+    if (!options?.force && now - this.lastServerSyncRequestAt < this.serverSyncMinIntervalMs) {
+      return;
+    }
+
+    this.lastServerSyncRequestAt = now;
 
     this.socket.publish(
       `/app/politicas/${this.activePolicyId}/sync`,
