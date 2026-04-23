@@ -1,5 +1,6 @@
 type AppRuntimeConfig = {
   apiBaseUrl?: string;
+  iaApiBaseUrl?: string;
 };
 
 declare global {
@@ -25,7 +26,21 @@ function resolveApiBaseUrl(): string {
   return normalizeApiBaseUrl(window.__APP_CONFIG__?.apiBaseUrl);
 }
 
+function resolveIaApiBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const runtimeIaApiBaseUrl = normalizeApiBaseUrl(window.__APP_CONFIG__?.iaApiBaseUrl);
+  if (runtimeIaApiBaseUrl) {
+    return runtimeIaApiBaseUrl;
+  }
+
+  return 'http://127.0.0.1:8001';
+}
+
 export const API_BASE_URL = resolveApiBaseUrl();
+export const IA_API_BASE_URL = resolveIaApiBaseUrl();
 
 export const API_ENDPOINTS = {
   auth: `${API_BASE_URL}/api/auth`,

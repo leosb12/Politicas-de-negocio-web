@@ -1,0 +1,71 @@
+/* ════════════════════════════════════════════════════════════
+   IA WORKFLOW GENERATOR - ESTILOS (MINIFICADO)
+   ════════════════════════════════════════════════════════════ */
+
+.ia-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:9998;animation:fadeIn .2s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.ia-modal-container{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;max-height:90vh;display:flex;animation:slideIn .3s ease-out}
+@keyframes slideIn{from{opacity:0;transform:translate(-50%,-55%)}to{opacity:1;transform:translate(-50%,-50%)}}
+.ia-modal-content{background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.3);width:90%;max-width:700px;display:flex;flex-direction:column;max-height:90vh;overflow:hidden}
+.ia-modal-header{display:flex;justify-content:space-between;align-items:center;padding:24px;border-bottom:1px solid #f0f0f0;gap:16px}
+.ia-modal-header-title{display:flex;align-items:center;gap:12px}
+.ia-modal-header-title h2{font-size:18px;font-weight:600;margin:0;color:#1a1a1a}
+.ia-modal-header-title lucide-icon{color:#f59e0b}
+.ia-modal-close-btn{background:0;border:0;cursor:pointer;padding:8px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#666;transition:all .2s}
+.ia-modal-close-btn:hover:not(:disabled){background:#f5f5f5;color:#000}
+.ia-modal-close-btn:disabled{opacity:.5;cursor:not-allowed}
+.ia-modal-body{flex:1;overflow-y:auto;padding:24px}
+.ia-section{display:flex;flex-direction:column;gap:20px}
+.ia-info-box{display:flex;gap:12px;padding:12px 16px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:6px}
+.ia-info-box lucide-icon{color:#3b82f6;flex-shrink:0}
+.ia-info-box p{margin:0;color:#1e40af;font-size:14px;line-height:1.5}
+.ia-error-box{display:flex;gap:12px;padding:12px 16px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:6px}
+.ia-error-box lucide-icon{color:#ef4444;flex-shrink:0}
+.ia-error-title{margin:0 0 4px;font-weight:600;color:#dc2626;font-size:14px}
+.ia-error-text{margin:0;color:#991b1b;font-size:13px;line-height:1.4}
+.ia-form-group{display:flex;flex-direction:column;gap:8px}
+.ia-form-group label{font-weight:600;font-size:14px;color:#1a1a1a}
+.ia-textarea{padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:14px;line-height:1.5;resize:vertical;min-height:180px;transition:border-color .2s,box-shadow .2s}
+.ia-textarea:focus{outline:0;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.ia-textarea:disabled{background:#f5f5f5;color:#999;cursor:not-allowed}
+.ia-form-hint{font-size:12px;color:#666;margin-top:-4px}
+.ia-loading-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:12px}
+.ia-spinner{width:40px;height:40px;border:4px solid #f0f0f0;border-top-color:#f59e0b;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ia-loading-state p{margin:0;font-size:14px;color:#1a1a1a}
+.ia-loading-hint{color:#666;font-size:12px!important}
+.ia-preview-header{display:flex;flex-direction:column;gap:4px}
+.ia-preview-header h3{margin:0;font-size:16px;font-weight:600;color:#1a1a1a}
+.ia-preview-subtitle{margin:0;font-size:13px;color:#666}
+.ia-preview-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.ia-stat-card{display:flex;align-items:center;gap:12px;padding:12px;background:#f9f9f9;border-radius:8px;border:1px solid #f0f0f0}
+.ia-stat-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:#f0f0f0;border-radius:6px;color:#666;flex-shrink:0}
+.ia-stat-content{display:flex;flex-direction:column;gap:2px}
+.ia-stat-label{font-size:12px;color:#666;font-weight:500}
+.ia-stat-value{font-size:18px;font-weight:700;color:#1a1a1a}
+.ia-analysis{display:flex;flex-direction:column;gap:16px;padding:16px;background:#fafafa;border-radius:8px;border:1px solid #f0f0f0}
+.ia-analysis-section{display:flex;flex-direction:column;gap:8px}
+.ia-analysis-section h4{margin:0;font-size:13px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;gap:8px}
+.ia-analysis-section lucide-icon{color:#666;flex-shrink:0}
+.ia-analysis-text{margin:0;font-size:13px;color:#666;line-height:1.5}
+.ia-complexity-badge{display:inline-block;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:600;width:fit-content;text-transform:uppercase}
+.complexity-low{background:#dcfce7;color:#166534}
+.complexity-medium{background:#fef3c7;color:#92400e}
+.complexity-high{background:#fee2e2;color:#991b1b}
+.ia-assumptions-list,.ia-warnings-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.ia-assumptions-list li,.ia-warnings-list li{font-size:13px;color:#666;line-height:1.4}
+.ia-warning-section{padding:12px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:6px}
+.ia-warning-section h4{color:#92400e}
+.ia-modal-actions{display:flex;gap:12px;justify-content:flex-end}
+.ia-preview-actions{justify-content:flex-end}
+.ia-btn{padding:10px 16px;border:0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s}
+.ia-btn lucide-icon{flex-shrink:0}
+.ia-btn-primary{background:#3b82f6;color:white}
+.ia-btn-primary:hover:not(:disabled){background:#2563eb;transform:translateY(-2px);box-shadow:0 4px 12px rgba(59,130,246,.3)}
+.ia-btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.ia-btn-secondary{background:#f0f0f0;color:#1a1a1a}
+.ia-btn-secondary:hover{background:#e5e7eb}
+.ia-btn-success{background:#10b981;color:white}
+.ia-btn-success:hover{background:#059669;transform:translateY(-2px);box-shadow:0 4px 12px rgba(16,185,129,.3)}
+@media(max-width:600px){.ia-modal-content{width:95%;max-height:95vh;border-radius:16px}.ia-modal-header{padding:16px}.ia-modal-body{padding:16px}.ia-modal-header-title h2{font-size:16px}.ia-preview-stats{grid-template-columns:1fr 1fr}.ia-modal-actions{flex-wrap:wrap}.ia-btn{flex:1;min-width:140px}}
+

@@ -46,6 +46,9 @@ import { AdminDepartment } from '../../models/admin-department.model';
 import { AdminUser } from '../../models/admin-user.model';
 import { FindNodePipe } from '../../pipes/find-node.pipe';
 import { PoliticaColaboracionFacadeService } from '../../services/politica-colaboracion-facade.service';
+import { IaWorkflowGeneratorComponent } from '../../components/ia-workflow-generator/ia-workflow-generator';
+import { IaWorkflowMapperService } from '../../services/ia-workflow-mapper.service';
+import { IaWorkflowResponse } from '../../models/ia-workflow.model';
 
 // ── Drag state ───────────────────────────────────────────────────
 interface DragState {
@@ -161,7 +164,14 @@ import { LucideAngularModule } from 'lucide-angular';
 @Component({
   selector: 'app-canvas-designer',
   standalone: true,
-  imports: [CommonModule, FormsModule, FindNodePipe, SlicePipe, LucideAngularModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    FindNodePipe,
+    SlicePipe,
+    LucideAngularModule,
+    IaWorkflowGeneratorComponent,
+  ],
   templateUrl: './canvas-designer.html',
   styleUrl: './canvas-designer.css',
 })
@@ -178,6 +188,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
   private readonly collabFacade = inject(PoliticaColaboracionFacadeService);
+  private readonly iaMapperService = inject(IaWorkflowMapperService);
 
   // ── State ─────────────────────────────────────────────────────
   politica = signal<PoliticaNegocio | null>(null);
@@ -213,6 +224,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   panStart = { x: 0, y: 0, px: 0, py: 0 };
 
   showSidebar = signal(false);
+  showIaWorkflowModal = signal(false);
   sidebarNode = computed(() =>
     this.nodos().find((n) => n.id === this.selectedNodeId()) ?? null
   );
@@ -1960,6 +1972,199 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   goBack(): void {
     this.collabFacade.stopSession(true);
     this.router.navigate(['/admin/politicas']);
+  }
+
+  // ── IA Workflow Generation ────────────────────────────────────
+  /**
+   * Abre el modal para generar un workflow con IA
+   */
+  openIaWorkflowModal(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+    this.showIaWorkflowModal.set(true);
+  }
+
+  /**
+   * Cierra el modal de generación de workflow con IA
+   */
+  closeIaWorkflowModal(): void {
+    this.showIaWorkflowModal.set(false);
+  }
+
+  /**
+   * Maneja el workflow generado por IA y lo aplica al canvas
+   *
+   * @param event Evento que contiene los nodos, conexiones y análisis generados
+   */
+  onIaWorkflowGenerated(event: {
+    nodos: Nodo[];
+    conexiones: Conexion[];
+    analysis: any;
+    iaResponse: IaWorkflowResponse;
+  }): void {
+    try {
+      const { nodos, conexiones } = this.iaMapperService.mapIaResponseToWorkflow(
+        event.iaResponse,
+        {
+          departamentos: this.departamentos().map((departamento) => ({
+            id: departamento.id,
+            nombre: departamento.nombre,
+          })),
+          defaultDepartamentoId: this.resolveRequiredDepartmentId(null),
+          responsableIniciadorId: this.RESPONSABLE_INICIADOR_TRAMITE_ID,
+        }
+      );
+
+      const positionedNodos = this.layoutIaNodes(nodos, conexiones);
+
+      this.nodos.set(positionedNodos);
+      this.conexiones.set(this.withResolvedConnectionPorts(conexiones));
+      this.initializeConnectionPorts(positionedNodos, this.conexiones());
+      this.enforceActivitiesAssignedToLane();
+
+      this.selectedNodeId.set(null);
+      this.scheduleAutoSave(true);
+      const summary = event.analysis?.summary || 'Workflow generado correctamente';
+      this.toast.success('Workflow generado', summary);
+      this.closeIaWorkflowModal();
+    } catch (error) {
+      console.error('Error applying IA workflow:', error);
+      this.toast.error(
+        'Error al aplicar',
+        'No se pudo aplicar el workflow generado'
+      );
+    }
+  }
+
+  private layoutIaNodes(nodos: Nodo[], conexiones: Conexion[]): NodoCanvas[] {
+    const outgoing = new Map<string, string[]>();
+    const incomingCount = new Map<string, number>();
+
+    for (const node of nodos) {
+      outgoing.set(node.id, []);
+      incomingCount.set(node.id, 0);
+    }
+
+    for (const connection of conexiones) {
+      const fromBucket = outgoing.get(connection.origen);
+      if (fromBucket) {
+        fromBucket.push(connection.destino);
+      }
+
+      incomingCount.set(
+        connection.destino,
+        (incomingCount.get(connection.destino) ?? 0) + 1
+      );
+    }
+
+    const layerByNode = new Map<string, number>();
+    const queue: string[] = [];
+    const startNodes = nodos.filter((node) => node.tipo === 'INICIO');
+    const roots = startNodes.length
+      ? startNodes.map((node) => node.id)
+      : nodos
+          .filter((node) => (incomingCount.get(node.id) ?? 0) === 0)
+          .map((node) => node.id);
+
+    for (const root of roots) {
+      layerByNode.set(root, 0);
+      queue.push(root);
+    }
+
+    while (queue.length) {
+      const currentId = queue.shift()!;
+      const currentLayer = layerByNode.get(currentId) ?? 0;
+      const nextNodes = outgoing.get(currentId) ?? [];
+
+      for (const nextId of nextNodes) {
+        if (layerByNode.has(nextId)) {
+          continue;
+        }
+
+        layerByNode.set(nextId, currentLayer + 1);
+        queue.push(nextId);
+      }
+    }
+
+    let maxLayer = 0;
+    for (const node of nodos) {
+      if (!layerByNode.has(node.id)) {
+        maxLayer += 1;
+        layerByNode.set(node.id, maxLayer);
+      } else {
+        maxLayer = Math.max(maxLayer, layerByNode.get(node.id) ?? 0);
+      }
+    }
+
+    const layers = new Map<number, Nodo[]>();
+    for (const node of nodos) {
+      const layer = layerByNode.get(node.id) ?? 0;
+      const bucket = layers.get(layer) ?? [];
+      bucket.push(node);
+      layers.set(layer, bucket);
+    }
+
+    const laneIds = this.departamentos().map((departamento) => departamento.id);
+    const positioned = new Map<string, NodoCanvas>();
+    const occupancy = new Set<string>();
+
+    const sortedLayers = Array.from(layers.keys()).sort((a, b) => a - b);
+    for (const layer of sortedLayers) {
+      const layerNodes = layers.get(layer) ?? [];
+      const baseY = this.CANVAS_ORIGIN_Y + 140 + layer * 220;
+
+      for (let index = 0; index < layerNodes.length; index += 1) {
+        const node = layerNodes[index];
+        const nodeWidth = this.getNodeWidth(node.tipo);
+        const laneIndex =
+          node.tipo === 'ACTIVIDAD' && node.departamentoId
+            ? laneIds.indexOf(node.departamentoId)
+            : -1;
+
+        const preferredX =
+          laneIndex >= 0
+            ? this.CANVAS_ORIGIN_X + laneIndex * this.laneWidth() + (this.laneWidth() - nodeWidth) / 2
+            : this.CANVAS_ORIGIN_X + 260 + index * 240;
+
+        let nextX = preferredX;
+        let nextY = baseY;
+        let safety = 0;
+        let key = `${Math.round(nextX)}:${Math.round(nextY)}`;
+
+        while (occupancy.has(key) && safety < 12) {
+          nextY += 70;
+          safety += 1;
+          key = `${Math.round(nextX)}:${Math.round(nextY)}`;
+        }
+
+        occupancy.add(key);
+
+        const clamped = this.clampNodePositionForNode(
+          {
+            ...node,
+            x: nextX,
+            y: nextY,
+          } as NodoCanvas,
+          nextX,
+          nextY
+        );
+
+        const positionedNode: NodoCanvas = {
+          ...node,
+          x: clamped.x,
+          y: clamped.y,
+        };
+
+        positioned.set(node.id, positionedNode);
+      }
+    }
+
+    return nodos.map((node) => positioned.get(node.id) ?? {
+      ...node,
+      x: this.CANVAS_ORIGIN_X + 260,
+      y: this.CANVAS_ORIGIN_Y + 140,
+    });
   }
 
   // ── Node generation ───────────────────────────────────────────

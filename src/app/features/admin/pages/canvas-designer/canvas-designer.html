@@ -117,6 +117,25 @@
       </div>
 
       <div class="palette-divider"></div>
+      <div class="palette-title">Generación Automática</div>
+      <button
+        type="button"
+        style="background: linear-gradient(135deg, rgba(250,158,11,.15), rgba(249,115,22,.15)); border: 1px solid rgba(250,158,11,.3); color: #fbbf24;"
+        class="btn-add-campo flex items-center gap-2"
+        (click)="openIaWorkflowModal()"
+        [disabled]="isCanvasReadOnly()"
+        id="btn-generar-flujo-ia"
+        title="Generar workflow automáticamente con IA"
+      >
+        <lucide-icon name="sparkles" [size]="16"></lucide-icon>
+        <span>Generar con IA</span>
+      </button>
+      <div class="palette-hint">
+        <lucide-icon name="zap" [size]="12" class="inline"></lucide-icon>
+        Describe tu flujo y la IA creará el diagrama automáticamente
+      </div>
+
+      <div class="palette-divider"></div>
       <div class="palette-title">Carriles</div>
       <div class="lane-controls">
         <button
@@ -1201,3 +1220,12 @@
     </div>
   </div>
 }
+
+<!-- ═══ IA WORKFLOW GENERATOR MODAL ═════════════════════════════ -->
+<app-ia-workflow-generator
+  [isOpen]="showIaWorkflowModal"
+  [departamentos]="departamentos()"
+  (workflowGenerated)="onIaWorkflowGenerated($event)"
+  (closeRequested)="closeIaWorkflowModal()"
+></app-ia-workflow-generator>
+

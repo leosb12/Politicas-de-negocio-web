@@ -49,6 +49,8 @@ import {
   User,
   UserCheck,
   Ban,
+  Zap,
+  Info,
 } from 'lucide-angular';
 
 export const appConfig: ApplicationConfig = {
