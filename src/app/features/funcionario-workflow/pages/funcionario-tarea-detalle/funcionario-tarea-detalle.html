@@ -48,6 +48,10 @@
       </div>
 
       <div class="mt-5 flex flex-wrap gap-2">
+        <app-button variant="secondary" (click)="abrirWorkflowModal()">
+          Ver trazabilidad interdepartamental
+        </app-button>
+
         @if (puedeTomar()) {
           <app-button
             variant="workflow-in-progress"
@@ -148,3 +152,94 @@
 
   }
 </section>
+
+@if (workflowModalOpen()) {
+  <app-modal
+    size="3xl"
+    panelClass="workflow-trace-modal max-h-[90vh] overflow-hidden"
+    (closed)="cerrarWorkflowModal()"
+  >
+    <header class="workflow-trace-modal__header">
+      <div>
+        <p class="workflow-trace-modal__eyebrow">Flujo interdepartamental</p>
+        <h3 class="workflow-trace-modal__title">Recorrido de la instancia</h3>
+        <p class="workflow-trace-modal__subtitle">
+          Solo lectura de formularios y observaciones por departamento.
+        </p>
+      </div>
+
+      <app-button variant="outline" (click)="cerrarWorkflowModal()">Cerrar</app-button>
+    </header>
+
+    <div class="workflow-trace-modal__content">
+      @if (workflowModalLoading()) {
+        <app-loader message="Cargando trazabilidad del workflow..." />
+      } @else if (workflowModalError()) {
+        <app-alert
+          variant="danger"
+          title="No se pudo cargar la trazabilidad"
+          [message]="workflowModalError()!"
+        />
+      } @else if (workflowModalSteps().length === 0) {
+        <app-empty-state
+          title="Sin pasos registrados"
+          message="Aun no hay actividades ejecutadas en otros departamentos para esta instancia."
+        />
+      } @else {
+        <div class="workflow-trace-list">
+          @for (step of workflowModalSteps(); track step.tareaId; let i = $index) {
+            <article class="workflow-trace-step">
+              <div class="workflow-trace-step__rail" [class.workflow-trace-step__rail--last]="esUltimoPaso(i)">
+                <span class="workflow-trace-step__dot"></span>
+              </div>
+
+              <section class="workflow-trace-step__body">
+                <div class="workflow-trace-step__header">
+                  <div>
+                    <p class="workflow-trace-step__department">{{ step.departamento }}</p>
+                    <h4 class="workflow-trace-step__activity">{{ step.nombreActividad }}</h4>
+                  </div>
+
+                  <app-badge [variant]="estadoVariant(step.estadoTarea)">
+                    {{ step.estadoTarea }}
+                  </app-badge>
+                </div>
+
+                <div class="workflow-trace-step__meta">
+                  <p><span class="font-semibold">Responsable:</span> {{ step.responsable }}</p>
+                  <p><span class="font-semibold">Inicio:</span> {{ step.fechaInicio ? (step.fechaInicio | date : 'medium') : '-' }}</p>
+                  <p><span class="font-semibold">Fin:</span> {{ step.fechaFin ? (step.fechaFin | date : 'medium') : '-' }}</p>
+                  <p><span class="font-semibold">Tarea:</span> {{ step.tareaId }}</p>
+                </div>
+
+                @if (step.observaciones) {
+                  <div class="workflow-trace-step__section">
+                    <p class="workflow-trace-step__section-title">Observaciones</p>
+                    <p class="workflow-trace-step__section-text">{{ step.observaciones }}</p>
+                  </div>
+                }
+
+                <div class="workflow-trace-step__section">
+                  <p class="workflow-trace-step__section-title">Formulario respondido</p>
+
+                  @if (step.camposFormulario.length === 0) {
+                    <p class="workflow-trace-step__section-empty">Sin campos cargados en este paso.</p>
+                  } @else {
+                    <dl class="workflow-trace-step__fields">
+                      @for (field of step.camposFormulario; track field.etiqueta) {
+                        <div class="workflow-trace-step__field-row">
+                          <dt>{{ field.etiqueta }}</dt>
+                          <dd>{{ field.valor }}</dd>
+                        </div>
+                      }
+                    </dl>
+                  }
+                </div>
+              </section>
+            </article>
+          }
+        </div>
+      }
+    </div>
+  </app-modal>
+}

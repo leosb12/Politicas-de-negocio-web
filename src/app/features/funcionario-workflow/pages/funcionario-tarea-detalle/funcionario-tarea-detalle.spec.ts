@@ -7,6 +7,7 @@ import {
   TareaDetalle,
   WorkflowUiError,
 } from '../../models/funcionario-workflow.model';
+import { FuncionarioWorkflowApiService } from '../../services/funcionario-workflow-api.service';
 import { FuncionarioWorkflowFacadeService } from '../../services/funcionario-workflow-facade.service';
 import { FuncionarioTareaDetallePageComponent } from './funcionario-tarea-detalle';
 
@@ -53,6 +54,16 @@ class FuncionarioWorkflowDetalleFacadeStub {
   completarTarea(taskId: string, payload: unknown): void {
     this.completedTaskId = taskId;
     this.completedPayload = payload;
+  }
+}
+
+class FuncionarioWorkflowApiStub {
+  getTareasPorInstancia() {
+    return of([]);
+  }
+
+  getTareaDetalle() {
+    return of({});
   }
 }
 
@@ -103,6 +114,10 @@ describe('FuncionarioTareaDetallePageComponent', () => {
         {
           provide: FuncionarioWorkflowFacadeService,
           useValue: facadeStub,
+        },
+        {
+          provide: FuncionarioWorkflowApiService,
+          useClass: FuncionarioWorkflowApiStub,
         },
       ],
     }).compileComponents();

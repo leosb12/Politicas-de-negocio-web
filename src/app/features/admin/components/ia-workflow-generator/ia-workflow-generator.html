@@ -38,6 +38,24 @@
             placeholder="Ej: Un cliente solicita una licencia. El jefe directo debe aprobarlo. Si aprueba, se envía a recursos humanos para validar datos. Si rechaza, se notifica al cliente. Luego, RH envía a finanzas para revisar presupuesto..."
             rows="8"
           ></textarea>
+          <div style="margin-top: 8px; display: flex; gap: 8px;">
+            <button
+              class="ia-btn ia-btn-secondary"
+              (click)="toggleMic()"
+              type="button"
+            >
+              🎤 {{ isListening ? 'Escuchando...' : 'Hablar' }}
+            </button>
+
+            <button
+              *ngIf="isListening"
+              class="ia-btn ia-btn-secondary"
+              (click)="stopMic()"
+              type="button"
+            >
+              ⛔ Parar
+            </button>
+          </div>
           <div class="ia-form-hint">
             Sé lo más detallado posible para obtener mejores resultados
           </div>

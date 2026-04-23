@@ -156,7 +156,7 @@ export class FuncionarioWorkflowApiService {
   private isCompatibilityEndpointMissing(error: unknown): boolean {
     return (
       error instanceof HttpErrorResponse &&
-      (error.status === 404 || error.status === 405)
+      (error.status === 403 || error.status === 404 || error.status === 405)
     );
   }
 

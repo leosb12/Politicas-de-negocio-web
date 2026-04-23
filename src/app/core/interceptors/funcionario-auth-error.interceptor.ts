@@ -16,6 +16,8 @@ export const funcionarioAuthErrorInterceptor: HttpInterceptorFn = (
 
   const isWorkflowRequest =
     request.url.includes('/api/tareas') || request.url.includes('/api/instancias');
+  const session = authService.obtenerSesion();
+  const isFuncionarioSession = session?.rol === 'FUNCIONARIO';
 
   return next(request).pipe(
     catchError((error: HttpErrorResponse) => {
@@ -28,7 +30,7 @@ export const funcionarioAuthErrorInterceptor: HttpInterceptorFn = (
         void router.navigate(['/login']);
       }
 
-      if (error.status === 403) {
+      if (error.status === 403 && !isFuncionarioSession) {
         void router.navigate(['/acceso-denegado']);
       }
 

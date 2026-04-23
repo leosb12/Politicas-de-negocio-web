@@ -11,7 +11,7 @@ export const funcionarioWorkflowGuard: CanActivateFn = () => {
     return router.createUrlTree(['/login']);
   }
 
-  if (session.rol !== 'FUNCIONARIO' && session.rol !== 'ADMIN') {
+  if (session.rol !== 'FUNCIONARIO') {
     return router.createUrlTree(['/acceso-denegado']);
   }
 

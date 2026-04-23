@@ -1,3 +1,194 @@
 :host {
   display: block;
 }
+
+:host ::ng-deep .workflow-trace-modal {
+  border-color: #cbd5e1;
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 40%),
+    linear-gradient(180deg, #f8fafc, #ffffff 30%);
+}
+
+.workflow-trace-modal__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.25rem;
+}
+
+.workflow-trace-modal__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0369a1;
+}
+
+.workflow-trace-modal__title {
+  margin-top: 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.workflow-trace-modal__subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.workflow-trace-modal__content {
+  max-height: calc(90vh - 110px);
+  overflow: auto;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.workflow-trace-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.workflow-trace-step {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 0.7rem;
+}
+
+.workflow-trace-step__rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.workflow-trace-step__rail::after {
+  content: '';
+  position: absolute;
+  top: 22px;
+  bottom: -12px;
+  width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #38bdf8, #cbd5e1);
+}
+
+.workflow-trace-step__rail--last::after {
+  display: none;
+}
+
+.workflow-trace-step__dot {
+  margin-top: 5px;
+  height: 14px;
+  width: 14px;
+  border: 3px solid #0284c7;
+  border-radius: 999px;
+  background: #f0f9ff;
+  box-shadow: 0 0 0 5px rgba(14, 165, 233, 0.14);
+}
+
+.workflow-trace-step__body {
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 0.95rem;
+}
+
+.workflow-trace-step__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workflow-trace-step__department {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0369a1;
+}
+
+.workflow-trace-step__activity {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.workflow-trace-step__meta {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.workflow-trace-step__section {
+  margin-top: 0.9rem;
+}
+
+.workflow-trace-step__section-title {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.workflow-trace-step__section-text {
+  margin-top: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+  color: #1e293b;
+  white-space: pre-wrap;
+}
+
+.workflow-trace-step__section-empty {
+  margin-top: 0.4rem;
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.workflow-trace-step__fields {
+  margin-top: 0.45rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.workflow-trace-step__field-row {
+  display: grid;
+  gap: 0.3rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.55rem 0.65rem;
+}
+
+.workflow-trace-step__field-row dt {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #475569;
+}
+
+.workflow-trace-step__field-row dd {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #1e293b;
+  white-space: pre-wrap;
+}
+
+@media (min-width: 860px) {
+  .workflow-trace-step__meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workflow-trace-step__field-row {
+    grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+    align-items: start;
+  }
+}

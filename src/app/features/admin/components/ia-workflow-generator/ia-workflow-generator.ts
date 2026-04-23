@@ -54,6 +54,8 @@ export class IaWorkflowGeneratorComponent {
     data: null,
   });
   showPreview = signal(false);
+  recognition: any;
+  isListening = false;
 
   /**
    * Genera el workflow llamando al microservicio de IA
@@ -243,6 +245,52 @@ export class IaWorkflowGeneratorComponent {
       data: null,
     });
     this.closeRequested.emit();
+  }
+
+    initMic() {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Tu navegador no soporta voz');
+      return;
+    }
+
+    this.recognition = new SpeechRecognition();
+    this.recognition.lang = 'es-ES';
+    this.recognition.continuous = true;
+    this.recognition.interimResults = true;
+
+    this.recognition.onresult = (event: any) => {
+      let textoFinal = this.descripcion(); // 🔥 lo que ya había
+
+for (let i = event.resultIndex; i < event.results.length; i++) {
+  if (event.results[i].isFinal) {
+    textoFinal += ' ' + event.results[i][0].transcript;
+  }
+}
+
+this.descripcion.set(textoFinal.trim());
+    };
+  }
+
+  toggleMic() {
+    if (!this.recognition) this.initMic();
+
+    if (this.isListening) {
+      this.stopMic();
+    } else {
+      this.recognition.start();
+      this.isListening = true;
+    }
+  }
+
+  stopMic() {
+    if (this.recognition) {
+      this.recognition.stop();
+    }
+    this.isListening = false;
   }
 
   /**
