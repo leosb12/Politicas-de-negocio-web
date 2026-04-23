@@ -16,10 +16,13 @@ import {
   EstadoPolitica,
   CreatePoliticaRequest,
   UpdatePoliticaRequest,
+  TipoPolitica,
 } from '../../models/politica.model';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog';
 import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 import { AuthService } from '../../../../core/auth/services/auth.service';
+import { AdminDepartmentsService } from '../../services/admin-departments.service';
+import { AdminDepartment } from '../../models/admin-department.model';
 
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -43,9 +46,12 @@ export class AdminPoliticasPageComponent implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
+  private readonly departmentsService = inject(AdminDepartmentsService);
 
   politicas = signal<PoliticaNegocio[]>([]);
+  departments = signal<AdminDepartment[]>([]);
   loading = signal(false);
+  departmentsLoading = signal(false);
   showModal = signal(false);
   saving = signal(false);
   search = signal('');
@@ -54,14 +60,24 @@ export class AdminPoliticasPageComponent implements OnInit {
   modalMode = signal<PoliticaModalMode>('CREATE');
   editingPoliticaId = signal<string | null>(null);
 
-  // New policy form
-  form = { nombre: '', descripcion: '' };
+  form: {
+    nombre: string;
+    descripcion: string;
+    tipoPolitica: TipoPolitica;
+    departamentoInicioId: string | null;
+  } = {
+    nombre: '',
+    descripcion: '',
+    tipoPolitica: 'EXTERNA',
+    departamentoInicioId: null,
+  };
 
   isEditMode = computed(() => this.modalMode() === 'EDIT');
   modalTitle = computed(() =>
     this.isEditMode() ? 'Editar Politica de Negocio' : 'Nueva Politica de Negocio'
   );
-  modalSavingLabel = computed(() => (this.isEditMode() ? 'Guardando…' : 'Creando…'));
+  modalSavingLabel = computed(() => (this.isEditMode() ? 'Guardando...' : 'Creando...'));
+  activeDepartments = computed(() => this.departments().filter((department) => department.activo));
 
   filteredPoliticas = computed(() => {
     const q = this.search().toLowerCase();
@@ -83,10 +99,10 @@ export class AdminPoliticasPageComponent implements OnInit {
     if (!action) return '';
 
     if (action.type === 'DELETE') {
-      return '¿Estas seguro de eliminar esta politica?';
+      return 'Estas seguro de eliminar esta politica?';
     }
 
-    return '¿Deseas deshabilitar esta politica? Dejara de usarse en nuevos procesos';
+    return 'Deseas deshabilitar esta politica? Dejara de usarse en nuevos procesos';
   });
 
   confirmButtonLabel = computed(() => {
@@ -102,7 +118,22 @@ export class AdminPoliticasPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadDepartments();
     this.loadPoliticas();
+  }
+
+  loadDepartments(): void {
+    this.departmentsLoading.set(true);
+    this.departmentsService.getDepartments().subscribe({
+      next: (departments) => {
+        this.departments.set(departments);
+        this.departmentsLoading.set(false);
+      },
+      error: () => {
+        this.departmentsLoading.set(false);
+        this.toast.error('Error', 'No se pudieron cargar los departamentos');
+      },
+    });
   }
 
   loadPoliticas(): void {
@@ -113,7 +144,7 @@ export class AdminPoliticasPageComponent implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.toast.error('Error', 'No se pudieron cargar las políticas');
+        this.toast.error('Error', 'No se pudieron cargar las politicas');
         this.loading.set(false);
       },
     });
@@ -122,7 +153,12 @@ export class AdminPoliticasPageComponent implements OnInit {
   openModal(): void {
     this.modalMode.set('CREATE');
     this.editingPoliticaId.set(null);
-    this.form = { nombre: '', descripcion: '' };
+    this.form = {
+      nombre: '',
+      descripcion: '',
+      tipoPolitica: 'EXTERNA',
+      departamentoInicioId: null,
+    };
     this.showModal.set(true);
   }
 
@@ -133,6 +169,8 @@ export class AdminPoliticasPageComponent implements OnInit {
     this.form = {
       nombre: politica.nombre,
       descripcion: politica.descripcion ?? '',
+      tipoPolitica: politica.tipoPolitica ?? 'EXTERNA',
+      departamentoInicioId: politica.departamentoInicioId ?? null,
     };
     this.showModal.set(true);
   }
@@ -153,25 +191,37 @@ export class AdminPoliticasPageComponent implements OnInit {
   }
 
   createPolitica(): void {
-    if (!this.form.nombre.trim()) {
-      this.toast.error('Validación', 'El nombre es obligatorio');
+    const nombre = this.form.nombre.trim();
+    const descripcion = this.form.descripcion.trim();
+    const departamentoInicioId = this.normalizedDepartmentId();
+
+    if (!nombre) {
+      this.toast.error('Validacion', 'El nombre es obligatorio');
       return;
     }
+
+    if (this.form.tipoPolitica === 'INTERNA' && departamentoInicioId && !this.departmentExists(departamentoInicioId)) {
+      this.toast.error('Validacion', 'El departamento seleccionado no es valido');
+      return;
+    }
+
     this.saving.set(true);
     const payload: CreatePoliticaRequest = {
-      nombre: this.form.nombre.trim(),
-      descripcion: this.form.descripcion.trim(),
+      nombre,
+      descripcion,
+      tipoPolitica: this.form.tipoPolitica,
+      departamentoInicioId,
     };
     this.svc.create(payload).subscribe({
       next: (created) => {
         this.saving.set(false);
         this.closeModal();
-        this.toast.success('¡Creada!', `Política "${created.nombre}" lista para diseñar`);
+        this.toast.success('Creada', `Politica "${created.nombre}" lista para disenar`);
         this.router.navigate(['/admin/politicas', created.id, 'canvas']);
       },
       error: () => {
         this.saving.set(false);
-        this.toast.error('Error', 'No se pudo crear la política');
+        this.toast.error('Error', 'No se pudo crear la politica');
       },
     });
   }
@@ -184,9 +234,16 @@ export class AdminPoliticasPageComponent implements OnInit {
 
     const nombre = this.form.nombre.trim();
     const descripcion = this.form.descripcion.trim();
+    const tipoPolitica = this.form.tipoPolitica;
+    const departamentoInicioId = this.normalizedDepartmentId();
 
     if (!nombre) {
       this.toast.error('Validacion', 'El nombre es obligatorio');
+      return;
+    }
+
+    if (tipoPolitica === 'INTERNA' && departamentoInicioId && !this.departmentExists(departamentoInicioId)) {
+      this.toast.error('Validacion', 'El departamento seleccionado no es valido');
       return;
     }
 
@@ -206,7 +263,20 @@ export class AdminPoliticasPageComponent implements OnInit {
       payload.descripcion = descripcion;
     }
 
-    if (!payload.nombre && payload.descripcion === undefined) {
+    if (tipoPolitica !== (current.tipoPolitica ?? 'EXTERNA')) {
+      payload.tipoPolitica = tipoPolitica;
+    }
+
+    if (departamentoInicioId !== (current.departamentoInicioId ?? null)) {
+      payload.departamentoInicioId = departamentoInicioId;
+    }
+
+    if (
+      !payload.nombre &&
+      payload.descripcion === undefined &&
+      payload.tipoPolitica === undefined &&
+      payload.departamentoInicioId === undefined
+    ) {
       this.toast.info('Sin cambios', 'No hay cambios para guardar');
       this.closeModal();
       return;
@@ -377,6 +447,35 @@ export class AdminPoliticasPageComponent implements OnInit {
     return map[estado] ?? estado;
   }
 
+  shouldShowDepartmentSelector(): boolean {
+    return this.form.tipoPolitica === 'INTERNA';
+  }
+
+  onTipoPoliticaChange(tipoPolitica: TipoPolitica): void {
+    this.form.tipoPolitica = tipoPolitica;
+    if (tipoPolitica !== 'INTERNA') {
+      this.form.departamentoInicioId = null;
+    }
+  }
+
+  getTipoPoliticaLabel(tipoPolitica: TipoPolitica | null | undefined): string {
+    const map: Record<TipoPolitica, string> = {
+      INTERNA: 'Interna',
+      EXTERNA: 'Externa',
+      AMBAS: 'Ambas',
+    };
+
+    return map[tipoPolitica ?? 'EXTERNA'];
+  }
+
+  getDepartmentName(departamentoId: string | null | undefined): string | null {
+    if (!departamentoId) {
+      return null;
+    }
+
+    return this.departments().find((department) => department.id === departamentoId)?.nombre ?? null;
+  }
+
   private getActionErrorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       const fallbackByStatus: Record<number, string> = {
@@ -396,7 +495,7 @@ export class AdminPoliticasPageComponent implements OnInit {
   }
 
   formatDate(iso: string): string {
-    if (!iso) return '—';
+    if (!iso) return '-';
     return new Date(iso).toLocaleDateString('es-ES', {
       day: '2-digit',
       month: 'short',
@@ -406,5 +505,18 @@ export class AdminPoliticasPageComponent implements OnInit {
 
   trackById(_: number, p: PoliticaNegocio): string {
     return p.id;
+  }
+
+  private normalizedDepartmentId(): string | null {
+    if (this.form.tipoPolitica !== 'INTERNA') {
+      return null;
+    }
+
+    const departamentoId = this.form.departamentoInicioId?.trim();
+    return departamentoId ? departamentoId : null;
+  }
+
+  private departmentExists(departamentoId: string): boolean {
+    return this.activeDepartments().some((department) => department.id === departamentoId);
   }
 }

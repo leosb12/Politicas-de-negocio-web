@@ -568,6 +568,22 @@
   min-height: 80px;
 }
 
+.field-select {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+.field-select:focus {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.field-select option {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;

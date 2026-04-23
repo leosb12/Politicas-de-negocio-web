@@ -7,6 +7,7 @@
 export type TipoNodo = 'INICIO' | 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' | 'FIN';
 export type TipoCampo = 'TEXTO' | 'NUMERO' | 'BOOLEANO' | 'ARCHIVO' | 'FECHA';
 export type EstadoPolitica = 'BORRADOR' | 'ACTIVA' | 'PAUSADA' | 'DESHABILITADA';
+export type TipoPolitica = 'INTERNA' | 'EXTERNA' | 'AMBAS';
 export type LaneOrientation = 'HORIZONTAL' | 'VERTICAL';
 
 /**
@@ -102,6 +103,8 @@ export interface PoliticaNegocio {
   nombre: string;
   descripcion: string;
   estado: EstadoPolitica;
+  tipoPolitica: TipoPolitica;
+  departamentoInicioId?: string | null;
   laneOrientation?: LaneOrientation | null;
   laneWidth?: number | null;
   laneHeight?: number | null;
@@ -115,11 +118,15 @@ export interface PoliticaNegocio {
 export interface CreatePoliticaRequest {
   nombre: string;
   descripcion: string;
+  tipoPolitica: TipoPolitica;
+  departamentoInicioId?: string | null;
 }
 
 export interface UpdatePoliticaRequest {
   nombre?: string;
   descripcion?: string;
+  tipoPolitica?: TipoPolitica;
+  departamentoInicioId?: string | null;
 }
 
 export interface UpdateFlujoRequest {
