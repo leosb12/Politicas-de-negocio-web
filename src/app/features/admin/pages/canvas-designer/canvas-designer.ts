@@ -14,6 +14,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { PoliticaService } from '../../services/politica.service';
 import { AdminDepartmentsService } from '../../services/admin-departments.service';
 import { AdminUsersService } from '../../services/admin-users.service';
@@ -225,6 +226,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   showSidebar = signal(false);
   showIaWorkflowModal = signal(false);
+  isApplyingIaWorkflow = signal(false);
   sidebarNode = computed(() =>
     this.nodos().find((n) => n.id === this.selectedNodeId()) ?? null
   );
@@ -2003,11 +2005,30 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     analysis: any;
     iaResponse: IaWorkflowResponse;
   }): void {
+    void this.applyIaWorkflow(event);
+  }
+
+  private async applyIaWorkflow(event: {
+    nodos: Nodo[];
+    conexiones: Conexion[];
+    analysis: any;
+    iaResponse: IaWorkflowResponse;
+  }): Promise<void> {
+    if (this.isApplyingIaWorkflow()) {
+      return;
+    }
+
+    this.isApplyingIaWorkflow.set(true);
     try {
+      const departments = await this.ensureDepartmentsForIaWorkflow(event.iaResponse);
+      this.departamentos.set(departments);
+
+      this.fitLaneSizeForIaWorkflow(event.iaResponse, departments);
+
       const { nodos, conexiones } = this.iaMapperService.mapIaResponseToWorkflow(
         event.iaResponse,
         {
-          departamentos: this.departamentos().map((departamento) => ({
+          departamentos: departments.map((departamento) => ({
             id: departamento.id,
             nombre: departamento.nombre,
           })),
@@ -2034,7 +2055,174 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         'Error al aplicar',
         'No se pudo aplicar el workflow generado'
       );
+    } finally {
+      this.isApplyingIaWorkflow.set(false);
     }
+  }
+
+  private fitLaneSizeForIaWorkflow(
+    response: IaWorkflowResponse,
+    departments: AdminDepartment[]
+  ): void {
+    const nodes = response.nodes ?? [];
+    const activityNodes = nodes.filter((node) => node.type === 'task');
+    const longestTitle = nodes.reduce(
+      (max, node) => Math.max(max, (node.name ?? '').trim().length),
+      0
+    );
+    const departmentCount = Math.max(1, departments.length);
+
+    if (this.isVerticalLaneOrientation()) {
+      const estimatedWidth = Math.max(
+        320,
+        180 + longestTitle * 8,
+        220 + Math.ceil(activityNodes.length / departmentCount) * 70
+      );
+      this.laneWidth.set(this.normalizeLaneWidth(estimatedWidth));
+      return;
+    }
+
+    const estimatedHeight = Math.max(
+      220,
+      160 + longestTitle * 5,
+      220 + Math.ceil(activityNodes.length / departmentCount) * 60
+    );
+    this.laneHeight.set(this.normalizeLaneHeight(estimatedHeight));
+  }
+
+  private async ensureDepartmentsForIaWorkflow(
+    response: IaWorkflowResponse
+  ): Promise<AdminDepartment[]> {
+    const existingDepartments = [...this.departamentos()];
+    const detectedDepartments = this.detectIaDepartments(response);
+    const createdDepartments: AdminDepartment[] = [];
+
+    for (const department of detectedDepartments) {
+      if (this.findSimilarDepartment(department.name, existingDepartments)) {
+        continue;
+      }
+
+      const created = await firstValueFrom(
+        this.deptSvc.createDepartment({
+          nombre: department.name,
+          descripcion:
+            department.description ?? 'Departamento sugerido automáticamente por IA',
+        })
+      );
+
+      existingDepartments.push(created);
+      createdDepartments.push(created);
+    }
+
+    if (!createdDepartments.length) {
+      return existingDepartments;
+    }
+
+    return existingDepartments;
+  }
+
+  private detectIaDepartments(
+    response: IaWorkflowResponse
+  ): Array<{ name: string; description?: string | null }> {
+    const suggested = (response.departments ?? [])
+      .map((department) => ({
+        name: department.name,
+        description: department.description ?? null,
+      }))
+      .filter((department) => department.name.trim().length > 1);
+
+    if (suggested.length) {
+      return this.uniqueDepartmentsByName(suggested);
+    }
+
+    const rolesById = new Map(
+      (response.roles ?? []).map((role) => [role.id, role])
+    );
+
+    const inferred = response.nodes
+      .filter((node) => node.type === 'task' && node.responsibleType === 'department')
+      .map((node) => {
+        const roleName = node.responsibleRoleId
+          ? rolesById.get(node.responsibleRoleId)?.name
+          : null;
+
+        return {
+          name: node.departmentHint?.trim() || roleName?.trim() || node.name.trim(),
+          description: node.description?.trim() || null,
+        };
+      })
+      .filter((department) => department.name.length > 1);
+
+    return this.uniqueDepartmentsByName(inferred);
+  }
+
+  private uniqueDepartmentsByName(
+    departments: Array<{ name: string; description?: string | null }>
+  ): Array<{ name: string; description?: string | null }> {
+    const seen = new Set<string>();
+    const unique: Array<{ name: string; description?: string | null }> = [];
+
+    for (const department of departments) {
+      const key = this.normalizeDepartmentName(department.name);
+      if (!key || seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      unique.push(department);
+    }
+
+    return unique;
+  }
+
+  private findSimilarDepartment(
+    name: string,
+    departments: AdminDepartment[]
+  ): AdminDepartment | null {
+    const normalizedName = this.normalizeDepartmentName(name);
+    if (!normalizedName) {
+      return null;
+    }
+
+    for (const department of departments) {
+      const normalizedDepartmentName = this.normalizeDepartmentName(department.nombre);
+      if (!normalizedDepartmentName) {
+        continue;
+      }
+
+      if (
+        normalizedDepartmentName === normalizedName ||
+        normalizedDepartmentName.includes(normalizedName) ||
+        normalizedName.includes(normalizedDepartmentName)
+      ) {
+        return department;
+      }
+
+      const departmentTokens = new Set(
+        normalizedDepartmentName.split(' ').filter((token) => token.length > 2)
+      );
+      const nameTokens = normalizedName.split(' ').filter((token) => token.length > 2);
+      const matchingTokens = nameTokens.filter((token) => departmentTokens.has(token));
+
+      if (
+        nameTokens.length > 0 &&
+        matchingTokens.length / nameTokens.length >= 0.5
+      ) {
+        return department;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeDepartmentName(value: string): string {
+    return String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   private layoutIaNodes(nodos: Nodo[], conexiones: Conexion[]): NodoCanvas[] {

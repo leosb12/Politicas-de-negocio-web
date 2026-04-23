@@ -5,6 +5,7 @@
 
 export interface IaWorkflowResponse {
   policy: IaPolicy;
+  departments: IaDepartment[];
   roles: IaRole[];
   nodes: IaNode[];
   transitions: IaTransition[];
@@ -18,6 +19,13 @@ export interface IaPolicy {
   description: string;
   objective: string;
   version: string;
+}
+
+export interface IaDepartment {
+  id: string;
+  name: string;
+  description?: string | null;
+  aliases?: string[];
 }
 
 export interface IaRole {
