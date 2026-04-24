@@ -1,12 +1,12 @@
-<section [class]="'analytics-kpi-card analytics-kpi-card--gradient p-5 ' + toneClasses()">
+<section [class]="'analytics-kpi-card analytics-kpi-card--gradient p-4 ' + toneClasses()">
   <div class="analytics-kpi-card__glow"></div>
   <div class="analytics-kpi-card__content">
     <div class="flex items-start justify-between gap-3">
       <div>
-        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
           {{ title() }}
         </p>
-        <p class="mt-3 text-3xl font-bold tracking-tight text-white">{{ value() }}</p>
+        <p class="mt-2.5 text-[1.7rem] font-bold tracking-tight text-white">{{ value() }}</p>
       </div>
 
       <div class="analytics-kpi-card__icon">
@@ -15,7 +15,7 @@
     </div>
 
     @if (subtitle() || chip()) {
-      <div class="mt-4 flex flex-wrap items-center gap-2">
+      <div class="mt-3 flex flex-wrap items-center gap-2">
         @if (chip()) {
           <span class="analytics-kpi-card__chip">{{ chip() }}</span>
         }
@@ -27,7 +27,7 @@
     }
 
     @if (progress() !== null) {
-      <div class="mt-4 space-y-2">
+      <div class="mt-3 space-y-2">
         <div class="analytics-kpi-card__progress-track">
           <span
             class="analytics-kpi-card__progress-fill"

@@ -58,10 +58,10 @@
                 <div class="analytics-ai-item__top">
                   <div>
                     <p class="analytics-ai-item__name">{{ item.name }}</p>
-                    <p class="analytics-ai-item__type">{{ item.type }}</p>
+                    <p class="analytics-ai-item__type">{{ insightTypeLabel(item.type) }}</p>
                   </div>
                   <span [class]="'analytics-ai-badge ' + severityClass(item.severity)">
-                    {{ item.severity }}
+                    {{ severityLabel(item.severity) }}
                   </span>
                 </div>
                 <div class="analytics-ai-item__body">
@@ -98,10 +98,10 @@
                 <div class="analytics-ai-item__top">
                   <div>
                     <p class="analytics-ai-item__name">{{ item.fromOfficial }} -> {{ item.toOfficial }}</p>
-                    <p class="analytics-ai-item__type">Prioridad {{ item.priority }}</p>
+                    <p class="analytics-ai-item__type">Prioridad {{ severityLabel(item.priority) }}</p>
                   </div>
                   <span [class]="'analytics-ai-badge ' + severityClass(item.priority)">
-                    {{ item.priority }}
+                    {{ severityLabel(item.priority) }}
                   </span>
                 </div>
                 <div class="analytics-ai-item__body">

@@ -4,14 +4,10 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { map, startWith } from 'rxjs';
-import { EmptyStateComponent } from '../../../../shared/components/empty-state/empty-state';
-import { LoaderComponent } from '../../../../shared/components/loader/loader';
 import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
 import { AppButtonComponent } from '../../../../shared/ui/button/button';
-import { AppCardComponent } from '../../../../shared/ui/card/card';
 import { AppInputComponent } from '../../../../shared/ui/input/input';
 import { AppSelectComponent } from '../../../../shared/ui/select/select';
-import { FuncionarioTareasTableComponent } from '../../components/funcionario-tareas-table/funcionario-tareas-table';
 import { FuncionarioWorkflowFacadeService } from '../../services/funcionario-workflow-facade.service';
 import { normalizeEstado } from '../../services/funcionario-workflow-status.util';
 
@@ -25,8 +21,6 @@ import { normalizeEstado } from '../../services/funcionario-workflow-status.util
     AppButtonComponent,
     AppInputComponent,
     AppSelectComponent,
-    LoaderComponent,
-    EmptyStateComponent,
   ],
   templateUrl: './funcionario-tareas.html',
   styleUrl: './funcionario-tareas.css',

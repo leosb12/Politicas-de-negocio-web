@@ -138,7 +138,7 @@
         <span class="analytics-pill analytics-pill--sky">Panorama</span>
       </div>
 
-      <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-grid analytics-kpi-grid--compact">
         <app-analytics-kpi-card
           title="Total de politicas"
           [value]="formatCount(general()!.totalPolicies)"
@@ -325,7 +325,7 @@
         </div>
 
         <div class="grid gap-4 xl:grid-cols-2">
-          <app-card className="analytics-surface overflow-hidden">
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
             <div class="analytics-card-head">
               <h3>Promedio por politica</h3>
               <span class="analytics-pill analytics-pill--violet">Politicas</span>
@@ -336,8 +336,8 @@
                 message="No existen promedios por politica para mostrar."
               />
             } @else {
-              <div class="analytics-table-wrap">
-              <app-table className="analytics-table">
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
                 <thead>
                   <tr class="analytics-table__head-row">
                     <th class="px-5 py-3">Politica</th>
@@ -364,12 +364,12 @@
                     </tr>
                   }
                 </tbody>
-              </app-table>
+                </app-table>
               </div>
             }
           </app-card>
 
-          <app-card className="analytics-surface overflow-hidden">
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
             <div class="analytics-card-head">
               <h3>Promedio por nodo</h3>
               <span class="analytics-pill analytics-pill--amber">Nodos</span>
@@ -380,8 +380,8 @@
                 message="No existen promedios por nodo para mostrar."
               />
             } @else {
-              <div class="analytics-table-wrap">
-              <app-table className="analytics-table">
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
                 <thead>
                   <tr class="analytics-table__head-row">
                     <th class="px-5 py-3">Nodo</th>
@@ -408,12 +408,12 @@
                     </tr>
                   }
                 </tbody>
-              </app-table>
+                </app-table>
               </div>
             }
           </app-card>
 
-          <app-card className="analytics-surface overflow-hidden">
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
             <div class="analytics-card-head">
               <h3>Promedio por departamento</h3>
               <span class="analytics-pill analytics-pill--sky">Departamentos</span>
@@ -424,8 +424,8 @@
                 message="No hay tiempos registrados por departamento."
               />
             } @else {
-              <div class="analytics-table-wrap">
-              <app-table className="analytics-table">
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
                 <thead>
                   <tr class="analytics-table__head-row">
                     <th class="px-5 py-3">Departamento</th>
@@ -452,12 +452,12 @@
                     </tr>
                   }
                 </tbody>
-              </app-table>
+                </app-table>
               </div>
             }
           </app-card>
 
-          <app-card className="analytics-surface overflow-hidden">
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
             <div class="analytics-card-head">
               <h3>Promedio por funcionario</h3>
               <span class="analytics-pill analytics-pill--emerald">Funcionarios</span>
@@ -468,8 +468,8 @@
                 message="No hay tiempos registrados por funcionario."
               />
             } @else {
-              <div class="analytics-table-wrap">
-              <app-table className="analytics-table">
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
                 <thead>
                   <tr class="analytics-table__head-row">
                     <th class="px-5 py-3">Funcionario</th>
@@ -496,7 +496,7 @@
                     </tr>
                   }
                 </tbody>
-              </app-table>
+                </app-table>
               </div>
             }
           </app-card>
@@ -515,13 +515,13 @@
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
-        <app-card className="analytics-surface overflow-hidden">
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
           <div class="analytics-card-head">
             <h3>Pendientes por funcionario</h3>
             <span class="analytics-pill analytics-pill--emerald">Carga humana</span>
           </div>
-          <div class="analytics-table-wrap">
-          <app-table className="analytics-table">
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
             <thead>
               <tr class="analytics-table__head-row">
                 <th class="px-5 py-3">Funcionario</th>
@@ -548,17 +548,17 @@
                 </tr>
               }
             </tbody>
-          </app-table>
+            </app-table>
           </div>
         </app-card>
 
-        <app-card className="analytics-surface overflow-hidden">
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
           <div class="analytics-card-head">
             <h3>Pendientes por departamento</h3>
             <span class="analytics-pill analytics-pill--sky">Carga estructural</span>
           </div>
-          <div class="analytics-table-wrap">
-          <app-table className="analytics-table">
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
             <thead>
               <tr class="analytics-table__head-row">
                 <th class="px-5 py-3">Departamento</th>
@@ -585,17 +585,17 @@
                 </tr>
               }
             </tbody>
-          </app-table>
+            </app-table>
           </div>
         </app-card>
 
-        <app-card className="analytics-surface overflow-hidden">
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
           <div class="analytics-card-head">
             <h3>Pendientes por politica</h3>
             <span class="analytics-pill analytics-pill--violet">Politicas</span>
           </div>
-          <div class="analytics-table-wrap">
-          <app-table className="analytics-table">
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
             <thead>
               <tr class="analytics-table__head-row">
                 <th class="px-5 py-3">Politica</th>
@@ -622,17 +622,17 @@
                 </tr>
               }
             </tbody>
-          </app-table>
+            </app-table>
           </div>
         </app-card>
 
-        <app-card className="analytics-surface overflow-hidden">
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
           <div class="analytics-card-head">
             <h3>Pendientes por nodo</h3>
             <span class="analytics-pill analytics-pill--amber">Nodos</span>
           </div>
-          <div class="analytics-table-wrap">
-          <app-table className="analytics-table">
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
             <thead>
               <tr class="analytics-table__head-row">
                 <th class="px-5 py-3">Nodo</th>
@@ -659,43 +659,43 @@
                 </tr>
               }
             </tbody>
-          </app-table>
-          </div>
-        </app-card>
-
-        <app-card className="analytics-surface overflow-hidden">
-          <div class="analytics-card-head">
-            <h3>Tareas pendientes mas antiguas</h3>
-            <span class="analytics-pill analytics-pill--rose">Riesgo operativo</span>
-          </div>
-          <div class="analytics-table-wrap">
-          <app-table className="analytics-table">
-            <thead>
-              <tr class="analytics-table__head-row">
-                <th class="px-5 py-3">Politica</th>
-                <th class="px-5 py-3">Nodo</th>
-                <th class="px-5 py-3">Asignado a</th>
-                <th class="px-5 py-3">Departamento</th>
-                <th class="px-5 py-3">Antiguedad</th>
-                <th class="px-5 py-3">Creada</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of taskAccumulation()!.oldestPendingTasks; track item.taskId) {
-                <tr class="analytics-table__row">
-                  <td class="px-5 py-3">{{ item.policyName }}</td>
-                  <td class="px-5 py-3">{{ item.nodeName }}</td>
-                  <td class="px-5 py-3">{{ item.assignedToName ?? '-' }}</td>
-                  <td class="px-5 py-3">{{ item.departmentName ?? '-' }}</td>
-                  <td class="px-5 py-3">{{ formatHours(item.ageHours) }}</td>
-                  <td class="px-5 py-3">{{ item.createdAt | date : 'medium' }}</td>
-                </tr>
-              }
-            </tbody>
-          </app-table>
+            </app-table>
           </div>
         </app-card>
       </div>
+
+      <app-card className="analytics-surface analytics-oldest-card overflow-hidden">
+        <div class="analytics-card-head">
+          <h3>Tareas pendientes mas antiguas</h3>
+          <span class="analytics-pill analytics-pill--rose">Riesgo operativo</span>
+        </div>
+        <div class="analytics-table-wrap analytics-table-wrap--tall">
+          <app-table className="analytics-table analytics-table--oldest">
+          <thead>
+            <tr class="analytics-table__head-row">
+              <th class="px-4 py-3">Politica</th>
+              <th class="px-4 py-3">Nodo</th>
+              <th class="px-4 py-3">Asignado a</th>
+              <th class="px-4 py-3">Departamento</th>
+              <th class="px-4 py-3">Antiguedad</th>
+              <th class="px-4 py-3">Creada</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of taskAccumulation()!.oldestPendingTasks; track item.taskId) {
+              <tr class="analytics-table__row">
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.policyName }}</td>
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.nodeName }}</td>
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.assignedToName ?? '-' }}</td>
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.departmentName ?? '-' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ formatHours(item.ageHours) }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ item.createdAt | date : 'dd/MM/yy HH:mm' }}</td>
+              </tr>
+            }
+          </tbody>
+          </app-table>
+        </div>
+      </app-card>
     </section>
 
     <app-admin-analytics-ai-section

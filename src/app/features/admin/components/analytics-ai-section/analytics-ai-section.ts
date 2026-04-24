@@ -51,6 +51,36 @@ export class AdminAnalyticsAiSectionComponent {
     return classes[severity];
   }
 
+  severityLabel(severity: 'LOW' | 'MEDIUM' | 'HIGH'): string {
+    const labels = {
+      HIGH: 'Alta',
+      MEDIUM: 'Media',
+      LOW: 'Baja',
+    };
+
+    return labels[severity];
+  }
+
+  insightTypeLabel(type: string): string {
+    const normalized = type.trim().toUpperCase();
+    const labels: Record<string, string> = {
+      POLICY: 'Politica',
+      POLITICA: 'Politica',
+      NODE: 'Nodo',
+      NODO: 'Nodo',
+      DEPARTMENT: 'Departamento',
+      DEPARTAMENTO: 'Departamento',
+      OFFICIAL: 'Funcionario',
+      FUNCIONARIO: 'Funcionario',
+      TASK: 'Tarea',
+      TAREA: 'Tarea',
+      INSTANCE: 'Instancia',
+      INSTANCIA: 'Instancia',
+    };
+
+    return labels[normalized] ?? type;
+  }
+
   private getResponseState(
     response: BottlenecksResponse | TaskRedistributionResponse | null,
     kind: 'bottlenecks' | 'recommendations'
