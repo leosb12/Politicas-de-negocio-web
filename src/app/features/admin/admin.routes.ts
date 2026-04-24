@@ -55,6 +55,13 @@ export const ADMIN_ROUTES: Routes = [
           ),
       },
       {
+        path: 'analisis-ia',
+        loadComponent: () =>
+          import('./pages/admin-analisis-ia/admin-analisis-ia').then(
+            (module) => module.AdminAnalisisIaPageComponent
+          ),
+      },
+      {
         path: 'servicios-ia',
         loadComponent: () =>
           import('./pages/admin-servicios-ia/admin-servicios-ia').then(

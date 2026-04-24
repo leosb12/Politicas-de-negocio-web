@@ -1,0 +1,44 @@
+<div class="dashboard-analytics-shell min-h-screen">
+  <app-header />
+
+  <main class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+    <section class="dashboard-analytics-hero overflow-hidden rounded-[2rem] border border-white/70 p-8 text-slate-950 shadow-2xl shadow-slate-950/10">
+      <div class="dashboard-analytics-hero__orb dashboard-analytics-hero__orb--one"></div>
+      <div class="dashboard-analytics-hero__orb dashboard-analytics-hero__orb--two"></div>
+
+      <div class="relative z-10 flex flex-col gap-4 lg:max-w-3xl">
+        <span class="inline-flex w-fit rounded-full border border-sky-200 bg-white/85 px-4 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-sky-700 backdrop-blur">
+          Centro de analitica
+        </span>
+        <div>
+          <h2 class="text-3xl font-black tracking-tight sm:text-5xl">
+            Analitica para {{ usuario?.nombre }}
+          </h2>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Entra a las metricas generales del sistema o ve directo al analisis con IA para revisar cuellos de botella y redistribucion sugerida.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-5 md:grid-cols-2">
+      <app-dashboard-navigation-card
+        chip="Panorama general"
+        title="Analiticas Generales"
+        description="Abre la vista global con KPIs, tiempos de atencion, acumulacion de tareas y lectura operativa completa."
+        footerLabel="Ir a /admin/analytics"
+        routerLink="/admin/analytics"
+        tone="sky"
+      />
+
+      <app-dashboard-navigation-card
+        chip="Optimizacion IA"
+        title="Analisis con IA"
+        description="Ve a la pantalla dedicada de cuellos de botella y redistribucion sugerida con una visualizacion mas enfocada y accionable."
+        footerLabel="Ir a /analisis-ia"
+        routerLink="/analisis-ia"
+        tone="teal"
+      />
+    </section>
+  </main>
+</div>

@@ -9,6 +9,11 @@ export const routes: Routes = [
   ...HOME_ROUTES,
   ...AUTH_ROUTES,
   {
+    path: 'analisis-ia',
+    redirectTo: 'admin/analisis-ia',
+    pathMatch: 'full',
+  },
+  {
     path: 'admin',
     loadChildren: () =>
       import('./features/admin/admin.routes').then((module) => module.ADMIN_ROUTES),

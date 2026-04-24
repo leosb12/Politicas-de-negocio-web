@@ -1,0 +1,44 @@
+<div class="dashboard-ia-shell min-h-screen">
+  <app-header />
+
+  <main class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+    <section class="dashboard-ia-hero overflow-hidden rounded-[2rem] border border-white/70 p-8 text-slate-950 shadow-2xl shadow-slate-950/10">
+      <div class="dashboard-ia-hero__shape dashboard-ia-hero__shape--one"></div>
+      <div class="dashboard-ia-hero__shape dashboard-ia-hero__shape--two"></div>
+
+      <div class="relative z-10 flex flex-col gap-4 lg:max-w-3xl">
+        <span class="inline-flex w-fit rounded-full border border-emerald-200 bg-white/85 px-4 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700 backdrop-blur">
+          Simulaciones con IA
+        </span>
+        <div>
+          <h2 class="text-3xl font-black tracking-tight sm:text-5xl">
+            Centro de simulaciones para {{ usuario?.nombre }}
+          </h2>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Desde aqui puedes crear una simulacion nueva de politicas o revisar el historial completo de simulaciones ya ejecutadas.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-5 md:grid-cols-2">
+      <app-dashboard-navigation-card
+        chip="Nueva ejecucion"
+        title="Crear simulacion de politicas"
+        description="Abre el formulario de simulacion para escoger una politica y configurar la corrida con o sin analisis IA."
+        footerLabel="Ir al formulario"
+        routerLink="/admin/policies/simulate"
+        tone="sky"
+      />
+
+      <app-dashboard-navigation-card
+        chip="Consulta de resultados"
+        title="Historial de simulaciones"
+        description="Entra a la pantalla de historial para ver ejecuciones previas, revisar resultados y abrir el detalle de cada simulacion."
+        footerLabel="Ver historial"
+        routerLink="/admin/simulations"
+        tone="amber"
+      />
+    </section>
+  </main>
+</div>

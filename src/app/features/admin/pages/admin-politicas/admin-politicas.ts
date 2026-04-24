@@ -216,7 +216,7 @@ export class AdminPoliticasPageComponent implements OnInit {
       next: (created) => {
         this.saving.set(false);
         this.closeModal();
-        this.toast.success('Creada', `Politica "${created.nombre}" lista para disenar`);
+        this.toast.success('Creada', `Politica "${created.nombre}" lista para diseñar`);
         this.router.navigate(['/admin/politicas', created.id, 'canvas']);
       },
       error: () => {

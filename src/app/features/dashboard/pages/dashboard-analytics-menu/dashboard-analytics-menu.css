@@ -1,0 +1,36 @@
+.dashboard-analytics-shell {
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(45, 212, 191, 0.14), transparent 30%);
+}
+
+.dashboard-analytics-hero {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(240, 249, 255, 0.9)),
+    linear-gradient(120deg, #eff6ff 0%, #cffafe 100%);
+  backdrop-filter: blur(16px);
+}
+
+.dashboard-analytics-hero__orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(12px);
+  opacity: 0.82;
+}
+
+.dashboard-analytics-hero__orb--one {
+  top: -30px;
+  right: 6%;
+  width: 180px;
+  height: 180px;
+  background: rgba(56, 189, 248, 0.24);
+}
+
+.dashboard-analytics-hero__orb--two {
+  bottom: -50px;
+  left: 10%;
+  width: 150px;
+  height: 150px;
+  background: rgba(45, 212, 191, 0.18);
+}

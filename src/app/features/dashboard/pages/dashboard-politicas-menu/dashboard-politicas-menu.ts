@@ -5,14 +5,14 @@ import { AppHeaderComponent } from '../../../../shared/components/app-header/app
 import { DashboardNavigationCardComponent } from '../../../../shared/components/dashboard-navigation-card/dashboard-navigation-card';
 
 @Component({
-  selector: 'app-dashboard-admin',
+  selector: 'app-dashboard-politicas-menu-page',
   standalone: true,
   imports: [CommonModule, AppHeaderComponent, DashboardNavigationCardComponent],
-  templateUrl: './dashboard-admin.html',
-  styleUrl: './dashboard-admin.css'
+  templateUrl: './dashboard-politicas-menu.html',
+  styleUrl: './dashboard-politicas-menu.css',
 })
-export class DashboardAdmin {
-  private authService = inject(AuthService);
+export class DashboardPoliticasMenuPageComponent {
+  private readonly authService = inject(AuthService);
 
-  usuario = this.authService.obtenerSesion();
+  readonly usuario = this.authService.obtenerSesion();
 }

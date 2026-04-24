@@ -1,0 +1,106 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.dashboard-navigation-card {
+  position: relative;
+  display: flex;
+  min-height: 280px;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  overflow: hidden;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  padding: 1.6rem;
+  box-shadow: 0 20px 45px -24px rgba(15, 23, 42, 0.28);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.dashboard-navigation-card::before {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 35%);
+  content: '';
+  pointer-events: none;
+}
+
+.dashboard-navigation-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 28px 60px -28px rgba(15, 23, 42, 0.22);
+}
+
+.dashboard-navigation-card__chip {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.76);
+  padding: 0.45rem 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #0f172a;
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-navigation-card__footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dashboard-navigation-card--sky {
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.22), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #dbeafe 100%);
+}
+
+.dashboard-navigation-card--emerald {
+  background:
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.22), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #d1fae5 100%);
+}
+
+.dashboard-navigation-card--amber {
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.24), transparent 36%),
+    linear-gradient(160deg, #ffffff 0%, #fef3c7 100%);
+}
+
+.dashboard-navigation-card--rose {
+  background:
+    radial-gradient(circle at top right, rgba(244, 63, 94, 0.2), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #ffe4e6 100%);
+}
+
+.dashboard-navigation-card--teal {
+  background:
+    radial-gradient(circle at top right, rgba(45, 212, 191, 0.2), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #ccfbf1 100%);
+}
+
+.dashboard-navigation-card--orange {
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.22), transparent 34%),
+    linear-gradient(160deg, #ffffff 0%, #ffedd5 100%);
+}
+
+@media (max-width: 768px) {
+  .dashboard-navigation-card {
+    min-height: 240px;
+  }
+}

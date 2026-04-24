@@ -1,0 +1,36 @@
+.dashboard-submenu-shell {
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(249, 115, 22, 0.14), transparent 30%);
+}
+
+.dashboard-submenu-hero {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 237, 0.92)),
+    linear-gradient(120deg, #fff7ed 0%, #ffedd5 100%);
+  backdrop-filter: blur(16px);
+}
+
+.dashboard-submenu-hero__orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(12px);
+  opacity: 0.82;
+}
+
+.dashboard-submenu-hero__orb--one {
+  top: -30px;
+  right: 6%;
+  width: 180px;
+  height: 180px;
+  background: rgba(251, 146, 60, 0.24);
+}
+
+.dashboard-submenu-hero__orb--two {
+  bottom: -50px;
+  left: 10%;
+  width: 150px;
+  height: 150px;
+  background: rgba(245, 158, 11, 0.18);
+}

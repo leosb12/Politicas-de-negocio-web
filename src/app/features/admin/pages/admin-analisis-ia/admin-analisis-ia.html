@@ -1,0 +1,274 @@
+<section class="ia-analysis-shell">
+  <header class="ia-analysis-hero">
+    <div class="ia-analysis-hero__glow ia-analysis-hero__glow--one"></div>
+    <div class="ia-analysis-hero__glow ia-analysis-hero__glow--two"></div>
+    <div class="ia-analysis-hero__grid">
+      <div class="ia-analysis-hero__copy">
+        <div class="ia-analysis-hero__eyebrow">
+          <lucide-icon name="sparkles" [size]="16"></lucide-icon>
+          <span>Analisis inteligente dedicado</span>
+        </div>
+
+        <h1 class="ia-analysis-hero__title">Analisis con IA</h1>
+        <p class="ia-analysis-hero__subtitle">
+          Una vista enfocada solo en cuellos de botella y redistribucion sugerida, con lectura
+          ejecutiva mas clara, riesgo por color y decisiones mas faciles de priorizar.
+        </p>
+
+        <div class="ia-analysis-hero__actions">
+          <app-button
+            variant="outline"
+            className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+            [pending]="loading()"
+            pendingLabel="Actualizando..."
+            (click)="loadInsights()"
+          >
+            <lucide-icon name="refresh-cw" [size]="16"></lucide-icon>
+            Actualizar analisis
+          </app-button>
+        </div>
+
+        <p class="ia-analysis-hero__focus">{{ focusHeadline() }}</p>
+      </div>
+
+      <div class="ia-analysis-hero__stats">
+        @for (card of headlineCards(); track card.label) {
+          <article class="ia-hero-stat" [ngClass]="card.toneClass">
+            <div class="ia-hero-stat__icon">
+              <lucide-icon [name]="card.icon" [size]="18"></lucide-icon>
+            </div>
+            <div>
+              <p class="ia-hero-stat__label">{{ card.label }}</p>
+              <p class="ia-hero-stat__value">{{ card.value }}</p>
+              <p class="ia-hero-stat__note">{{ card.note }}</p>
+            </div>
+          </article>
+        }
+      </div>
+    </div>
+
+    <div class="ia-analysis-hero__footer">
+      <div class="ia-risk-panel">
+        <p class="ia-risk-panel__label">Distribucion de riesgo detectado</p>
+        @if (hasVisibleRiskDistribution()) {
+          <div class="ia-risk-bar">
+            @for (segment of riskDistribution(); track segment.label) {
+              <span
+                [class]="'ia-risk-bar__segment ' + segment.barClass"
+                [style.width.%]="segment.width"
+                [attr.title]="segment.label + ': ' + segment.count"
+              ></span>
+            }
+          </div>
+
+          <div class="ia-risk-legend">
+            @for (segment of riskDistribution(); track segment.label) {
+              <div class="ia-risk-legend__item">
+                <span [class]="'ia-risk-legend__dot ' + segment.dotClass"></span>
+                <span>{{ segment.label }}</span>
+                <strong>{{ segment.count }}</strong>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="ia-risk-panel__empty">Sin riesgos clasificados por severidad en esta carga.</p>
+        }
+      </div>
+
+      <div class="ia-source-strip">
+        @for (source of sourcePills(); track source.label) {
+          <article class="ia-source-pill-wrap">
+            <p class="ia-source-pill-wrap__label">{{ source.label }}</p>
+            <div [class]="source.chipClass">{{ source.value }}</div>
+            <p class="ia-source-pill-wrap__state">{{ sourceHasUsableData(source.state) ? 'Disponible' : stateCaption(source.state) }}</p>
+          </article>
+        }
+      </div>
+    </div>
+  </header>
+
+  @if (loading() && !hasAnyResponse()) {
+    <div class="ia-state-card">
+      <app-loader message="Procesando analisis inteligente..." />
+    </div>
+  } @else if (showHardError()) {
+    <div class="ia-state-card">
+      <app-empty-state
+        title="No se pudo cargar el analisis con IA"
+        message="Los servicios de cuellos de botella y redistribucion no respondieron en esta carga."
+        actionLabel="Reintentar"
+        (action)="loadInsights()"
+      />
+    </div>
+  } @else {
+    @if (showPartialWarning()) {
+      <article class="ia-warning-banner">
+        <div class="ia-warning-banner__icon">
+          <lucide-icon name="alert-triangle" [size]="18"></lucide-icon>
+        </div>
+        <div>
+          <p class="ia-warning-banner__title">Lectura parcial</p>
+          <p class="ia-warning-banner__copy">
+            Una de las fuentes IA no respondio. La pagina sigue mostrando todo lo que si estuvo
+            disponible en esta consulta.
+          </p>
+        </div>
+      </article>
+    }
+
+    <section class="ia-section">
+      <div class="ia-section__head">
+        <div>
+          <p class="ia-section__kicker">Resumen ejecutivo</p>
+          <h2 class="ia-section__title">Lo que la IA esta viendo ahora</h2>
+          <p class="ia-section__subtitle">
+            Dos lecturas separadas para entender riesgo operativo y balance de carga.
+          </p>
+        </div>
+      </div>
+
+      <div class="ia-brief-grid">
+        @for (panel of summaryPanels(); track panel.title) {
+          <article class="ia-brief-card" [ngClass]="panel.toneClass">
+            <div class="ia-brief-card__top">
+              <div>
+                <p class="ia-brief-card__eyebrow">{{ panel.eyebrow }}</p>
+                <h3>{{ panel.title }}</h3>
+              </div>
+              <span [class]="panel.chipClass">{{ panel.chipLabel }}</span>
+            </div>
+            <p class="ia-brief-card__copy">{{ panel.copy }}</p>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="ia-section">
+      <div class="ia-section__head">
+        <div>
+          <p class="ia-section__kicker">Friccion operativa</p>
+          <h2 class="ia-section__title">Cuellos de botella detectados</h2>
+          <p class="ia-section__subtitle">
+            Cards visuales por severidad para priorizar rapidamente donde actuar.
+          </p>
+        </div>
+        <span class="ia-chip ia-chip--rose">{{ bottleneckItems().length }} hallazgos</span>
+      </div>
+
+      @if (bottleneckState() === 'data') {
+        <div class="ia-findings-grid">
+          @for (item of bottleneckItems(); track item.type + item.name + item.severity) {
+            <article [class]="findingCardClass(item.severity)">
+              <div class="ia-finding-card__top">
+                <div>
+                  <p class="ia-finding-card__type">{{ insightTypeLabel(item.type) }}</p>
+                  <h3 class="ia-finding-card__title">{{ item.name }}</h3>
+                </div>
+                <span [class]="priorityBadgeClass(item.severity)">
+                  Riesgo {{ priorityLabel(item.severity) }}
+                </span>
+              </div>
+
+              <div class="ia-finding-card__blocks">
+                <div class="ia-finding-card__block">
+                  <span>Evidencia</span>
+                  <p>{{ item.evidence }}</p>
+                </div>
+                <div class="ia-finding-card__block">
+                  <span>Impacto</span>
+                  <p>{{ item.impact }}</p>
+                </div>
+                <div class="ia-finding-card__block">
+                  <span>Recomendacion</span>
+                  <p>{{ item.recommendation }}</p>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      } @else if (bottleneckState() === 'empty') {
+        <div class="ia-state-card">
+          <app-empty-state
+            title="Sin cuellos relevantes"
+            message="No se detectaron bloqueos con evidencia suficiente en esta ejecucion."
+          />
+        </div>
+      } @else if (bottleneckState() === 'unavailable') {
+        <div class="ia-state-card">
+          <app-empty-state
+            title="Analisis de cuellos no disponible"
+            message="El backend no devolvio un resultado de IA utilizable para esta seccion."
+          />
+        </div>
+      } @else {
+        <div class="ia-state-card">
+          <app-empty-state
+            title="Sin respuesta de cuellos de botella"
+            message="No se recibieron datos para construir esta seccion en la carga actual."
+          />
+        </div>
+      }
+    </section>
+
+    <section class="ia-section">
+      <div class="ia-section__head">
+        <div>
+          <p class="ia-section__kicker">Balance de carga</p>
+          <h2 class="ia-section__title">Redistribucion sugerida</h2>
+          <p class="ia-section__subtitle">
+            Movimientos recomendados por la IA para reducir presion y repartir trabajo.
+          </p>
+        </div>
+        <span class="ia-chip ia-chip--sky">{{ totalRecommendations() }} sugerencias</span>
+      </div>
+
+      @if (recommendationState() === 'data') {
+        <div class="ia-move-grid">
+          @for (item of recommendationItems(); track item.fromOfficial + item.toOfficial + item.priority) {
+            <article [class]="movementCardClass(item.priority)">
+              <div class="ia-redistribution-card__head">
+                <div>
+                  <h3 class="ia-redistribution-card__title">
+                    {{ item.fromOfficial }} -> {{ item.toOfficial }}
+                  </h3>
+                  <p class="ia-redistribution-card__priority">
+                    Prioridad {{ priorityLabel(item.priority) }}
+                  </p>
+                </div>
+                <span [class]="priorityBadgeClass(item.priority)">
+                  {{ priorityLabel(item.priority) }}
+                </span>
+              </div>
+
+              <div class="ia-redistribution-card__body">
+                <p><strong>Motivo:</strong> {{ item.reason }}</p>
+                <p><strong>Impacto esperado:</strong> {{ item.expectedImpact }}</p>
+              </div>
+            </article>
+          }
+        </div>
+      } @else if (recommendationState() === 'empty') {
+        <div class="ia-state-card">
+          <app-empty-state
+            title="Sin redistribuciones sugeridas"
+            message="La IA no encontro desbalances de carga que ameriten mover trabajo en esta consulta."
+          />
+        </div>
+      } @else if (recommendationState() === 'unavailable') {
+        <div class="ia-state-card">
+          <app-empty-state
+            title="Redistribucion no disponible"
+            message="El backend no devolvio un resultado de IA utilizable para esta seccion."
+          />
+        </div>
+      } @else {
+        <div class="ia-state-card">
+          <app-empty-state
+            title="Sin respuesta de redistribucion"
+            message="No se recibieron datos para construir esta seccion en la carga actual."
+          />
+        </div>
+      }
+    </section>
+  }
+</section>

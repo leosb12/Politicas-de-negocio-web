@@ -1,0 +1,53 @@
+<div class="dashboard-submenu-shell min-h-screen">
+  <app-header />
+
+  <main class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+    <section class="dashboard-submenu-hero overflow-hidden rounded-[2rem] border border-white/70 p-8 text-slate-950 shadow-2xl shadow-slate-950/10">
+      <div class="dashboard-submenu-hero__orb dashboard-submenu-hero__orb--one"></div>
+      <div class="dashboard-submenu-hero__orb dashboard-submenu-hero__orb--two"></div>
+
+      <div class="relative z-10 flex flex-col gap-4 lg:max-w-3xl">
+        <span class="inline-flex w-fit rounded-full border border-amber-200 bg-white/85 px-4 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-amber-700 backdrop-blur">
+          Navegacion de politicas
+        </span>
+        <div>
+          <h2 class="text-3xl font-black tracking-tight sm:text-5xl">
+            Politicas de negocio para {{ usuario?.nombre }}
+          </h2>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+            Elige el tipo de trabajo que quieres realizar: administrar politicas, lanzar simulaciones con IA o comparar politicas directamente.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-5 lg:grid-cols-3">
+      <app-dashboard-navigation-card
+        chip="Gestion principal"
+        title="Gestion de politicas"
+        description="Entra al modulo administrativo para crear, editar, publicar y organizar las politicas del sistema."
+        footerLabel="Ir a /admin/politicas"
+        routerLink="/admin/politicas"
+        tone="sky"
+      />
+
+      <app-dashboard-navigation-card
+        chip="Servicios IA"
+        title="Gestion de simulaciones de politica con IA"
+        description="Abre un submenu con accesos claros para crear simulaciones nuevas o revisar el historial de simulaciones ejecutadas."
+        footerLabel="Ver opciones de simulacion"
+        routerLink="/dashboard-admin/politicas-negocio/simulaciones-ia"
+        tone="emerald"
+      />
+
+      <app-dashboard-navigation-card
+        chip="Comparacion directa"
+        title="Comparar politicas"
+        description="Ve directamente a la pantalla de comparacion para medir dos politicas con la misma configuracion base."
+        footerLabel="Abrir comparador"
+        routerLink="/admin/policies/compare"
+        tone="rose"
+      />
+    </section>
+  </main>
+</div>

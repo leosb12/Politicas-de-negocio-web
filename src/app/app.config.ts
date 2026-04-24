@@ -45,6 +45,8 @@ import {
   WifiOff,
   AlertTriangle,
   AlertCircle,
+  Activity,
+  ChartColumn,
   CloudCheck,
   User,
   UserCheck,
@@ -104,9 +106,13 @@ export const appConfig: ApplicationConfig = {
         WifiOff,
         AlertTriangle,
         AlertCircle,
+        Activity,
+        ChartColumn,
         CloudCheck,
         UserCheck,
         Ban,
+        Zap,
+        Info,
       })
     )
   ]

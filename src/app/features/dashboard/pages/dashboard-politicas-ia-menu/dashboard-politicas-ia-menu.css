@@ -1,0 +1,36 @@
+.dashboard-ia-shell {
+  background:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.15), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(20, 184, 166, 0.14), transparent 32%);
+}
+
+.dashboard-ia-hero {
+  position: relative;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(236, 253, 245, 0.9)),
+    linear-gradient(120deg, #ecfdf5 0%, #ccfbf1 100%);
+  backdrop-filter: blur(16px);
+}
+
+.dashboard-ia-hero__shape {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(12px);
+  opacity: 0.82;
+}
+
+.dashboard-ia-hero__shape--one {
+  top: -40px;
+  right: 8%;
+  width: 180px;
+  height: 180px;
+  background: rgba(52, 211, 153, 0.24);
+}
+
+.dashboard-ia-hero__shape--two {
+  bottom: -50px;
+  left: 10%;
+  width: 150px;
+  height: 150px;
+  background: rgba(45, 212, 191, 0.18);
+}

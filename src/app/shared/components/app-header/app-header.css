@@ -1,0 +1,231 @@
+.app-header-shell {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(248, 250, 252, 0.94);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 30px -24px rgba(15, 23, 42, 0.35);
+}
+
+.app-header-container {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 80rem;
+  padding: 0.85rem 1rem;
+}
+
+.app-header-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app-header-title {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #020617;
+}
+
+.app-header-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-header-title-link:hover {
+  text-decoration: underline;
+}
+
+.app-header-subtitle {
+  margin: 0.1rem 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.app-header-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #334155;
+}
+
+.app-header-user__name {
+  font-weight: 700;
+}
+
+.app-header-user__role {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.app-header-hamburger {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #fff;
+}
+
+.app-header-hamburger span {
+  display: block;
+  width: 16px;
+  height: 2px;
+  border-radius: 9999px;
+  background: #0f172a;
+}
+
+.app-header-desktop-nav {
+  display: none;
+}
+
+.app-header-dropdown {
+  position: relative;
+}
+
+.app-header-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.app-header-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  min-width: 13.5rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #fff;
+  padding: 0.35rem;
+  box-shadow: 0 20px 42px -28px rgba(15, 23, 42, 0.55);
+}
+
+.app-header-dropdown-link {
+  display: block;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  color: #334155;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.app-header-dropdown-link:hover,
+.app-header-dropdown-link--active {
+  background: #eff6ff;
+  color: #0f172a;
+}
+
+.app-header-mobile {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.app-header-mobile-group {
+  overflow: hidden;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #fff;
+}
+
+.app-header-mobile-group-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  background: transparent;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.app-header-mobile-links {
+  display: grid;
+  gap: 0.2rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 0.35rem;
+}
+
+.app-header-mobile-link {
+  display: block;
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.55rem;
+  color: #334155;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.app-header-mobile-link:hover,
+.app-header-mobile-link--active {
+  background: #eff6ff;
+  color: #0f172a;
+}
+
+.app-header-logout {
+  border-radius: 9999px;
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.desktop-only {
+  display: none;
+}
+
+.mobile-only {
+  display: inline-flex;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .app-header-container {
+    padding: 0.95rem 1.5rem;
+  }
+
+  .app-header-hamburger,
+  .app-header-mobile,
+  .mobile-only {
+    display: none;
+  }
+
+  .desktop-only {
+    display: inline-flex;
+  }
+
+  .app-header-desktop-nav {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+}
