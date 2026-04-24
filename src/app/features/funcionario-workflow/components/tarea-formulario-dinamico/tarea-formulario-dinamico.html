@@ -11,9 +11,26 @@
     </div>
   }
 
+  @if (activityId() && activityName() && policyName()) {
+    <app-formulario-inteligente
+      [activityId]="activityId()!"
+      [activityName]="activityName()!"
+      [policyName]="policyName()!"
+      [formSchema]="intelligentFormSchema()"
+      [currentValues]="intelligentCurrentValues()"
+      [context]="intelligentContext()"
+      [disabled]="pending()"
+      (applied)="onIntelligentFormApplied($event)"
+    />
+  }
+
   <div class="grid gap-4 md:grid-cols-2">
     @for (campo of campos(); track campo.clave) {
-      <div class="space-y-2" [class.md:col-span-2]="campo.tipo === 'TEXTO'">
+      <div
+        class="space-y-2 rounded-2xl transition-all duration-200"
+        [class.md:col-span-2]="campo.tipo === 'TEXTO'"
+        [class.ia-updated-field]="isUpdatedByIa(campo)"
+      >
         @switch (campo.tipo) {
           @case ('TEXTO') {
             <app-input

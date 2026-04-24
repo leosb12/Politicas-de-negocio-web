@@ -24,12 +24,18 @@ import { AppButtonComponent } from '../../../../shared/ui/button/button';
 import { AppInputComponent } from '../../../../shared/ui/input/input';
 import { AppSelectComponent } from '../../../../shared/ui/select/select';
 import { AppTextareaComponent } from '../../../../shared/ui/textarea/textarea';
+import { FormularioInteligenteComponent } from '../formulario-inteligente/formulario-inteligente';
 import {
   CompletarTareaPayload,
   WorkflowArchivoMetadata,
   WorkflowFormularioCampo,
   WorkflowFormularioDefinicion,
 } from '../../models/funcionario-workflow.model';
+import {
+  FormularioInteligenteFieldSchema,
+  FormularioInteligenteRequestContext,
+  FormularioInteligenteResult,
+} from '../../models/formulario-inteligente.model';
 
 type DynamicControlValue = string | WorkflowArchivoMetadata | File | null;
 
@@ -42,6 +48,7 @@ type DynamicControlValue = string | WorkflowArchivoMetadata | File | null;
     AppSelectComponent,
     AppTextareaComponent,
     AppButtonComponent,
+    FormularioInteligenteComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tarea-formulario-dinamico.html',
@@ -54,6 +61,12 @@ export class TareaFormularioDinamicoComponent {
   readonly definicion = input<WorkflowFormularioDefinicion | null>(null);
   readonly respuestaInicial = input<Record<string, unknown> | null>(null);
   readonly observacionesInicial = input<string | null>(null);
+  readonly activityId = input<string | null>(null);
+  readonly activityName = input<string | null>(null);
+  readonly policyName = input<string | null>(null);
+  readonly intelligentContext = input<FormularioInteligenteRequestContext | null>(
+    null
+  );
   readonly disabled = input(false, { transform: booleanAttribute });
   readonly pending = input(false, { transform: booleanAttribute });
   readonly submitLabel = input('Completar tarea');
@@ -63,11 +76,28 @@ export class TareaFormularioDinamicoComponent {
   readonly formulario = new FormRecord<FormControl<DynamicControlValue>>({});
   readonly observacionesControl = new FormControl('', { nonNullable: true });
   readonly intentoEnvio = signal(false);
+  readonly iaUpdatedFieldKeys = signal<string[]>([]);
   private formBindingTaskId: string | null = null;
   private formBindingSignature: string | null = null;
   private hasLocalChanges = false;
 
   readonly campos = computed(() => this.definicion()?.campos ?? []);
+  readonly intelligentFormSchema = computed<FormularioInteligenteFieldSchema[]>(() =>
+    this.campos().map((campo) => ({
+      id: campo.clave,
+      label: campo.etiqueta,
+      type: this.mapFieldTypeForIa(campo),
+      required: campo.requerido,
+    }))
+  );
+  readonly intelligentCurrentValues = computed<Record<string, unknown>>(() =>
+    Object.fromEntries(
+      this.campos().map((campo) => [
+        campo.clave,
+        this.toIntelligentCurrentValue(campo, this.control(campo).value),
+      ])
+    )
+  );
 
   constructor() {
     effect(
@@ -222,6 +252,39 @@ export class TareaFormularioDinamicoComponent {
     return 'Valor invalido.';
   }
 
+  onIntelligentFormApplied(result: FormularioInteligenteResult): void {
+    const appliedKeys: string[] = [];
+
+    for (const campo of this.campos()) {
+      if (!Object.prototype.hasOwnProperty.call(result.updatedValues, campo.clave)) {
+        continue;
+      }
+
+      const nextValue = this.toFormInitialValue(
+        campo,
+        result.updatedValues[campo.clave]
+      );
+      const control = this.control(campo);
+
+      if (this.areControlValuesEqual(control.value, nextValue)) {
+        continue;
+      }
+
+      control.setValue(nextValue);
+      control.markAsDirty();
+      control.markAsTouched();
+      control.updateValueAndValidity();
+      appliedKeys.push(campo.clave);
+    }
+
+    this.iaUpdatedFieldKeys.set(appliedKeys);
+    this.hasLocalChanges = true;
+  }
+
+  isUpdatedByIa(campo: WorkflowFormularioCampo): boolean {
+    return this.iaUpdatedFieldKeys().includes(campo.clave);
+  }
+
   private rebuildForm(
     definition: WorkflowFormularioDefinicion | null,
     initialResponse: Record<string, unknown> | null,
@@ -251,6 +314,7 @@ export class TareaFormularioDinamicoComponent {
       emitEvent: false,
     });
     this.intentoEnvio.set(false);
+    this.iaUpdatedFieldKeys.set([]);
     this.hasLocalChanges = false;
   }
 
@@ -299,6 +363,7 @@ export class TareaFormularioDinamicoComponent {
     this.observacionesControl.markAsPristine();
     this.formulario.markAsPristine();
     this.intentoEnvio.set(false);
+    this.iaUpdatedFieldKeys.set([]);
     this.hasLocalChanges = false;
   }
 
@@ -429,6 +494,43 @@ export class TareaFormularioDinamicoComponent {
   private normalizeText(value: string | null | undefined): string | null {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  private mapFieldTypeForIa(
+    campo: WorkflowFormularioCampo
+  ): FormularioInteligenteFieldSchema['type'] {
+    if (campo.tipo === 'TEXTO') {
+      return 'text';
+    }
+
+    if (campo.tipo === 'NUMERO') {
+      return 'number';
+    }
+
+    if (campo.tipo === 'BOOLEANO') {
+      return 'boolean';
+    }
+
+    if (campo.tipo === 'FECHA') {
+      return 'date';
+    }
+
+    return 'file';
+  }
+
+  private toIntelligentCurrentValue(
+    campo: WorkflowFormularioCampo,
+    rawValue: DynamicControlValue
+  ): unknown {
+    if (campo.tipo === 'ARCHIVO') {
+      if (rawValue instanceof File) {
+        return this.toLocalFileMetadata(rawValue);
+      }
+
+      return this.isArchivoMetadata(rawValue) ? rawValue : null;
+    }
+
+    return this.toPayloadValue(campo, rawValue);
   }
 
   private toLocalFileMetadata(file: File): WorkflowArchivoMetadata {

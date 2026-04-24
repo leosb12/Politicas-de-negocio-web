@@ -141,6 +141,16 @@
             [definicion]="tareaDetalleVisible()!.actividad.formularioDefinicion"
             [respuestaInicial]="tareaDetalleVisible()!.formularioRespuesta"
             [observacionesInicial]="tareaDetalleVisible()!.observaciones"
+            [activityId]="tareaDetalleVisible()!.actividad.nodoId"
+            [activityName]="tareaDetalleVisible()!.actividad.nombreActividad"
+            [policyName]="tareaDetalleVisible()!.politica?.nombre ?? facade.instanciaDetalle()?.politicaNombre ?? 'Politica sin nombre'"
+            [intelligentContext]="{
+              tramiteId: facade.instanciaDetalle()?.codigoTramite ?? tareaDetalleVisible()!.instanciaId,
+              currentDepartment: tareaDetalleVisible()!.actividad.responsableId ?? tareaDetalleVisible()!.actividad.responsableTipo,
+              userRole: 'funcionario',
+              instanciaId: tareaDetalleVisible()!.instanciaId,
+              tareaId: tareaDetalleVisible()!.id
+            }"
             [disabled]="!puedeCompletar()"
             [pending]="facade.detalleAction() === 'completar' || facade.detalleAction() === 'tomar-y-completar'"
             submitLabel="Completar tarea"

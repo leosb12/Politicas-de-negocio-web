@@ -1,0 +1,137 @@
+:host {
+  display: block;
+}
+
+.formulario-inteligente-card {
+  border-style: dashed;
+}
+
+.voice-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(203 213 225);
+  background: rgb(255 255 255);
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(51 65 85);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.voice-button:hover:not(:disabled) {
+  background: rgb(248 250 252);
+}
+
+.voice-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(191 219 254);
+}
+
+.voice-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.voice-button--active {
+  border-color: rgb(14 165 233);
+  background: rgb(224 242 254);
+  color: rgb(3 105 161);
+}
+
+.voice-button--processing {
+  border-color: rgb(245 158 11);
+  background: rgb(254 243 199);
+  color: rgb(146 64 14);
+}
+
+.voice-button__dot {
+  height: 0.625rem;
+  width: 0.625rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.voice-button--active .voice-button__dot {
+  animation: voice-pulse 1s ease-in-out infinite;
+}
+
+.result-block {
+  border-radius: 1rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  padding: 1rem;
+}
+
+.result-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.result-block__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgb(15 23 42);
+}
+
+.result-block__count {
+  min-width: 1.75rem;
+  border-radius: 9999px;
+  background: rgb(226 232 240);
+  padding: 0.125rem 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(51 65 85);
+}
+
+.result-list,
+.warning-list {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.result-list__item {
+  border-radius: 0.875rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(255 255 255);
+  padding: 0.875rem;
+}
+
+.result-list__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.warning-list li {
+  border-radius: 0.875rem;
+  border: 1px solid rgb(254 215 170);
+  background: rgb(255 247 237);
+  padding: 0.875rem;
+  font-size: 0.875rem;
+  color: rgb(154 52 18);
+}
+
+@keyframes voice-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(1.35);
+  }
+}

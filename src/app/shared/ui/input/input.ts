@@ -1,8 +1,10 @@
 import {
+  ChangeDetectorRef,
   ChangeDetectionStrategy,
   Component,
   computed,
   forwardRef,
+  inject,
   input,
   signal,
   booleanAttribute,
@@ -63,6 +65,7 @@ type AppInputType =
 })
 export class AppInputComponent implements ControlValueAccessor {
   private static nextId = 0;
+  private readonly cdr = inject(ChangeDetectorRef);
 
   readonly id = input<string | null>(null);
   readonly label = input<string | null>(null);
@@ -115,6 +118,7 @@ export class AppInputComponent implements ControlValueAccessor {
 
   writeValue(value: string | null): void {
     this.value = value ?? '';
+    this.cdr.markForCheck();
   }
 
   registerOnChange(fn: (value: string) => void): void {
@@ -127,6 +131,7 @@ export class AppInputComponent implements ControlValueAccessor {
 
   setDisabledState(isDisabled: boolean): void {
     this.cvaDisabled.set(isDisabled);
+    this.cdr.markForCheck();
   }
 
   onInput(event: Event): void {

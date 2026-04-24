@@ -1,0 +1,139 @@
+<app-card className="formulario-inteligente-card p-4 sm:p-5">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h3 class="text-lg font-semibold text-slate-900">Formulario Inteligente</h3>
+      <p class="mt-1 text-sm text-slate-600">
+        Describe en lenguaje natural lo que quieres completar o corregir en este formulario.
+      </p>
+    </div>
+
+    @if (result()) {
+      <app-badge [variant]="confidenceVariant()">{{ confidenceLabel() }}</app-badge>
+    }
+  </div>
+
+  <div class="mt-4 space-y-3">
+    <app-textarea
+      [label]="'Prompt para IA'"
+      [rows]="4"
+      [placeholder]="'Ej.: Rechaza la solicitud e indica que faltan documentos legales.'"
+      [hint]="'Puedes escribir o dictar por voz y luego editar la transcripcion antes de aplicar cambios.'"
+      [disabled]="disabled() || loading()"
+      [error]="promptError()"
+      [formControl]="promptControl"
+    />
+
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <app-button
+        variant="info"
+        [disabled]="!canSubmit()"
+        [pending]="loading()"
+        pendingLabel="Consultando IA..."
+        (click)="execute()"
+      >
+        Ejecutar IA
+      </app-button>
+
+      <app-button
+        variant="outline"
+        [disabled]="disabled() || loading() || !promptControl.value.trim()"
+        (click)="clearPrompt()"
+      >
+        Limpiar prompt
+      </app-button>
+
+      <button
+        type="button"
+        class="voice-button"
+        [class.voice-button--active]="voiceState() === 'listening'"
+        [class.voice-button--processing]="voiceState() === 'processing'"
+        [disabled]="disabled() || loading() || voiceState() === 'unsupported'"
+        [attr.title]="voiceState() === 'unsupported' ? 'Tu navegador no soporta reconocimiento de voz.' : null"
+        (click)="toggleVoice()"
+      >
+        <span class="voice-button__dot" aria-hidden="true"></span>
+        <span>{{ voiceButtonLabel() }}</span>
+      </button>
+
+      <span class="text-xs text-slate-500">
+        Estado:
+        @switch (voiceState()) {
+          @case ('listening') {
+            escuchando
+          }
+          @case ('processing') {
+            procesando voz
+          }
+          @case ('error') {
+            error de microfono
+          }
+          @case ('unsupported') {
+            no soportado
+          }
+          @default {
+            listo para grabar
+          }
+        }
+      </span>
+    </div>
+  </div>
+
+  @if (voiceMessage()) {
+    <div class="mt-3">
+      <app-alert
+        [variant]="voiceState() === 'error' || voiceState() === 'unsupported' ? 'warning' : 'info'"
+        [message]="voiceMessage()"
+      />
+    </div>
+  }
+
+  @if (result()) {
+    <div class="mt-4 space-y-4">
+      @if (result()!.message) {
+        <app-alert
+          [variant]="resultMessageVariant()"
+          title="Resultado"
+          [message]="result()!.message"
+        />
+      }
+
+      @if (result()!.changes.length > 0) {
+        <section class="result-block">
+          <div class="result-block__header">
+            <h4 class="result-block__title">Cambios aplicados</h4>
+            <span class="result-block__count">{{ result()!.changes.length }}</span>
+          </div>
+
+          <ul class="result-list">
+            @for (change of result()!.changes; track trackChange($index, change)) {
+              <li class="result-list__item">
+                <div class="result-list__row">
+                  <p class="font-semibold text-slate-800">{{ change.fieldId }}</p>
+                  <p class="text-xs text-slate-500">
+                    {{ formatResultValue(change.oldValue) }} -> {{ formatResultValue(change.newValue) }}
+                  </p>
+                </div>
+                <p class="text-sm text-slate-600">{{ change.reason }}</p>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
+      @if (result()!.warnings.length > 0) {
+        <section class="result-block">
+          <div class="result-block__header">
+            <h4 class="result-block__title">Warnings</h4>
+            <span class="result-block__count">{{ result()!.warnings.length }}</span>
+          </div>
+
+          <ul class="warning-list">
+            @for (warning of result()!.warnings; track warning) {
+              <li>{{ warning }}</li>
+            }
+          </ul>
+        </section>
+      }
+    </div>
+  }
+</app-card>

@@ -3,6 +3,7 @@ import {
   WorkflowArchivoMetadata,
   WorkflowFormularioDefinicion,
 } from '../../models/funcionario-workflow.model';
+import { FormularioInteligenteResult } from '../../models/formulario-inteligente.model';
 import { TareaFormularioDinamicoComponent } from './tarea-formulario-dinamico';
 
 describe('TareaFormularioDinamicoComponent', () => {
@@ -161,5 +162,28 @@ describe('TareaFormularioDinamicoComponent', () => {
     };
 
     expect(payload.formularioRespuesta['adjunto']).toBe(archivo);
+  });
+
+  it('aplica solo campos validos devueltos por la IA y resalta los actualizados', () => {
+    const result: FormularioInteligenteResult = {
+      updatedValues: {
+        comentario: 'Observado por documentos faltantes',
+        aprobado: false,
+        campoInesperado: 'ignorar',
+      },
+      changes: [],
+      warnings: ['Verifica el texto final antes de enviar.'],
+      confidence: 0.82,
+      message: 'Cambios aplicados por IA.',
+    };
+
+    component.onIntelligentFormApplied(result);
+
+    expect(component.control(definition.campos[0]).value).toBe(
+      'Observado por documentos faltantes'
+    );
+    expect(component.control(definition.campos[2]).value).toBe('false');
+    expect(component.iaUpdatedFieldKeys()).toEqual(['comentario', 'aprobado']);
+    expect(component.formulario.controls['campoInesperado']).toBeUndefined();
   });
 });
