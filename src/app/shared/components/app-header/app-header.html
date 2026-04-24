@@ -86,6 +86,15 @@
         <lucide-icon name="settings-2" [size]="16"></lucide-icon>
         Políticas
       </a>
+
+      <a routerLink="/admin/servicios-ia" routerLinkActive #simulationsLink="routerLinkActive" [class]="
+            simulationsLink.isActive
+              ? 'rounded-xl border border-sky-600 bg-sky-600 px-4 py-2 text-sm font-semibold text-white flex items-center gap-2'
+              : 'rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100 flex items-center gap-2'
+          ">
+        <lucide-icon name="play-circle" [size]="16"></lucide-icon>
+        Servicios IA
+      </a>
       }
 
       @if (session()?.rol === 'FUNCIONARIO') {

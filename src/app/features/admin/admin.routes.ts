@@ -54,6 +54,48 @@ export const ADMIN_ROUTES: Routes = [
             (module) => module.AdminAnalyticsPageComponent
           ),
       },
+      {
+        path: 'servicios-ia',
+        loadComponent: () =>
+          import('./pages/admin-servicios-ia/admin-servicios-ia').then(
+            (module) => module.AdminServiciosIaPageComponent
+          ),
+      },
+      {
+        path: 'simulations',
+        loadComponent: () =>
+          import('../simulations/pages/simulations-list/simulations-list').then(
+            (module) => module.SimulationsListPageComponent
+          ),
+      },
+      {
+        path: 'simulations/:simulationId',
+        loadComponent: () =>
+          import('../simulations/pages/simulation-detail/simulation-detail').then(
+            (module) => module.SimulationDetailPageComponent
+          ),
+      },
+      {
+        path: 'policies/compare',
+        loadComponent: () =>
+          import('../simulations/pages/policy-comparison/policy-comparison').then(
+            (module) => module.PolicyComparisonPageComponent
+          ),
+      },
+      {
+        path: 'policies/simulate',
+        loadComponent: () =>
+          import('../simulations/pages/policy-simulation-form/policy-simulation-form').then(
+            (module) => module.PolicySimulationFormPageComponent
+          ),
+      },
+      {
+        path: 'policies/:policyId/simulate',
+        loadComponent: () =>
+          import('../simulations/pages/policy-simulation-form/policy-simulation-form').then(
+            (module) => module.PolicySimulationFormPageComponent
+          ),
+      },
     ],
   },
   // Canvas designer — full-screen, outside the admin layout shell
