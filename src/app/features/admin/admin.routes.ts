@@ -47,6 +47,13 @@ export const ADMIN_ROUTES: Routes = [
             (module) => module.AdminPoliticasPageComponent
           ),
       },
+      {
+        path: 'analytics',
+        loadComponent: () =>
+          import('./pages/admin-analytics/admin-analytics').then(
+            (module) => module.AdminAnalyticsPageComponent
+          ),
+      },
     ],
   },
   // Canvas designer — full-screen, outside the admin layout shell

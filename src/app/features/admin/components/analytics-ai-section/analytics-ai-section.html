@@ -1,0 +1,118 @@
+<section class="analytics-ai-shell">
+  <div class="analytics-ai-head">
+    <div>
+      <p class="analytics-ai-head__kicker">Optimizacion asistida</p>
+      <h2>Analisis Inteligente</h2>
+      <p>Recomendaciones de IA para detectar friccion y mejorar distribucion operativa.</p>
+    </div>
+    <span class="analytics-ai-chip">IA</span>
+  </div>
+
+  @if (loading()) {
+    <app-card className="analytics-surface p-5">
+      <app-loader message="Analizando datos con IA..." />
+    </app-card>
+  } @else if (error()) {
+    <app-card className="analytics-surface p-5">
+      <app-empty-state
+        title="No se pudo obtener el analisis inteligente"
+        message="Intenta nuevamente en unos segundos."
+      />
+    </app-card>
+  } @else if (showGlobalUnavailable()) {
+    <app-card className="analytics-surface p-5">
+      <app-empty-state
+        title="Analisis no disponible"
+        message="El backend no devolvio datos IA utilizables para esta vista."
+      />
+    </app-card>
+  } @else if (showGlobalEmpty()) {
+    <app-card className="analytics-surface p-5">
+      <app-empty-state
+        title="Sin recomendaciones por ahora"
+        message="No se detectaron patrones suficientes para sugerencias accionables."
+      />
+    </app-card>
+  } @else {
+    <div class="analytics-ai-grid">
+      <app-card className="analytics-surface overflow-hidden">
+        <div class="analytics-ai-card__head">
+          <div>
+            <h3>Cuellos de botella</h3>
+            <p>{{ bottlenecks()?.summary }}</p>
+          </div>
+          <span class="analytics-ai-pill analytics-ai-pill--rose">Riesgo</span>
+        </div>
+
+        @if (bottleneckState() === 'empty' || bottleneckState() === 'unavailable') {
+          <div class="analytics-ai-card__state">
+            <app-empty-state
+              title="Sin cuellos relevantes"
+              message="No hay evidencia suficiente de bloqueos operativos."
+            />
+          </div>
+        } @else if (bottlenecks(); as data) {
+          <div class="analytics-ai-list">
+            @for (item of data.bottlenecks; track item.type + item.name + item.severity) {
+              <article class="analytics-ai-item">
+                <div class="analytics-ai-item__top">
+                  <div>
+                    <p class="analytics-ai-item__name">{{ item.name }}</p>
+                    <p class="analytics-ai-item__type">{{ item.type }}</p>
+                  </div>
+                  <span [class]="'analytics-ai-badge ' + severityClass(item.severity)">
+                    {{ item.severity }}
+                  </span>
+                </div>
+                <div class="analytics-ai-item__body">
+                  <p><strong>Evidencia:</strong> {{ item.evidence }}</p>
+                  <p><strong>Impacto:</strong> {{ item.impact }}</p>
+                  <p><strong>Recomendacion:</strong> {{ item.recommendation }}</p>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </app-card>
+
+      <app-card className="analytics-surface overflow-hidden">
+        <div class="analytics-ai-card__head">
+          <div>
+            <h3>Redistribucion sugerida</h3>
+            <p>{{ taskRecommendations()?.summary }}</p>
+          </div>
+          <span class="analytics-ai-pill analytics-ai-pill--sky">Balance</span>
+        </div>
+
+        @if (taskRecommendationState() === 'empty' || taskRecommendationState() === 'unavailable') {
+          <div class="analytics-ai-card__state">
+            <app-empty-state
+              title="Sin redistribucion sugerida"
+              message="No se observaron desbalances que justifiquen movimiento de carga."
+            />
+          </div>
+        } @else if (taskRecommendations(); as data) {
+          <div class="analytics-ai-list">
+            @for (item of data.recommendations; track item.fromOfficial + item.toOfficial + item.priority) {
+              <article class="analytics-ai-item">
+                <div class="analytics-ai-item__top">
+                  <div>
+                    <p class="analytics-ai-item__name">{{ item.fromOfficial }} -> {{ item.toOfficial }}</p>
+                    <p class="analytics-ai-item__type">Prioridad {{ item.priority }}</p>
+                  </div>
+                  <span [class]="'analytics-ai-badge ' + severityClass(item.priority)">
+                    {{ item.priority }}
+                  </span>
+                </div>
+                <div class="analytics-ai-item__body">
+                  <p><strong>Motivo:</strong> {{ item.reason }}</p>
+                  <p><strong>Impacto esperado:</strong> {{ item.expectedImpact }}</p>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </app-card>
+    </div>
+  }
+</section>
