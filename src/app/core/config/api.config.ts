@@ -48,6 +48,8 @@ export const API_ENDPOINTS = {
   adminRoles: `${API_BASE_URL}/api/admin/roles`,
   adminDepartments: `${API_BASE_URL}/api/admin/departamentos`,
   politicas: `${API_BASE_URL}/api/politicas`,
+  guideAdmin: `${API_BASE_URL}/api/guide/admin`,
+  guideEmployee: `${API_BASE_URL}/api/guide/employee`,
   simulations: `${API_BASE_URL}/api/simulations`,
   analytics: `${API_BASE_URL}/api/analytics`,
   tareas: `${API_BASE_URL}/api/tareas`,

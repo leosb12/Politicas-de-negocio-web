@@ -16,6 +16,7 @@ import {
   TareaDetalle,
   TareaResumen,
 } from '../../models/funcionario-workflow.model';
+import { EmployeeGuideContextService } from '../../services/employee-guide-context.service';
 import { FuncionarioWorkflowApiService } from '../../services/funcionario-workflow-api.service';
 import { mapTareaDetalleDto, mapTareaMiaDto } from '../../services/funcionario-workflow.mapper';
 import { FuncionarioWorkflowFacadeService } from '../../services/funcionario-workflow-facade.service';
@@ -63,6 +64,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(FuncionarioWorkflowApiService);
+  private readonly guideContext = inject(EmployeeGuideContextService);
 
   readonly facade = inject(FuncionarioWorkflowFacadeService);
 
@@ -154,6 +156,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
       if (!taskId) {
         this.facade.stopDetallePolling();
         this.facade.clearDetalleState();
+        this.guideContext.clearContext('EMPLOYEE_DASHBOARD');
         return;
       }
 
@@ -165,9 +168,25 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
 
       this.facade.startDetallePolling(taskId, 12000);
     });
+
+    effect(() => {
+      const task = this.tareaDetalleVisible();
+      if (!task) {
+        return;
+      }
+
+      const hasForm = task.actividad.formularioDefinicion.campos.length > 0;
+      this.guideContext.updateContext({
+        screen: hasForm ? 'TASK_FORM' : 'TASK_DETAIL',
+        taskId: task.id,
+        instanceId: task.instanciaId,
+        availableActions: this.buildGuideActions(task),
+      });
+    });
   }
 
   ngOnDestroy(): void {
+    this.guideContext.clearContext('EMPLOYEE_DASHBOARD');
     this.facade.stopDetallePolling();
     this.traceSubscription?.unsubscribe();
   }
@@ -433,5 +452,24 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     estado: string | null
   ): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
     return getEstadoBadgeVariant(estado);
+  }
+
+  private buildGuideActions(task: TareaDetalle): string[] {
+    const actions = ['ASK_HELP'];
+    const hasForm = task.actividad.formularioDefinicion.campos.length > 0;
+
+    if (isTareaTomable(task.estadoTarea)) {
+      actions.push('START_TASK');
+    }
+
+    if (hasForm) {
+      actions.push('SAVE_FORM', 'FILL_FORM_WITH_AI');
+    }
+
+    if (isTareaCompletable(task.estadoTarea) || isTareaTomable(task.estadoTarea)) {
+      actions.push('COMPLETE_TASK');
+    }
+
+    return [...new Set(actions)];
   }
 }

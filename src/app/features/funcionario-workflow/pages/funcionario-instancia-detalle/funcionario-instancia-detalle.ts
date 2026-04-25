@@ -9,6 +9,7 @@ import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
 import { AppButtonComponent } from '../../../../shared/ui/button/button';
 import { AppCardComponent } from '../../../../shared/ui/card/card';
 import { FuncionarioTareasTableComponent } from '../../components/funcionario-tareas-table/funcionario-tareas-table';
+import { EmployeeGuideContextService } from '../../services/employee-guide-context.service';
 import { FuncionarioWorkflowFacadeService } from '../../services/funcionario-workflow-facade.service';
 
 @Component({
@@ -28,6 +29,7 @@ import { FuncionarioWorkflowFacadeService } from '../../services/funcionario-wor
 export class FuncionarioInstanciaDetallePageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly guideContext = inject(EmployeeGuideContextService);
 
   readonly facade = inject(FuncionarioWorkflowFacadeService);
 
@@ -52,6 +54,12 @@ export class FuncionarioInstanciaDetallePageComponent {
         return;
       }
 
+      this.guideContext.updateContext({
+        screen: 'TASK_HISTORY',
+        taskId: null,
+        instanceId,
+        availableActions: ['ASK_HELP'],
+      });
       this.facade.loadInstanciaPage(instanceId);
     });
   }
@@ -71,5 +79,9 @@ export class FuncionarioInstanciaDetallePageComponent {
 
   abrirDetalleTarea(tareaId: string): void {
     void this.router.navigate(['/funcionario/tareas', tareaId]);
+  }
+
+  ngOnDestroy(): void {
+    this.guideContext.clearContext('EMPLOYEE_DASHBOARD');
   }
 }

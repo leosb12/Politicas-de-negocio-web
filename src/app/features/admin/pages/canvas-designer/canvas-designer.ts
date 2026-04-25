@@ -2,6 +2,7 @@ import {
   Component,
   OnInit,
   OnDestroy,
+  effect,
   signal,
   inject,
   computed,
@@ -48,6 +49,7 @@ import { AdminUser } from '../../models/admin-user.model';
 import { FindNodePipe } from '../../pipes/find-node.pipe';
 import { PoliticaColaboracionFacadeService } from '../../services/politica-colaboracion-facade.service';
 import { IaWorkflowGeneratorComponent } from '../../components/ia-workflow-generator/ia-workflow-generator';
+import { AdminGuideContextService } from '../../services/admin-guide-context.service';
 import { IaWorkflowMapperService } from '../../services/ia-workflow-mapper.service';
 import { IaWorkflowResponse } from '../../models/ia-workflow.model';
 
@@ -189,6 +191,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
   private readonly collabFacade = inject(PoliticaColaboracionFacadeService);
+  private readonly guideContext = inject(AdminGuideContextService);
   private readonly iaMapperService = inject(IaWorkflowMapperService);
 
   // ── State ─────────────────────────────────────────────────────
@@ -417,6 +420,20 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   readonly MIN_LANE_HEIGHT = 140;
   readonly MAX_LANE_HEIGHT = 680;
 
+  constructor() {
+    effect(() => {
+      const policy = this.politica();
+      const selectedNodeId = this.selectedNodeId();
+      const availableActions = this.buildGuideAvailableActions();
+
+      this.guideContext.updateDesignerContext({
+        policyId: policy?.id ?? null,
+        selectedNodeId,
+        availableActions,
+      });
+    });
+  }
+
   // ── Computed ──────────────────────────────────────────────────
   swimlanes = computed(() => {
     const depts = this.departamentos();
@@ -491,6 +508,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.guideContext.clearDesignerContext();
+
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', this.beforeUnloadHandler);
       window.removeEventListener('storage', this.storageSyncHandler);
@@ -5531,4 +5550,41 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   trackById(_: number, n: Nodo): string { return n.id; }
   trackByConn(_: number, c: Conexion): string { return `${c.origen}-${c.destino}`; }
+
+  private buildGuideAvailableActions(): string[] {
+    const actions = new Set<string>();
+    const selectedNode = this.sidebarNode();
+
+    actions.add('ADD_ACTIVITY');
+    actions.add('ADD_DECISION');
+    actions.add('CONNECT_NODES');
+    actions.add('SAVE_POLICY');
+
+    if (this.politicaEstado !== 'ACTIVA') {
+      actions.add('ACTIVATE_POLICY');
+      actions.add('PAUSE_DESIGN');
+    } else {
+      actions.add('PAUSE_POLICY');
+      actions.add('DEACTIVATE_POLICY');
+    }
+
+    if (!this.nodos().some((node) => node.tipo === 'INICIO')) {
+      actions.add('ADD_START_NODE');
+    }
+
+    if (!this.nodos().some((node) => node.tipo === 'FIN')) {
+      actions.add('ADD_END_NODE');
+    }
+
+    if (selectedNode?.tipo === 'ACTIVIDAD') {
+      actions.add('ASSIGN_RESPONSIBLE');
+      actions.add('ADD_FORM_FIELD');
+    }
+
+    if (selectedNode?.tipo === 'DECISION') {
+      actions.add('CONFIGURE_DECISION');
+    }
+
+    return [...actions];
+  }
 }

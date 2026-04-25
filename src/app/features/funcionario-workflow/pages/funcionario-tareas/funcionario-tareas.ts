@@ -8,6 +8,7 @@ import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
 import { AppButtonComponent } from '../../../../shared/ui/button/button';
 import { AppInputComponent } from '../../../../shared/ui/input/input';
 import { AppSelectComponent } from '../../../../shared/ui/select/select';
+import { EmployeeGuideContextService } from '../../services/employee-guide-context.service';
 import { FuncionarioWorkflowFacadeService } from '../../services/funcionario-workflow-facade.service';
 import { normalizeEstado } from '../../services/funcionario-workflow-status.util';
 
@@ -28,6 +29,7 @@ import { normalizeEstado } from '../../services/funcionario-workflow-status.util
 export class FuncionarioTareasPageComponent implements OnInit, OnDestroy {
   readonly facade = inject(FuncionarioWorkflowFacadeService);
   private readonly router = inject(Router);
+  private readonly guideContext = inject(EmployeeGuideContextService);
 
   readonly estadoOptions = [
     'TODAS',
@@ -110,10 +112,17 @@ export class FuncionarioTareasPageComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    this.guideContext.updateContext({
+      screen: 'EMPLOYEE_DASHBOARD',
+      taskId: null,
+      instanceId: null,
+      availableActions: ['START_TASK', 'ASK_HELP'],
+    });
     this.facade.startInboxPolling(3000);
   }
 
   ngOnDestroy(): void {
+    this.guideContext.clearContext('EMPLOYEE_DASHBOARD');
     this.facade.stopInboxPolling();
   }
 

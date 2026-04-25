@@ -1,0 +1,212 @@
+@if (shouldShow()) {
+  <button
+    class="guide-fab"
+    type="button"
+    (click)="toggle()"
+    [attr.aria-expanded]="isOpen()"
+    aria-label="Abrir guia IA"
+  >
+    <lucide-icon name="bot" [size]="20"></lucide-icon>
+    <span>Guia IA</span>
+  </button>
+
+  @if (isOpen()) {
+    <div class="guide-overlay" (click)="close()"></div>
+
+    <aside class="guide-panel" (click)="$event.stopPropagation()">
+      <header class="guide-header">
+        <div>
+          <span class="guide-kicker">GUIA IA</span>
+          <h2>Asistente contextual</h2>
+          <p>{{ panelDescription() }}</p>
+        </div>
+        <button type="button" class="guide-close" (click)="close()" aria-label="Cerrar">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
+      </header>
+
+      <section class="guide-prompts">
+        @for (prompt of quickPrompts(); track prompt) {
+          <button type="button" class="guide-chip" (click)="ask(prompt)" [disabled]="isLoading()">
+            {{ prompt }}
+          </button>
+        }
+      </section>
+
+      <section #messagesContainer class="guide-messages">
+        @if (!messages().length) {
+          <div class="guide-empty">
+            <lucide-icon name="sparkles" [size]="22"></lucide-icon>
+            <p>{{ emptyStateText() }}</p>
+          </div>
+        }
+
+        @for (message of messages(); track message.id) {
+          @if (message.sender === 'user') {
+            <article class="guide-bubble guide-bubble-user">
+              <p>{{ message.text }}</p>
+            </article>
+          } @else {
+            <article class="guide-bubble guide-bubble-assistant">
+              <div class="guide-bubble-head">
+                <span class="guide-badge" [class]="severityClass(message.response?.severity)">
+                  {{ message.response?.severity ?? 'INFO' }}
+                </span>
+                @if (message.response?.source) {
+                  <span class="guide-source">{{ message.response?.source }}</span>
+                }
+              </div>
+
+              <p class="guide-answer">{{ message.response?.answer }}</p>
+
+              @if (message.response?.steps?.length) {
+                <div class="guide-section">
+                  <h3>Pasos sugeridos</h3>
+                  <ol>
+                    @for (step of message.response?.steps ?? []; track step) {
+                      <li>{{ step }}</li>
+                    }
+                  </ol>
+                </div>
+              }
+
+              @if (adminResponse(message); as adminResponse) {
+                @if (adminResponse.suggestedResponsible) {
+                  <div class="guide-section">
+                    <h3>Responsable sugerido</h3>
+                    <p class="guide-strong">{{ adminResponse.suggestedResponsible.name }}</p>
+                    <p>{{ adminResponse.suggestedResponsible.reason }}</p>
+                  </div>
+                }
+
+                @if (adminResponse.suggestedForm.length) {
+                  <div class="guide-section">
+                    <h3>Formulario sugerido</h3>
+                    <div class="guide-card-list">
+                      @for (field of adminResponse.suggestedForm; track field.label) {
+                        <div class="guide-card">
+                          <p class="guide-strong">{{ field.label }}</p>
+                          <span>{{ field.type }} - {{ field.required ? 'Obligatorio' : 'Opcional' }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (adminResponse.detectedIssues.length) {
+                  <div class="guide-section">
+                    <h3>Problemas detectados</h3>
+                    <div class="guide-card-list">
+                      @for (issue of adminResponse.detectedIssues; track issue.type) {
+                        <div class="guide-card issue">
+                          <p class="guide-strong">{{ issue.type }}</p>
+                          <span>{{ issue.message }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+
+              @if (employeeResponse(message); as employeeResponse) {
+                @if (employeeResponse.formHelp.length) {
+                  <div class="guide-section">
+                    <h3>Ayuda del formulario</h3>
+                    <div class="guide-card-list">
+                      @for (field of employeeResponse.formHelp; track field.field) {
+                        <div class="guide-card">
+                          <p class="guide-strong">{{ field.field }}</p>
+                          <span>{{ field.help }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (employeeResponse.missingFields.length) {
+                  <div class="guide-section">
+                    <h3>Campos pendientes</h3>
+                    <div class="guide-card-list">
+                      @for (field of employeeResponse.missingFields; track field.field) {
+                        <div class="guide-card issue">
+                          <p class="guide-strong">{{ field.field }}</p>
+                          <span>{{ field.message }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (employeeResponse.prioritySuggestion) {
+                  <div class="guide-section">
+                    <h3>Prioridad sugerida</h3>
+                    @if (employeeResponse.prioritySuggestion.recommendedTaskId) {
+                      <p class="guide-strong">
+                        Tarea {{ employeeResponse.prioritySuggestion.recommendedTaskId }}
+                      </p>
+                    }
+                    <p>{{ employeeResponse.prioritySuggestion.reason }}</p>
+                  </div>
+                }
+
+                @if (employeeResponse.nextStepExplanation) {
+                  <div class="guide-section">
+                    <h3>Siguiente paso</h3>
+                    <p>{{ employeeResponse.nextStepExplanation }}</p>
+                  </div>
+                }
+              }
+
+              @if (message.response?.suggestedActions?.length) {
+                <div class="guide-section">
+                  <h3>Acciones recomendadas</h3>
+                  <div class="guide-actions">
+                    @for (action of message.response?.suggestedActions ?? []; track action.action) {
+                      <span class="guide-action-pill">{{ action.label }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            </article>
+          }
+        }
+
+        @if (isLoading()) {
+          <article class="guide-bubble guide-bubble-assistant guide-bubble-loading">
+            <span class="guide-loader"></span>
+            <p>{{ loadingText() }}</p>
+          </article>
+        }
+      </section>
+
+      <footer class="guide-composer">
+        <textarea
+          class="guide-input"
+          [ngModel]="draft()"
+          (ngModelChange)="draft.set($event)"
+          (keydown.enter)="handleComposerEnter($any($event))"
+          [placeholder]="composerPlaceholder()"
+        ></textarea>
+
+        <div class="guide-composer-actions">
+          @if (voiceSupported()) {
+            <button
+              type="button"
+              class="guide-voice"
+              [class.is-listening]="isListening()"
+              (click)="toggleVoiceInput()"
+            >
+              <lucide-icon [name]="isListening() ? 'mic-off' : 'mic'" [size]="16"></lucide-icon>
+              <span class="guide-action-label">{{ isListening() ? 'Detener voz' : 'Hablar' }}</span>
+            </button>
+          }
+
+          <button type="button" class="guide-send" (click)="sendDraft()" [disabled]="isLoading() || !draft().trim()">
+            <lucide-icon name="send" [size]="16"></lucide-icon>
+            <span class="guide-action-label">Enviar</span>
+          </button>
+        </div>
+      </footer>
+    </aside>
+  }
+}
