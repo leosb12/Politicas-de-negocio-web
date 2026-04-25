@@ -98,6 +98,7 @@ interface PendingFlowBackup {
 interface CanvasUiPrefsBackup {
   connectionSourcePorts?: Record<string, ConnectionPort>;
   connectionTargetPorts?: Record<string, ConnectionTargetPort>;
+  nodePositions?: Record<string, { x: number; y: number }>;
 }
 
 interface DeferredCollaborativeFlow {
@@ -230,6 +231,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   showSidebar = signal(false);
   showIaFlujoModal = signal(false);
   isApplyingIaFlujo = signal(false);
+  private iaFlowJustAppliedAt: number | null = null;
   sidebarNode = computed(() =>
     this.nodos().find((n) => n.id === this.selectedNodeId()) ?? null
   );
@@ -374,7 +376,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   laneOrientation = signal<LaneOrientation>('VERTICAL');
   laneWidth = signal(320);
   laneHeight = signal(220);
-  isVerticalLaneOrientation = computed(() => this.laneOrientation() === 'VERTICAL');
+  isVerticalLaneOrientation = computed(() => true);
 
   creatingNewDept = signal(false);
   newDeptName = signal('');
@@ -403,6 +405,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private pendingNodeMoveGuards = new Map<string, PendingNodeMoveGuard>();
   private pendingNodeNameSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private pendingNodeNameGuards = new Map<string, PendingNodeNameGuard>();
+  private nodeNameDrafts = signal<Record<string, string>>({});
   private pendingLaneConfigGuard: PendingLaneConfigGuard | null = null;
   private readonly nodeNameSyncDebounceMs = 280;
   private readonly nodeNameGuardTtlMs = 1200;
@@ -415,6 +418,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly laneConfigSyncIntervalMs = 120;
   private lastLaneConfigSyncAt = 0;
   private deferredCollaborativeFlow: DeferredCollaborativeFlow | null = null;
+  private uiPreferenceNodePositions: Record<string, { x: number; y: number }> = {};
   readonly MIN_LANE_WIDTH = 220;
   readonly MAX_LANE_WIDTH = 960;
   readonly MIN_LANE_HEIGHT = 140;
@@ -486,7 +490,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.deptSvc.getDepartments().subscribe({
       next: (d) => {
         this.departamentos.set(d);
-        this.enforceActivitiesAssignedToLane();
+        this.enforceActivitiesAssignedToLane(true);
       },
     });
     // Load users
@@ -677,37 +681,17 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         if (!localPolicy) {
           return;
         }
-
-        const nextLaneOrientation =
-          remotePolicy.laneOrientation === 'HORIZONTAL' ||
-          remotePolicy.laneOrientation === 'VERTICAL'
-            ? remotePolicy.laneOrientation
-            : localPolicy.laneOrientation;
-        const nextLaneWidth =
-          typeof remotePolicy.laneWidth === 'number'
-            ? this.normalizeLaneWidth(remotePolicy.laneWidth)
-            : localPolicy.laneWidth;
-        const nextLaneHeight =
-          typeof remotePolicy.laneHeight === 'number'
-            ? this.normalizeLaneHeight(remotePolicy.laneHeight)
-            : localPolicy.laneHeight;
-
-        const laneConfigChanged =
-          nextLaneOrientation !== localPolicy.laneOrientation ||
-          nextLaneWidth !== localPolicy.laneWidth ||
-          nextLaneHeight !== localPolicy.laneHeight;
         const estadoChanged = remotePolicy.estado !== localPolicy.estado;
 
-        if (!estadoChanged && !laneConfigChanged) {
+        // Este polling es fallback para estado de politica.
+        // La configuración de carriles se sincroniza por el canal colaborativo dedicado.
+        if (!estadoChanged) {
           return;
         }
 
         this.setPoliticaState({
           ...localPolicy,
           estado: remotePolicy.estado,
-          laneOrientation: nextLaneOrientation,
-          laneWidth: nextLaneWidth,
-          laneHeight: nextLaneHeight,
         });
       },
       error: () => {
@@ -752,6 +736,17 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     laneWidth?: number,
     laneHeight?: number
   ): void {
+        // Bloquear cambios colaborativos durante 3 segundos después de aplicar IA
+        if (this.iaFlowJustAppliedAt !== null) {
+          const elapsed = Date.now() - this.iaFlowJustAppliedAt;
+          if (elapsed < 3000) {
+            // Ignorar cambios colaborativos durante la ventana de protección
+            return;
+          }
+          // Limpiar el timestamp si ya pasó
+          this.iaFlowJustAppliedAt = null;
+        }
+
     if (!this.laneResizeState) {
       this.applyCollaborativeLaneConfig(laneOrientation, laneWidth, laneHeight);
     }
@@ -759,7 +754,26 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const resolvedConnections = this.withResolvedConnectionPorts(connections);
     const currentNodesById = new Map(this.nodos().map((node) => [node.id, node]));
     const canvasNodes = rawNodes.map((node, index) => {
-      const incomingNode = this.toCanvasNode(node, index);
+      let incomingNode = this.toCanvasNode(
+        this.withStoredNodePositionFallback(node),
+        index,
+        true
+      );
+      const localNode = currentNodesById.get(node.id);
+      const incomingHasExplicitPosition = this.hasExplicitNodePosition(node);
+
+      if (
+        localNode &&
+        this.isValidNodePosition(localNode) &&
+        (!incomingHasExplicitPosition || !this.isValidNodePosition(incomingNode))
+      ) {
+        incomingNode = {
+          ...incomingNode,
+          x: localNode.x,
+          y: localNode.y,
+        };
+      }
+
       const guardedNode = this.applyStaleNodeVersionGuard(
         incomingNode,
         currentNodesById.get(incomingNode.id)
@@ -810,11 +824,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     let configChanged = false;
 
-    if (
-      (laneOrientation === 'HORIZONTAL' || laneOrientation === 'VERTICAL') &&
-      laneOrientation !== this.laneOrientation()
-    ) {
-      this.laneOrientation.set(laneOrientation);
+    if (this.laneOrientation() !== 'VERTICAL') {
+      this.laneOrientation.set('VERTICAL');
       configChanged = true;
     }
 
@@ -835,7 +846,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     if (configChanged) {
-      this.enforceActivitiesAssignedToLane();
+      this.enforceActivitiesAssignedToLane(true);
     }
   }
 
@@ -854,8 +865,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return false;
     }
 
-    const hasOrientation =
-      laneOrientation === 'HORIZONTAL' || laneOrientation === 'VERTICAL';
+    const hasOrientation = laneOrientation === 'VERTICAL';
     const hasWidth = typeof laneWidth === 'number' && Number.isFinite(laneWidth);
     const hasHeight =
       typeof laneHeight === 'number' && Number.isFinite(laneHeight);
@@ -885,16 +895,14 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     this.applyCollaborativeLaneConfig(
-      policy.laneOrientation === 'HORIZONTAL' || policy.laneOrientation === 'VERTICAL'
-        ? policy.laneOrientation
-        : undefined,
+      undefined,
       typeof policy.laneWidth === 'number' ? policy.laneWidth : undefined,
       typeof policy.laneHeight === 'number' ? policy.laneHeight : undefined
     );
   }
 
   private emitLaneConfigSync(force = false): void {
-    const laneOrientation = this.laneOrientation();
+    const laneOrientation: LaneOrientation = 'VERTICAL';
     const laneWidth = this.laneWidth();
     const laneHeight = this.laneHeight();
 
@@ -966,6 +974,30 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     });
   }
 
+  getNodeNameDraft(nodeId: string, fallbackName: string): string {
+    const draft = this.nodeNameDrafts()[nodeId];
+    return draft ?? fallbackName;
+  }
+
+  setNodeNameDraft(nodeId: string, name: string): void {
+    this.nodeNameDrafts.update((drafts) => ({
+      ...drafts,
+      [nodeId]: name,
+    }));
+  }
+
+  private clearNodeNameDraft(nodeId: string): void {
+    this.nodeNameDrafts.update((drafts) => {
+      if (!(nodeId in drafts)) {
+        return drafts;
+      }
+
+      const nextDrafts = { ...drafts };
+      delete nextDrafts[nodeId];
+      return nextDrafts;
+    });
+  }
+
   private emitNodeNameSync(nodeId: string): void {
     const node = this.nodos().find((n) => n.id === nodeId);
     if (!node) {
@@ -1004,6 +1036,28 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     clearTimeout(timer);
     this.pendingNodeNameSyncTimers.delete(nodeId);
     this.emitNodeNameSync(nodeId);
+  }
+
+  commitNodeNameDraft(nodeId: string): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    const node = this.nodos().find((n) => n.id === nodeId);
+    if (!node) {
+      this.clearNodeNameDraft(nodeId);
+      return;
+    }
+
+    const nextName = this.getNodeNameDraft(nodeId, node.nombre);
+    if (nextName === node.nombre) {
+      this.clearNodeNameDraft(nodeId);
+      return;
+    }
+
+    this.updateNodeName(nodeId, nextName);
+    this.flushNodeNameSync(nodeId);
+    this.clearNodeNameDraft(nodeId);
   }
 
   private buildFlowSyncSignature(
@@ -1058,8 +1112,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   ): void {
     this.nodos.set(canvasNodes);
     this.reconcileDecisionConditionDrafts(canvasNodes);
-    this.conexiones.set(resolvedConnections);
-    this.initializeConnectionPorts(canvasNodes, resolvedConnections);
+    const cleanedConnections = this.enforceDecisionConnectionLimits(resolvedConnections);
+    this.conexiones.set(cleanedConnections);
+    this.initializeConnectionPorts(canvasNodes, cleanedConnections);
 
     const selectedNodeId = this.selectedNodeId();
     if (selectedNodeId && !canvasNodes.some((node) => node.id === selectedNodeId)) {
@@ -1196,7 +1251,51 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     return undefined;
   }
 
-  private toCanvasNode(node: Partial<ColaboracionNodo>, index: number): NodoCanvas {
+  private hasExplicitNodeCoordinate(
+    node: Partial<ColaboracionNodo>,
+    axis: 'X' | 'Y'
+  ): boolean {
+    const resolvedCoordinate = this.resolveNodeCoordinate(node, axis);
+    return typeof resolvedCoordinate === 'number' && Number.isFinite(resolvedCoordinate);
+  }
+
+  private hasExplicitNodePosition(node: Partial<ColaboracionNodo>): boolean {
+    return (
+      this.hasExplicitNodeCoordinate(node, 'X') &&
+      this.hasExplicitNodeCoordinate(node, 'Y')
+    );
+  }
+
+  private withStoredNodePositionFallback(
+    node: Partial<ColaboracionNodo>
+  ): Partial<ColaboracionNodo> {
+    if (!node.id || this.hasExplicitNodePosition(node)) {
+      return node;
+    }
+
+    const storedPosition = this.uiPreferenceNodePositions[node.id];
+    if (!storedPosition) {
+      return node;
+    }
+
+    return {
+      ...node,
+      x:
+        this.hasExplicitNodeCoordinate(node, 'X') && typeof node.x === 'number'
+          ? node.x
+          : storedPosition.x,
+      y:
+        this.hasExplicitNodeCoordinate(node, 'Y') && typeof node.y === 'number'
+          ? node.y
+          : storedPosition.y,
+    };
+  }
+
+  private toCanvasNode(
+    node: Partial<ColaboracionNodo>,
+    index: number,
+    preserveActivityPosition = false
+  ): NodoCanvas {
     const resolvedTipo = (node.tipo ?? 'ACTIVIDAD') as TipoNodo;
     const resolvedDeptId =
       resolvedTipo === 'ACTIVIDAD'
@@ -1216,8 +1315,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       this.CANVAS_HEIGHT
     );
     const clamped = this.clampNodePosition(rawX, rawY);
+    const canClampActivityToLane =
+      !preserveActivityPosition &&
+      resolvedTipo === 'ACTIVIDAD' &&
+      !!resolvedDeptId &&
+      this.departamentos().length > 0;
     const laneClamped =
-      resolvedTipo === 'ACTIVIDAD' && resolvedDeptId
+      canClampActivityToLane
         ? this.clampActivityPositionToLane(resolvedDeptId, clamped.x, clamped.y)
         : clamped;
 
@@ -1277,22 +1381,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const nodeWidth = this.getNodeWidth('ACTIVIDAD');
     const nodeHeight = this.getNodeHeight('ACTIVIDAD');
     const laneWidth = this.laneWidth();
-    const laneHeight = this.laneHeight();
-
-    if (this.isVerticalLaneOrientation()) {
-      const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
-      const minX = laneX;
-      const maxX = Math.max(minX, laneX + laneWidth - nodeWidth);
-      const minY = this.CANVAS_ORIGIN_Y;
-      const maxY = Math.max(minY, this.CANVAS_HEIGHT - nodeHeight);
-      return { minX, maxX, minY, maxY };
-    }
-
-    const laneY = this.CANVAS_ORIGIN_Y + laneIndex * laneHeight;
-    const minY = laneY;
-    const maxY = Math.max(minY, laneY + laneHeight - nodeHeight);
-    const minX = this.CANVAS_ORIGIN_X;
-    const maxX = Math.max(minX, this.CANVAS_WIDTH - nodeWidth);
+    const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
+    const minX = laneX;
+    const maxX = Math.max(minX, laneX + laneWidth - nodeWidth);
+    const minY = this.CANVAS_ORIGIN_Y;
+    const maxY = Math.max(minY, this.CANVAS_HEIGHT - nodeHeight);
     return { minX, maxX, minY, maxY };
   }
 
@@ -1321,7 +1414,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     return this.clampNodePosition(x, y);
   }
 
-  private enforceActivitiesAssignedToLane(): void {
+  private enforceActivitiesAssignedToLane(preservePositions = false): void {
     const fallbackDepartmentId = this.resolveRequiredDepartmentId(null);
     if (!fallbackDepartmentId) {
       return;
@@ -1334,7 +1427,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         }
 
         const nextDeptId = this.resolveRequiredDepartmentId(node.departamentoId) ?? fallbackDepartmentId;
-        const nextPos = this.clampActivityPositionToLane(nextDeptId, node.x, node.y);
+        const nextPos = preservePositions
+          ? { x: node.x, y: node.y }
+          : this.clampActivityPositionToLane(nextDeptId, node.x, node.y);
         const nextResponsableId =
           node.responsableTipo === 'DEPARTAMENTO' ? nextDeptId : node.responsableId;
 
@@ -1359,8 +1454,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private toCollaborativeNode(node: NodoCanvas): ColaboracionNodo {
-    const persistedX = this.toPersistedCoordinate(node.x, this.CANVAS_ORIGIN_X);
-    const persistedY = this.toPersistedCoordinate(node.y, this.CANVAS_ORIGIN_Y);
+    const coords = this.buildPersistedNodeCoordinates(node.x, node.y);
 
     return {
       id: node.id,
@@ -1372,8 +1466,26 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       formulario: node.formulario ?? [],
       condiciones: node.condiciones ?? [],
       version: node.version,
+      ...coords,
+    };
+  }
+
+  private buildPersistedNodeCoordinates(worldX: number, worldY: number): {
+    x: number;
+    y: number;
+    posX: number;
+    posY: number;
+    posicionX: number;
+    posicionY: number;
+  } {
+    const persistedX = this.toPersistedCoordinate(worldX, this.CANVAS_ORIGIN_X);
+    const persistedY = this.toPersistedCoordinate(worldY, this.CANVAS_ORIGIN_Y);
+
+    return {
       x: persistedX,
       y: persistedY,
+      posX: persistedX,
+      posY: persistedY,
       posicionX: persistedX,
       posicionY: persistedY,
     };
@@ -1392,6 +1504,33 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       x: this.clampNodeX(x),
       y: this.clampNodeY(y),
     };
+  }
+
+  /**
+   * Valida si las posiciones de un nodo son válidas.
+   * Las posiciones son inválidas si:
+   * - No son números válidos
+   * - Son valores por defecto (0, 0) sin contexto
+   * - Están fuera del rango esperado del canvas
+   */
+  private isValidNodePosition(node: NodoCanvas): boolean {
+    if (typeof node.x !== 'number' || typeof node.y !== 'number') {
+      return false;
+    }
+
+    // Permitir posición por defecto solo si es en el origen del canvas
+    const isDefaultPosition = node.x === 0 && node.y === 0;
+    if (isDefaultPosition) {
+      return false;
+    }
+
+    // Verificar que esté dentro del rango razonable del canvas
+    const minX = this.CANVAS_ORIGIN_X - 1000;
+    const maxX = this.CANVAS_ORIGIN_X + 5000;
+    const minY = this.CANVAS_ORIGIN_Y - 1000;
+    const maxY = this.CANVAS_ORIGIN_Y + 5000;
+
+    return node.x >= minX && node.x <= maxX && node.y >= minY && node.y <= maxY;
   }
 
   private setPendingMoveGuard(nodeId: string, x: number, y: number): void {
@@ -1461,10 +1600,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const backendPayload: FlujoPayload = {
       nodos: [...(p.nodos ?? [])],
       conexiones: [...(p.conexiones ?? [])],
-      laneOrientation:
-        p.laneOrientation === 'HORIZONTAL' || p.laneOrientation === 'VERTICAL'
-          ? p.laneOrientation
-          : this.laneOrientation(),
+      laneOrientation: 'VERTICAL',
       laneWidth: typeof p.laneWidth === 'number' ? p.laneWidth : this.laneWidth(),
       laneHeight: typeof p.laneHeight === 'number' ? p.laneHeight : this.laneHeight(),
     };
@@ -1474,15 +1610,20 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const flowToHydrate = backendPayload;
 
     const nodes = (flowToHydrate.nodos ?? []).map((n, i) =>
-      this.toCanvasNode(n as ColaboracionNodo, i)
+      this.toCanvasNode(
+        this.withStoredNodePositionFallback(n as ColaboracionNodo),
+        i,
+        true
+      )
     );
     this.nodos.set(nodes);
     this.reconcileDecisionConditionDrafts(nodes);
     const connections = this.withResolvedConnectionPorts(
       flowToHydrate.conexiones ?? []
     );
-    this.conexiones.set(connections);
-    this.initializeConnectionPorts(nodes, connections);
+    const cleanedConnections = this.enforceDecisionConnectionLimits(connections);
+    this.conexiones.set(cleanedConnections);
+    this.initializeConnectionPorts(nodes, cleanedConnections);
     this.lastSavedDraftSignature = JSON.stringify(backendPayload);
   }
 
@@ -1521,14 +1662,22 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       const incomingTargetPorts = this.normalizeConnectionPortMap(
         backup.connectionTargetPorts
       );
+      const incomingNodePositions = this.normalizeUiNodePositionMap(
+        backup.nodePositions
+      );
 
       if (
         !Object.keys(incomingSourcePorts).length &&
-        !Object.keys(incomingTargetPorts).length
+        !Object.keys(incomingTargetPorts).length &&
+        !Object.keys(incomingNodePositions).length
       ) {
         return;
       }
 
+      this.uiPreferenceNodePositions = {
+        ...this.uiPreferenceNodePositions,
+        ...incomingNodePositions,
+      };
       this.connectionSourcePorts.update((map) => ({
         ...map,
         ...incomingSourcePorts,
@@ -1580,6 +1729,37 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     return next;
   }
 
+  private normalizeUiNodePositionMap(
+    rawMap: unknown
+  ): Record<string, { x: number; y: number }> {
+    if (!rawMap || typeof rawMap !== 'object') {
+      return {};
+    }
+
+    const next: Record<string, { x: number; y: number }> = {};
+
+    for (const [nodeId, value] of Object.entries(rawMap)) {
+      if (!nodeId || typeof value !== 'object' || value === null) {
+        continue;
+      }
+
+      const candidate = value as Record<string, unknown>;
+      const x = candidate['x'];
+      const y = candidate['y'];
+
+      if (
+        typeof x === 'number' &&
+        Number.isFinite(x) &&
+        typeof y === 'number' &&
+        Number.isFinite(y)
+      ) {
+        next[nodeId] = { x, y };
+      }
+    }
+
+    return next;
+  }
+
   private withResolvedConnectionPorts(connections: Conexion[]): Conexion[] {
     const sourceMap = this.connectionSourcePorts();
     const targetMap = this.connectionTargetPorts();
@@ -1597,6 +1777,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
       let resolvedSourcePort = sourcePort;
       let resolvedTargetPort = targetPort;
+
+      if (fromNode?.tipo === 'DECISION') {
+        resolvedSourcePort =
+          this.resolveDecisionSourcePort(fromNode, connection) ?? resolvedSourcePort;
+      }
 
       if (fromNode?.tipo === 'FORK') {
         if (!resolvedSourcePort || resolvedSourcePort === 'TOP' || resolvedSourcePort === 'BOTTOM') {
@@ -1738,6 +1923,17 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const backup: CanvasUiPrefsBackup = {
       connectionSourcePorts,
       connectionTargetPorts,
+      nodePositions: Object.fromEntries(
+        this.nodos()
+          .filter(
+            (node) =>
+              typeof node.id === 'string' &&
+              node.id.trim().length > 0 &&
+              Number.isFinite(node.x) &&
+              Number.isFinite(node.y)
+          )
+          .map((node) => [node.id, { x: node.x, y: node.y }])
+      ),
     };
 
     try {
@@ -1753,6 +1949,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private restoreUiPreferences(policyId: string): void {
     this.connectionSourcePorts.set({});
     this.connectionTargetPorts.set({});
+    this.uiPreferenceNodePositions = {};
 
     if (!this.hasLocalStorage()) {
       return;
@@ -1765,6 +1962,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       }
 
       const backup = JSON.parse(raw) as Partial<CanvasUiPrefsBackup>;
+      this.uiPreferenceNodePositions = this.normalizeUiNodePositionMap(
+        backup.nodePositions
+      );
 
       this.connectionSourcePorts.set(
         this.normalizeConnectionPortMap(backup.connectionSourcePorts)
@@ -1783,10 +1983,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         id: n.id,
         tipo: n.tipo,
         nombre: n.nombre,
-        posX: this.toPersistedCoordinate(n.x, this.CANVAS_ORIGIN_X),
-        posY: this.toPersistedCoordinate(n.y, this.CANVAS_ORIGIN_Y),
-        posicionX: this.toPersistedCoordinate(n.x, this.CANVAS_ORIGIN_X),
-        posicionY: this.toPersistedCoordinate(n.y, this.CANVAS_ORIGIN_Y),
+        ...this.buildPersistedNodeCoordinates(n.x, n.y),
         version: n.version,
         departamentoId: n.departamentoId,
         responsableTipo: n.tipo === 'ACTIVIDAD' ? (n.responsableTipo || null) : null,
@@ -2059,12 +2256,24 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       const positionedNodos = this.layoutIaNodos(nodos, conexiones);
 
       this.nodos.set(positionedNodos);
-      this.conexiones.set(this.withResolvedConnectionPorts(conexiones));
-      this.initializeConnectionPorts(positionedNodos, this.conexiones());
-      this.enforceActivitiesAssignedToLane();
+      const resolvedConnections = this.withResolvedConnectionPorts(conexiones);
+      const cleanedConnections = this.enforceDecisionConnectionLimits(resolvedConnections);
+      this.conexiones.set(cleanedConnections);
+      this.initializeConnectionPorts(positionedNodos, cleanedConnections);
+      this.enforceActivitiesAssignedToLane(true);
 
       this.selectedNodeId.set(null);
-      this.scheduleAutoSave(true);
+      await this.persistAndBroadcastCurrentFlow(
+        'No se pudo guardar automáticamente el flujo generado por IA'
+      );
+      // Marcar que acabamos de aplicar IA para bloquear cambios colaborativos
+      this.iaFlowJustAppliedAt = Date.now();
+      this.pendingLaneConfigGuard = {
+        laneOrientation: this.laneOrientation(),
+        laneWidth: this.laneWidth(),
+        laneHeight: this.laneHeight(),
+        expiresAt: Date.now() + 8000,
+      };
       const summary = event.analysis?.summary || 'Flujo generado correctamente';
       this.toast.success('Flujo generado', summary);
       this.closeIaFlujoModal();
@@ -2072,11 +2281,74 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       console.error('Error applying IA workflow:', error);
       this.toast.error(
         'Error al aplicar',
-        'No se pudo aplicar el workflow generado'
+        (error as { userMessage?: string })?.userMessage ??
+          'No se pudo aplicar el workflow generado'
       );
     } finally {
       this.isApplyingIaFlujo.set(false);
     }
+  }
+
+  private async persistAndBroadcastCurrentFlow(errorMessage: string): Promise<void> {
+    const currentPolicy = this.politica();
+    if (!currentPolicy) {
+      return;
+    }
+
+    const payload = this.buildFlujoPayload();
+    const signature = JSON.stringify(payload);
+
+    this.persistPendingFlowBackup(currentPolicy.id, payload);
+    this.autoSaveQueued = false;
+
+    if (this.autoSaveTimer) {
+      clearTimeout(this.autoSaveTimer);
+      this.autoSaveTimer = null;
+    }
+
+    this.saving.set(true);
+    try {
+      const updated = await firstValueFrom(
+        this.svc.saveFlujo(currentPolicy.id, payload)
+      );
+
+      this.setPoliticaState(updated);
+      this.lastSavedDraftSignature = signature;
+      this.clearPendingFlowBackup(currentPolicy.id);
+      this.persistUiPreferences(currentPolicy.id);
+      this.broadcastCurrentFlowToCollaborators();
+      this.tryApplyDeferredCollaborativeFlow();
+    } catch (error) {
+      this.autoSaveQueued = true;
+      this.persistPendingFlowBackup(currentPolicy.id, payload);
+      throw {
+        originalError: error,
+        userMessage:
+          (error as any)?.error?.message ?? errorMessage,
+      };
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  private broadcastCurrentFlowToCollaborators(): void {
+    this.collabFacade.emitReplaceFlow(
+      this.nodos().map((node) => this.toCollaborativeNode(node)),
+      this.withResolvedConnectionPorts(this.conexiones()),
+      {
+        laneOrientation: this.laneOrientation(),
+        laneWidth: this.laneWidth(),
+        laneHeight: this.laneHeight(),
+      }
+    );
+    this.collabFacade.emitUpdateCanvasConfig(
+      {
+        laneOrientation: this.laneOrientation(),
+        laneWidth: this.laneWidth(),
+        laneHeight: this.laneHeight(),
+      },
+      { requestSnapshot: true }
+    );
   }
 
   private fitLaneSizeForIaFlujo(
@@ -2091,22 +2363,12 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     );
     const departmentCount = Math.max(1, departments.length);
 
-    if (this.isVerticalLaneOrientation()) {
-      const estimatedWidth = Math.max(
-        320,
-        180 + longestTitle * 8,
-        220 + Math.ceil(activityNodes.length / departmentCount) * 70
-      );
-      this.laneWidth.set(this.normalizeLaneWidth(estimatedWidth));
-      return;
-    }
-
-    const estimatedHeight = Math.max(
-      220,
-      160 + longestTitle * 5,
-      220 + Math.ceil(activityNodes.length / departmentCount) * 60
+    const estimatedWidth = Math.max(
+      320,
+      180 + longestTitle * 8,
+      220 + Math.ceil(activityNodes.length / departmentCount) * 70
     );
-    this.laneHeight.set(this.normalizeLaneHeight(estimatedHeight));
+    this.laneWidth.set(this.normalizeLaneWidth(estimatedWidth));
   }
 
   private async ensureDepartmentsForIaFlujo(
@@ -2405,44 +2667,32 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   toggleLaneOrientation(): void {
-    if (this.isCanvasEditBlocked(true)) {
-      return;
+    if (this.laneOrientation() !== 'VERTICAL') {
+      this.laneOrientation.set('VERTICAL');
+      this.realignActivityNodesToLaneOrientation();
+      this.emitLaneConfigSync(true);
+      this.scheduleAutoSave(true);
     }
-
-    this.laneOrientation.update((orientation) =>
-      orientation === 'HORIZONTAL' ? 'VERTICAL' : 'HORIZONTAL'
-    );
-    this.realignActivityNodesToLaneOrientation();
-    this.emitLaneConfigSync(true);
-    this.scheduleAutoSave(true);
   }
 
   get laneOrientationLabel(): string {
-    return this.isVerticalLaneOrientation() ? 'Vertical' : 'Horizontal';
+    return 'Vertical';
   }
 
   getLaneX(index: number): number {
-    return this.isVerticalLaneOrientation()
-      ? this.CANVAS_ORIGIN_X + index * this.laneWidth()
-      : this.CANVAS_ORIGIN_X;
+    return this.CANVAS_ORIGIN_X + index * this.laneWidth();
   }
 
   getLaneY(index: number): number {
-    return this.isVerticalLaneOrientation()
-      ? this.CANVAS_ORIGIN_Y
-      : this.CANVAS_ORIGIN_Y + index * this.laneHeight();
+    return this.CANVAS_ORIGIN_Y;
   }
 
   getLaneWidth(): number {
-    return this.isVerticalLaneOrientation()
-      ? this.laneWidth()
-      : this.CANVAS_WIDTH - this.CANVAS_ORIGIN_X;
+    return this.laneWidth();
   }
 
   getLaneHeight(): number {
-    return this.isVerticalLaneOrientation()
-      ? this.CANVAS_HEIGHT - this.CANVAS_ORIGIN_Y
-      : this.laneHeight();
+    return this.CANVAS_HEIGHT - this.CANVAS_ORIGIN_Y;
   }
 
   startLaneResize(event: MouseEvent): void {
@@ -2500,24 +2750,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return this.clampNodePosition(baseX + this.randomOffset(40), baseY + this.randomOffset(40));
     }
 
-    if (this.isVerticalLaneOrientation()) {
-      const laneWidth = this.laneWidth();
-      const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
-      const centeredX = laneX + (laneWidth - this.getNodeWidth('ACTIVIDAD')) / 2;
-      return this.clampActivityPositionToLane(
-        deptId,
-        centeredX + this.randomOffset(26),
-        baseY + this.randomOffset(36)
-      );
-    }
-
-    const laneHeight = this.laneHeight();
-    const laneY = this.CANVAS_ORIGIN_Y + laneIndex * laneHeight;
-    const centeredY = laneY + (laneHeight - this.getNodeHeight('ACTIVIDAD')) / 2;
+    const laneWidth = this.laneWidth();
+    const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
+    const centeredX = laneX + (laneWidth - this.getNodeWidth('ACTIVIDAD')) / 2;
     return this.clampActivityPositionToLane(
       deptId,
-      baseX + this.randomOffset(36),
-      centeredY + this.randomOffset(24)
+      centeredX + this.randomOffset(26),
+      baseY + this.randomOffset(36)
     );
   }
 
@@ -2556,22 +2795,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           return node;
         }
 
-        if (this.isVerticalLaneOrientation()) {
-          const laneWidth = this.laneWidth();
-          const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
-          const centeredX = laneX + (laneWidth - this.getNodeWidth(node.tipo)) / 2;
-          const clamped = this.clampActivityPositionToLane(node.departamentoId, centeredX, node.y);
-          const nextNode = { ...node, x: clamped.x, y: clamped.y };
-          if (nextNode.x !== node.x || nextNode.y !== node.y) {
-            movedNodes.push(nextNode);
-          }
-          return nextNode;
-        }
-
-        const laneHeight = this.laneHeight();
-        const laneY = this.CANVAS_ORIGIN_Y + laneIndex * laneHeight;
-        const centeredY = laneY + (laneHeight - this.getNodeHeight(node.tipo)) / 2;
-        const clamped = this.clampActivityPositionToLane(node.departamentoId, node.x, centeredY);
+        const laneWidth = this.laneWidth();
+        const laneX = this.CANVAS_ORIGIN_X + laneIndex * laneWidth;
+        const centeredX = laneX + (laneWidth - this.getNodeWidth(node.tipo)) / 2;
+        const clamped = this.clampActivityPositionToLane(node.departamentoId, centeredX, node.y);
         const nextNode = { ...node, x: clamped.x, y: clamped.y };
         if (nextNode.x !== node.x || nextNode.y !== node.y) {
           movedNodes.push(nextNode);
@@ -2667,6 +2894,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.conexiones.update((cs) => cs.filter((c) => c.origen !== id && c.destino !== id));
     this.clearDecisionConditionPreviewForNode(id);
     this.removeDecisionConditionDraft(id);
+    this.clearNodeNameDraft(id);
 
     if (removedConnections.length) {
       this.connectionTargetPorts.update((map) => {
@@ -2698,11 +2926,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   // ── Selection ─────────────────────────────────────────────────
   selectNode(id: string): void {
-    const previousNodeId = this.selectedNodeId();
-    if (previousNodeId && previousNodeId !== id) {
-      this.flushNodeNameSync(previousNodeId);
-    }
-
     this.selectedNodeId.set(id);
     this.showSidebar.set(true);
     this.collabFacade.setEditingNode(id);
@@ -2720,11 +2943,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   deselectAll(): void {
-    const selectedNodeId = this.selectedNodeId();
-    if (selectedNodeId) {
-      this.flushNodeNameSync(selectedNodeId);
-    }
-
     this.selectedNodeId.set(null);
     this.showSidebar.set(false);
     this.connectState.set(null);
@@ -2771,29 +2989,17 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     if (this.laneResizeState) {
       const dx = (event.clientX - this.laneResizeState.startMouseX) / this.zoom();
-      const dy = (event.clientY - this.laneResizeState.startMouseY) / this.zoom();
-
       let laneSizeChanged = false;
-      if (this.isVerticalLaneOrientation()) {
-        const nextLaneWidth = this.normalizeLaneWidth(
-          this.laneResizeState.startLaneWidth + dx
-        );
-        if (nextLaneWidth !== this.laneWidth()) {
-          this.laneWidth.set(nextLaneWidth);
-          laneSizeChanged = true;
-        }
-      } else {
-        const nextLaneHeight = this.normalizeLaneHeight(
-          this.laneResizeState.startLaneHeight + dy
-        );
-        if (nextLaneHeight !== this.laneHeight()) {
-          this.laneHeight.set(nextLaneHeight);
-          laneSizeChanged = true;
-        }
+      const nextLaneWidth = this.normalizeLaneWidth(
+        this.laneResizeState.startLaneWidth + dx
+      );
+      if (nextLaneWidth !== this.laneWidth()) {
+        this.laneWidth.set(nextLaneWidth);
+        laneSizeChanged = true;
       }
 
       if (laneSizeChanged) {
-        this.enforceActivitiesAssignedToLane();
+        this.enforceActivitiesAssignedToLane(true);
       }
 
       return;
@@ -3074,6 +3280,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         previousTargetMap[key] ??
         this.autoTargetPort(from, to);
       sourceMap[key] =
+        this.resolveDecisionSourcePort(from, c) ??
         this.normalizeConnectionPort(c.puertoOrigen) ??
         previousSourceMap[key] ??
         'RIGHT';
@@ -3117,10 +3324,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private getConnectionSourcePort(c: Conexion): ConnectionPort {
+    const fromNode = this.nodos().find((n) => n.id === c.origen);
+    const inferredDecisionPort = fromNode
+      ? this.resolveDecisionSourcePort(fromNode, c)
+      : null;
+    if (inferredDecisionPort) {
+      return inferredDecisionPort;
+    }
+
     const persistedPort = this.normalizeConnectionPort(c.puertoOrigen);
     if (persistedPort) {
       return persistedPort;
     }
+
     const key = this.connectionKey(c.origen, c.destino);
     return this.connectionSourcePorts()[key] ?? 'RIGHT';
   }
@@ -3293,7 +3509,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
             : connection
         );
 
-    this.conexiones.set(nextConnections);
+    // Asegurar que las conexiones de DECISION cumplan con las reglas
+    const enforcedConnections = this.enforceDecisionConnectionLimits(nextConnections);
+    this.conexiones.set(enforcedConnections);
 
     for (const removedConnection of removedBranchConnections) {
       this.deleteConnectionPortMetadata(removedConnection.origen, removedConnection.destino);
@@ -3381,7 +3599,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         if (!this.canDecisionUseBranchPorts(node.id)) {
           return port === 'TOP';
         }
-        return port === 'LEFT' || port === 'RIGHT' || port === 'TOP';
+        return port === 'LEFT' || port === 'RIGHT';
       case 'FORK':
         return port === 'TOP';
       case 'JOIN':
@@ -3435,6 +3653,47 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     );
   }
 
+  /**
+   * Valida y limpia las conexiones de nodos DECISION.
+   * Asegura que cada nodo DECISION tenga como máximo:
+   * - Una conexión por "sí" (LEFT)
+   * - Una conexión por "no" (RIGHT)
+   * 
+   * Si hay múltiples conexiones en el mismo puerto, se mantiene la primera
+   * y se eliminan las demás.
+   */
+  private enforceDecisionConnectionLimits(connections: ReadonlyArray<Conexion>): Conexion[] {
+    const decisionNodes = this.nodos().filter((n) => n.tipo === 'DECISION');
+    const cleanedConnections: Conexion[] = [];
+    const seenPorts: Set<string> = new Set();
+
+    for (const connection of connections) {
+      const isFromDecision = decisionNodes.some((n) => n.id === connection.origen);
+      
+      if (!isFromDecision) {
+        cleanedConnections.push(connection);
+        continue;
+      }
+
+      const sourcePort = this.getConnectionSourcePort(connection);
+      const isDecisionBranch = sourcePort === 'LEFT' || sourcePort === 'RIGHT';
+
+      if (!isDecisionBranch) {
+        cleanedConnections.push(connection);
+        continue;
+      }
+
+      // Para conexiones de DECISION por LEFT o RIGHT, solo permitir una por puerto
+      const portKey = `${connection.origen}:${sourcePort}`;
+      if (!seenPorts.has(portKey)) {
+        cleanedConnections.push(connection);
+        seenPorts.add(portKey);
+      }
+    }
+
+    return cleanedConnections;
+  }
+
   private hasDecisionIncomingConnection(nodeId: string): boolean {
     return this.conexiones().some((connection) => connection.destino === nodeId);
   }
@@ -3483,6 +3742,22 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       );
       if (hasOutgoingToAnotherNode) {
         return 'El nodo JOIN solo permite una salida.';
+      }
+    }
+
+    // ── Validación para nodos DECISION ──────────────────────────────
+    // Un nodo DECISION solo puede tener una conexión por "sí" (LEFT)
+    // y una conexión por "no" (RIGHT)
+    if (fromNode.tipo === 'DECISION' && (sourcePort === 'LEFT' || sourcePort === 'RIGHT')) {
+      const existingConnectionOnPort = connections.some(
+        (connection) =>
+          connection.origen === fromId &&
+          this.getConnectionSourcePort(connection) === sourcePort &&
+          connection.destino !== toId
+      );
+      if (existingConnectionOnPort) {
+        const portLabel = sourcePort === 'LEFT' ? 'sí' : 'no';
+        return `El nodo DECISION ya tiene una conexión por "${portLabel}". Solo se permite una por cada opción.`;
       }
     }
 
@@ -4636,8 +4911,58 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     return normalized === 'TRUE' || normalized === 'SI' || normalized === 'YES';
   }
 
+  private isDecisionFalseBranchResult(resultado: string | null | undefined): boolean {
+    const normalized = this.normalizeDecisionResultValue(resultado);
+    return (
+      normalized === 'FALSE' ||
+      normalized === 'NO' ||
+      normalized === '*' ||
+      normalized === 'DEFAULT' ||
+      normalized === 'ELSE'
+    );
+  }
+
   private normalizeDecisionResultValue(resultado: string | null | undefined): string {
     return String(resultado ?? '').trim().toUpperCase();
+  }
+
+  private resolveDecisionSourcePort(
+    fromNode: Pick<NodoCanvas, 'tipo' | 'condiciones'>,
+    connection: Pick<Conexion, 'destino'>
+  ): 'LEFT' | 'RIGHT' | null {
+    if (fromNode.tipo !== 'DECISION') {
+      return null;
+    }
+
+    const matchingCondition = fromNode.condiciones?.find(
+      (condicion) => condicion.siguiente === connection.destino
+    );
+    if (!matchingCondition) {
+      return null;
+    }
+
+    if (this.isDecisionTrueBranchResult(matchingCondition.resultado)) {
+      return 'RIGHT';
+    }
+
+    if (this.isDecisionFalseBranchResult(matchingCondition.resultado)) {
+      return 'LEFT';
+    }
+
+    const condiciones = fromNode.condiciones ?? [];
+    if (condiciones.length === 2) {
+      const conditionIndex = condiciones.findIndex(
+        (condicion) => condicion.siguiente === connection.destino
+      );
+      if (conditionIndex === 0) {
+        return 'RIGHT';
+      }
+      if (conditionIndex === 1) {
+        return 'LEFT';
+      }
+    }
+
+    return null;
   }
 
   private decisionHasTrueAndFalseRoutes(condiciones: CondicionDecision[]): boolean {
@@ -4648,12 +4973,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     );
 
     const hasTrueRoute = values.has('TRUE') || values.has('SI') || values.has('YES');
-    const hasFalseRoute =
-      values.has('*') ||
-      values.has('FALSE') ||
-      values.has('NO') ||
-      values.has('DEFAULT') ||
-      values.has('ELSE');
+    const hasFalseRoute = Array.from(values).some((value) =>
+      this.isDecisionFalseBranchResult(value)
+    );
 
     return hasTrueRoute && hasFalseRoute;
   }

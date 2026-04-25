@@ -249,11 +249,22 @@ export class PoliticaColaboracionFacadeService {
     this.requestServerSync();
   }
 
-  emitReplaceFlow(nodos: ColaboracionNodo[], conexiones: Conexion[]): void {
+  emitReplaceFlow(
+    nodos: ColaboracionNodo[],
+    conexiones: Conexion[],
+    config?: {
+      laneOrientation?: LaneOrientation;
+      laneWidth?: number;
+      laneHeight?: number;
+    }
+  ): void {
     this.publishEvent({
       tipo: 'REPLACE_FLOW',
       nodos: nodos.map((n) => this.normalizeNodePayload(n) as ColaboracionNodo),
       conexiones,
+      laneOrientation: this.resolveLaneOrientation(config?.laneOrientation) ?? undefined,
+      laneWidth: this.resolveLaneDimension(config?.laneWidth) ?? undefined,
+      laneHeight: this.resolveLaneDimension(config?.laneHeight) ?? undefined,
     });
   }
 
@@ -1355,6 +1366,35 @@ export class PoliticaColaboracionFacadeService {
       merged.y = patch.posicionY;
     }
 
+    const resolvedPosX =
+      typeof merged.posicionX === 'number'
+        ? merged.posicionX
+        : typeof merged.x === 'number'
+          ? merged.x
+          : typeof anyPatch.posX === 'number'
+            ? anyPatch.posX
+            : undefined;
+    const resolvedPosY =
+      typeof merged.posicionY === 'number'
+        ? merged.posicionY
+        : typeof merged.y === 'number'
+          ? merged.y
+          : typeof anyPatch.posY === 'number'
+            ? anyPatch.posY
+            : undefined;
+
+    if (typeof resolvedPosX === 'number') {
+      merged.posicionX = resolvedPosX;
+      merged.x = resolvedPosX;
+      merged.posX = resolvedPosX;
+    }
+
+    if (typeof resolvedPosY === 'number') {
+      merged.posicionY = resolvedPosY;
+      merged.y = resolvedPosY;
+      merged.posY = resolvedPosY;
+    }
+
     return merged;
   }
 
@@ -1409,6 +1449,35 @@ export class PoliticaColaboracionFacadeService {
 
     if (typeof node.posicionY === 'number' && typeof node.y !== 'number') {
       nextNode.y = node.posicionY;
+    }
+
+    const resolvedPosX =
+      typeof nextNode.posicionX === 'number'
+        ? nextNode.posicionX
+        : typeof nextNode.x === 'number'
+          ? nextNode.x
+          : typeof anyNode.posX === 'number'
+            ? anyNode.posX
+            : undefined;
+    const resolvedPosY =
+      typeof nextNode.posicionY === 'number'
+        ? nextNode.posicionY
+        : typeof nextNode.y === 'number'
+          ? nextNode.y
+          : typeof anyNode.posY === 'number'
+            ? anyNode.posY
+            : undefined;
+
+    if (typeof resolvedPosX === 'number') {
+      nextNode.posicionX = resolvedPosX;
+      nextNode.x = resolvedPosX;
+      nextNode.posX = resolvedPosX;
+    }
+
+    if (typeof resolvedPosY === 'number') {
+      nextNode.posicionY = resolvedPosY;
+      nextNode.y = resolvedPosY;
+      nextNode.posY = resolvedPosY;
     }
 
     return nextNode;

@@ -402,6 +402,10 @@ export class IaFlujoMapperService {
       return 'NO';
     }
 
+    if (total === 2) {
+      return index === 0 ? 'SI' : 'NO';
+    }
+
     if (index === 0) {
       return 'SI';
     }

@@ -19,6 +19,8 @@ export type SocketConnectionState =
   | 'RECONNECTING';
 
 export interface ColaboracionNodo extends Nodo {
+  posX?: number;
+  posY?: number;
   posicionX?: number;
   posicionY?: number;
   x?: number;
