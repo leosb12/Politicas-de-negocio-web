@@ -443,28 +443,17 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const depts = this.departamentos();
     const deptById = new Map(depts.map((d) => [d.id, d]));
     const activityNodes = this.nodos().filter((n) => n.tipo === 'ACTIVIDAD');
-
-    const laneIds: string[] = [];
-    const laneIdSet = new Set<string>();
+    const laneIds = this.getOrderedLaneIdsForNodes(activityNodes);
     const laneNodesByDept = new Map<string, NodoCanvas[]>();
 
-    const addLane = (deptId: string | null | undefined): void => {
-      if (!deptId || !deptById.has(deptId) || laneIdSet.has(deptId)) {
-        return;
-      }
-      laneIdSet.add(deptId);
-      laneIds.push(deptId);
-    };
-
     for (const node of activityNodes) {
-      const deptId = node.departamentoId;
+      const deptId = this.resolveRequiredDepartmentId(node.departamentoId);
       if (!deptId || !deptById.has(deptId)) {
         continue;
       }
 
       const existingNodes = laneNodesByDept.get(deptId) ?? [];
       laneNodesByDept.set(deptId, [...existingNodes, node]);
-      addLane(deptId);
     }
 
     return laneIds.map((deptId) => ({
@@ -1115,6 +1104,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const cleanedConnections = this.enforceDecisionConnectionLimits(resolvedConnections);
     this.conexiones.set(cleanedConnections);
     this.initializeConnectionPorts(canvasNodes, cleanedConnections);
+    this.enforceActivitiesAssignedToLane(true);
 
     const selectedNodeId = this.selectedNodeId();
     if (selectedNodeId && !canvasNodes.some((node) => node.id === selectedNodeId)) {
@@ -1371,8 +1361,15 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   private getActivityLaneBounds(deptId: string):
     | { minX: number; maxX: number; minY: number; maxY: number }
-    | null {
-    const laneIds = this.getLaneIdsForPlacement(deptId);
+    | null;
+  private getActivityLaneBounds(
+    deptId: string,
+    laneIds: string[]
+  ): { minX: number; maxX: number; minY: number; maxY: number } | null;
+  private getActivityLaneBounds(
+    deptId: string,
+    laneIds = this.getLaneIdsForPlacement(deptId)
+  ): { minX: number; maxX: number; minY: number; maxY: number } | null {
     const laneIndex = laneIds.indexOf(deptId);
     if (laneIndex < 0) {
       return null;
@@ -1392,10 +1389,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private clampActivityPositionToLane(
     deptId: string,
     x: number,
-    y: number
+    y: number,
+    laneIds = this.getLaneIdsForPlacement(deptId)
   ): { x: number; y: number } {
     const clamped = this.clampNodePosition(x, y);
-    const bounds = this.getActivityLaneBounds(deptId);
+    const bounds = this.getActivityLaneBounds(deptId, laneIds);
     if (!bounds) {
       return clamped;
     }
@@ -1427,9 +1425,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         }
 
         const nextDeptId = this.resolveRequiredDepartmentId(node.departamentoId) ?? fallbackDepartmentId;
+        const clampedPos = this.clampActivityPositionToLane(nextDeptId, node.x, node.y);
         const nextPos = preservePositions
-          ? { x: node.x, y: node.y }
-          : this.clampActivityPositionToLane(nextDeptId, node.x, node.y);
+          ? {
+              x: Math.abs(clampedPos.x - node.x) > 0.5 ? clampedPos.x : node.x,
+              y: Math.abs(clampedPos.y - node.y) > 0.5 ? clampedPos.y : node.y,
+            }
+          : clampedPos;
         const nextResponsableId =
           node.responsableTipo === 'DEPARTAMENTO' ? nextDeptId : node.responsableId;
 
@@ -1624,6 +1626,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const cleanedConnections = this.enforceDecisionConnectionLimits(connections);
     this.conexiones.set(cleanedConnections);
     this.initializeConnectionPorts(nodes, cleanedConnections);
+    this.enforceActivitiesAssignedToLane(true);
     this.lastSavedDraftSignature = JSON.stringify(backendPayload);
   }
 
@@ -1761,11 +1764,12 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private withResolvedConnectionPorts(connections: Conexion[]): Conexion[] {
+    const nodes = this.nodos();
     const sourceMap = this.connectionSourcePorts();
     const targetMap = this.connectionTargetPorts();
-    const nodeById = new Map(this.nodos().map((node) => [node.id, node]));
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
 
-    return connections.map((connection) => {
+    const normalizedConnections = connections.map((connection) => {
       const key = this.connectionKey(connection.origen, connection.destino);
       const sourcePort =
         this.normalizeConnectionPort(connection.puertoOrigen) ?? sourceMap[key];
@@ -1778,7 +1782,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       let resolvedSourcePort = sourcePort;
       let resolvedTargetPort = targetPort;
 
-      if (fromNode?.tipo === 'DECISION') {
+      if (fromNode?.tipo === 'DECISION' && !resolvedSourcePort) {
         resolvedSourcePort =
           this.resolveDecisionSourcePort(fromNode, connection) ?? resolvedSourcePort;
       }
@@ -1825,6 +1829,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
       return normalized;
     });
+
+    return this.stabilizeDecisionBranchConnections(normalizedConnections, nodes);
   }
 
   private persistPendingFlowBackup(policyId: string, payload: FlujoPayload): void {
@@ -2260,7 +2266,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       const cleanedConnections = this.enforceDecisionConnectionLimits(resolvedConnections);
       this.conexiones.set(cleanedConnections);
       this.initializeConnectionPorts(positionedNodos, cleanedConnections);
-      this.enforceActivitiesAssignedToLane(true);
+      this.enforceActivitiesAssignedToLane();
 
       this.selectedNodeId.set(null);
       await this.persistAndBroadcastCurrentFlow(
@@ -2506,6 +2512,30 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       .trim();
   }
 
+  private getOrderedLaneIdsForNodes(
+    nodes: ReadonlyArray<Pick<Nodo, 'tipo' | 'departamentoId'>>
+  ): string[] {
+    const knownDepartmentIds = new Set(this.departamentos().map((department) => department.id));
+    const orderedLaneIds: string[] = [];
+    const seenLaneIds = new Set<string>();
+
+    for (const node of nodes) {
+      if (node.tipo !== 'ACTIVIDAD') {
+        continue;
+      }
+
+      const deptId = this.resolveRequiredDepartmentId(node.departamentoId);
+      if (!deptId || !knownDepartmentIds.has(deptId) || seenLaneIds.has(deptId)) {
+        continue;
+      }
+
+      seenLaneIds.add(deptId);
+      orderedLaneIds.push(deptId);
+    }
+
+    return orderedLaneIds;
+  }
+
   private layoutIaNodos(nodos: Nodo[], conexiones: Conexion[]): NodoCanvas[] {
     const outgoing = new Map<string, string[]>();
     const incomingCount = new Map<string, number>();
@@ -2574,9 +2604,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       layers.set(layer, bucket);
     }
 
-    const laneIds = this.departamentos().map((departamento) => departamento.id);
+    const laneIds = this.getOrderedLaneIdsForNodes(nodos);
     const positioned = new Map<string, NodoCanvas>();
     const occupancy = new Set<string>();
+    const layerLaneSlots = new Map<string, number>();
 
     const sortedLayers = Array.from(layers.keys()).sort((a, b) => a - b);
     for (const layer of sortedLayers) {
@@ -2585,42 +2616,62 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
       for (let index = 0; index < layerNodes.length; index += 1) {
         const node = layerNodes[index];
-        const nodeWidth = this.getNodeWidth(node.tipo);
-        const laneIndex =
-          node.tipo === 'ACTIVIDAD' && node.departamentoId
-            ? laneIds.indexOf(node.departamentoId)
-            : -1;
+        const resolvedDeptId =
+          node.tipo === 'ACTIVIDAD'
+            ? this.resolveRequiredDepartmentId(node.departamentoId)
+            : null;
+        const preferredLaneId =
+          node.tipo === 'ACTIVIDAD'
+            ? resolvedDeptId ?? this.resolveRequiredDepartmentId(null)
+            : null;
+        const laneBounds =
+          node.tipo === 'ACTIVIDAD' && preferredLaneId
+            ? this.getActivityLaneBounds(preferredLaneId, laneIds)
+            : null;
+        const slotKey = preferredLaneId ? `${layer}:${preferredLaneId}` : null;
+        const laneSlot =
+          slotKey === null ? index : (layerLaneSlots.get(slotKey) ?? 0);
+
+        if (slotKey !== null) {
+          layerLaneSlots.set(slotKey, laneSlot + 1);
+        }
 
         const preferredX =
-          laneIndex >= 0
-            ? this.CANVAS_ORIGIN_X + laneIndex * this.laneWidth() + (this.laneWidth() - nodeWidth) / 2
+          laneBounds
+            ? laneBounds.minX + (laneBounds.maxX - laneBounds.minX) / 2
             : this.CANVAS_ORIGIN_X + 260 + index * 240;
 
         let nextX = preferredX;
-        let nextY = baseY;
+        let nextY = baseY + laneSlot * 110;
         let safety = 0;
         let key = `${Math.round(nextX)}:${Math.round(nextY)}`;
 
         while (occupancy.has(key) && safety < 12) {
-          nextY += 70;
+          nextY += node.tipo === 'ACTIVIDAD' ? 110 : 70;
           safety += 1;
           key = `${Math.round(nextX)}:${Math.round(nextY)}`;
         }
 
         occupancy.add(key);
 
-        const clamped = this.clampNodePositionForNode(
-          {
-            ...node,
-            x: nextX,
-            y: nextY,
-          } as NodoCanvas,
-          nextX,
-          nextY
-        );
+        const baseNode: NodoCanvas = {
+          ...(node as NodoCanvas),
+          departamentoId: resolvedDeptId ?? node.departamentoId,
+          x: nextX,
+          y: nextY,
+        };
+        const clamped =
+          baseNode.tipo === 'ACTIVIDAD' && baseNode.departamentoId
+            ? this.clampActivityPositionToLane(
+                baseNode.departamentoId,
+                nextX,
+                nextY,
+                laneIds
+              )
+            : this.clampNodePositionForNode(baseNode, nextX, nextY);
 
         const positionedNode: NodoCanvas = {
-          ...node,
+          ...baseNode,
           x: clamped.x,
           y: clamped.y,
         };
@@ -3265,12 +3316,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private initializeConnectionPorts(nodes: NodoCanvas[], connections: Conexion[]): void {
+    const stabilizedConnections = this.stabilizeDecisionBranchConnections(connections, nodes);
     const previousTargetMap = this.connectionTargetPorts();
     const previousSourceMap = this.connectionSourcePorts();
     const targetMap: Record<string, ConnectionTargetPort> = {};
     const sourceMap: Record<string, ConnectionPort> = {};
 
-    for (const c of connections) {
+    for (const c of stabilizedConnections) {
       const from = nodes.find((n) => n.id === c.origen);
       const to = nodes.find((n) => n.id === c.destino);
       if (!from || !to) continue;
@@ -3280,9 +3332,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         previousTargetMap[key] ??
         this.autoTargetPort(from, to);
       sourceMap[key] =
-        this.resolveDecisionSourcePort(from, c) ??
         this.normalizeConnectionPort(c.puertoOrigen) ??
         previousSourceMap[key] ??
+        this.resolveDecisionSourcePort(from, c) ??
         'RIGHT';
     }
 
@@ -3324,6 +3376,17 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   }
 
   private getConnectionSourcePort(c: Conexion): ConnectionPort {
+    const persistedPort = this.normalizeConnectionPort(c.puertoOrigen);
+    if (persistedPort) {
+      return persistedPort;
+    }
+
+    const key = this.connectionKey(c.origen, c.destino);
+    const fixedPort = this.connectionSourcePorts()[key];
+    if (fixedPort) {
+      return fixedPort;
+    }
+
     const fromNode = this.nodos().find((n) => n.id === c.origen);
     const inferredDecisionPort = fromNode
       ? this.resolveDecisionSourcePort(fromNode, c)
@@ -3332,13 +3395,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return inferredDecisionPort;
     }
 
-    const persistedPort = this.normalizeConnectionPort(c.puertoOrigen);
-    if (persistedPort) {
-      return persistedPort;
-    }
-
-    const key = this.connectionKey(c.origen, c.destino);
-    return this.connectionSourcePorts()[key] ?? 'RIGHT';
+    return 'RIGHT';
   }
 
   startConnect(
@@ -3663,13 +3720,14 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
    * y se eliminan las demás.
    */
   private enforceDecisionConnectionLimits(connections: ReadonlyArray<Conexion>): Conexion[] {
+    const stabilizedConnections = this.stabilizeDecisionBranchConnections(connections);
     const decisionNodes = this.nodos().filter((n) => n.tipo === 'DECISION');
     const cleanedConnections: Conexion[] = [];
     const seenPorts: Set<string> = new Set();
 
-    for (const connection of connections) {
+    for (const connection of stabilizedConnections) {
       const isFromDecision = decisionNodes.some((n) => n.id === connection.origen);
-      
+
       if (!isFromDecision) {
         cleanedConnections.push(connection);
         continue;
@@ -3683,7 +3741,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         continue;
       }
 
-      // Para conexiones de DECISION por LEFT o RIGHT, solo permitir una por puerto
       const portKey = `${connection.origen}:${sourcePort}`;
       if (!seenPorts.has(portKey)) {
         cleanedConnections.push(connection);
@@ -3692,6 +3749,119 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     return cleanedConnections;
+  }
+
+  private stabilizeDecisionBranchConnections(
+    connections: ReadonlyArray<Conexion>,
+    nodes: ReadonlyArray<NodoCanvas> = this.nodos()
+  ): Conexion[] {
+    if (!connections.length) {
+      return [];
+    }
+
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const decisionIdsWithIncoming = new Set(
+      connections
+        .map((connection) => connection.destino)
+        .filter((nodeId) => nodeById.get(nodeId)?.tipo === 'DECISION')
+    );
+    const nextConnections = connections.map((connection) => ({ ...connection }));
+    const decisionOutgoingEntries = new Map<
+      string,
+      Array<{
+        index: number;
+        connection: Conexion;
+        explicitPort: 'LEFT' | 'RIGHT' | null;
+        inferredPort: 'LEFT' | 'RIGHT' | null;
+      }>
+    >();
+
+    nextConnections.forEach((connection, index) => {
+      const fromNode = nodeById.get(connection.origen);
+      if (
+        fromNode?.tipo !== 'DECISION' ||
+        !decisionIdsWithIncoming.has(connection.origen)
+      ) {
+        return;
+      }
+
+      const normalizedPort = this.normalizeConnectionPort(connection.puertoOrigen);
+      const explicitPort =
+        normalizedPort === 'LEFT' || normalizedPort === 'RIGHT'
+          ? normalizedPort
+          : null;
+      const inferredPort = this.resolveDecisionSourcePort(fromNode, connection);
+      const bucket = decisionOutgoingEntries.get(connection.origen) ?? [];
+
+      bucket.push({
+        index,
+        connection,
+        explicitPort,
+        inferredPort,
+      });
+      decisionOutgoingEntries.set(connection.origen, bucket);
+    });
+
+    for (const entries of decisionOutgoingEntries.values()) {
+      if (entries.length < 2) {
+        continue;
+      }
+
+      const assignedPorts = new Map<number, 'LEFT' | 'RIGHT'>();
+      const usedPorts = new Set<'LEFT' | 'RIGHT'>();
+
+      for (const port of ['RIGHT', 'LEFT'] as const) {
+        const candidates = entries.filter(
+          (entry) => !assignedPorts.has(entry.index) && entry.explicitPort === port
+        );
+        if (candidates.length === 1) {
+          assignedPorts.set(candidates[0].index, port);
+          usedPorts.add(port);
+        }
+      }
+
+      for (const port of ['RIGHT', 'LEFT'] as const) {
+        if (usedPorts.has(port)) {
+          continue;
+        }
+
+        const candidates = entries.filter(
+          (entry) => !assignedPorts.has(entry.index) && entry.inferredPort === port
+        );
+        if (candidates.length === 1) {
+          assignedPorts.set(candidates[0].index, port);
+          usedPorts.add(port);
+        }
+      }
+
+      const missingPorts = (['RIGHT', 'LEFT'] as const).filter(
+        (port) => !usedPorts.has(port)
+      );
+
+      for (const entry of entries) {
+        if (assignedPorts.has(entry.index)) {
+          continue;
+        }
+
+        const nextPort = missingPorts.shift();
+        if (!nextPort) {
+          break;
+        }
+
+        assignedPorts.set(entry.index, nextPort);
+      }
+
+      for (const entry of entries) {
+        const assignedPort = assignedPorts.get(entry.index);
+        if (!assignedPort) {
+          continue;
+        }
+
+        entry.connection.puertoOrigen = assignedPort;
+      }
+    }
+
+    return nextConnections;
   }
 
   private hasDecisionIncomingConnection(nodeId: string): boolean {
@@ -4065,6 +4235,36 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     if (!curve) return '';
 
     return `M ${curve.fromPoint.x} ${curve.fromPoint.y} C ${curve.c1.x} ${curve.c1.y}, ${curve.c2.x} ${curve.c2.y}, ${curve.toPoint.x} ${curve.toPoint.y}`;
+  }
+
+  getConnectionStrokeColor(c: Conexion): string {
+    const fromNode = this.nodos().find((node) => node.id === c.origen);
+    if (fromNode?.tipo === 'DECISION') {
+      const sourcePort = this.getConnectionSourcePort(c);
+      if (sourcePort === 'RIGHT') {
+        return '#00c853';
+      }
+      if (sourcePort === 'LEFT') {
+        return '#ef4444';
+      }
+    }
+
+    return '#6366f1';
+  }
+
+  getConnectionMarkerEnd(c: Conexion): string {
+    const fromNode = this.nodos().find((node) => node.id === c.origen);
+    if (fromNode?.tipo === 'DECISION') {
+      const sourcePort = this.getConnectionSourcePort(c);
+      if (sourcePort === 'RIGHT') {
+        return 'url(#arrowhead-true)';
+      }
+      if (sourcePort === 'LEFT') {
+        return 'url(#arrowhead-false)';
+      }
+    }
+
+    return 'url(#arrowhead)';
   }
 
   getArrowMid(c: Conexion): { x: number; y: number } | null {

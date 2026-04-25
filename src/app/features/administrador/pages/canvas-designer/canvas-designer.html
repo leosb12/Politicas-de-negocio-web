@@ -195,6 +195,14 @@
                   refX="9" refY="3.5" orient="auto">
             <polygon points="0 0, 10 3.5, 0 7" fill="#6366f1" />
           </marker>
+          <marker id="arrowhead-true" markerWidth="10" markerHeight="7"
+                  refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#00c853" />
+          </marker>
+          <marker id="arrowhead-false" markerWidth="10" markerHeight="7"
+                  refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
+          </marker>
           <marker id="arrowhead-hover" markerWidth="10" markerHeight="7"
                   refX="9" refY="3.5" orient="auto">
             <polygon points="0 0, 10 3.5, 0 7" fill="#f43f5e" />
@@ -265,11 +273,11 @@
             <path
               [attr.d]="getArrowPath(c)"
               fill="none"
-              stroke="#6366f1"
+              [attr.stroke]="getConnectionStrokeColor(c)"
               stroke-width="2"
               stroke-dasharray="none"
               opacity="0.8"
-              marker-end="url(#arrowhead)"
+              [attr.marker-end]="getConnectionMarkerEnd(c)"
             />
             <!-- Delete button at midpoint -->
             @if (!isCanvasReadOnly()) {

@@ -49,7 +49,7 @@ export class IaFlujoMapperService {
     context?: IaFlujoMapperContext
   ): { nodos: Nodo[]; conexiones: Conexion[] } {
     const nodos = this.mapNodes(iaResponse, context);
-    const conexiones = this.mapTransitions(iaResponse.transitions);
+    const conexiones = this.mapTransitions(iaResponse.transitions, nodos);
 
     return { nodos, conexiones };
   }
@@ -256,11 +256,25 @@ export class IaFlujoMapperService {
   /**
    * Mapea transiciones de IA a conexiones internas
    */
-  private mapTransitions(iaTransitions: IaTransicion[]): Conexion[] {
-    return iaTransitions.map((transition) => ({
-      origen: transition.from,
-      destino: transition.to,
-    }));
+  private mapTransitions(iaTransitions: IaTransicion[], nodos: Nodo[]): Conexion[] {
+    const nodesById = new Map(nodos.map((node) => [node.id, node]));
+
+    return iaTransitions.map((transition) => {
+      const connection: Conexion = {
+        origen: transition.from,
+        destino: transition.to,
+      };
+      const sourcePort = this.resolveDecisionConnectionSourcePort(
+        nodesById.get(transition.from),
+        transition.to
+      );
+
+      if (sourcePort) {
+        connection.puertoOrigen = sourcePort;
+      }
+
+      return connection;
+    });
   }
 
   /**
@@ -353,8 +367,12 @@ export class IaFlujoMapperService {
       ? this.mapFormFields(formsByNodeId.get(previousActivityId) ?? null)
       : [];
 
+    const resolvedResults = this.resolveDecisionResults(outgoingTransitions);
+
     return outgoingTransitions.map((transition, index) => {
-      const result = this.resolveDecisionResult(transition, index, outgoingTransitions.length);
+      const result =
+        resolvedResults[index] ??
+        this.resolveDecisionResult(transition, index, outgoingTransitions.length);
       const conditionText = this.normalizeConditionText(transition.condition, transition.label);
 
       return {
@@ -364,6 +382,44 @@ export class IaFlujoMapperService {
         grupo: this.buildDecisionGroup(conditionText, previousFormFields),
       };
     });
+  }
+
+  private resolveDecisionResults(outgoingTransitions: IaTransicion[]): string[] {
+    if (outgoingTransitions.length !== 2) {
+      return outgoingTransitions.map((transition, index) =>
+        this.resolveDecisionResult(transition, index, outgoingTransitions.length)
+      );
+    }
+
+    const assignedResults: Array<'SI' | 'NO' | null> = [null, null];
+    const usedResults = new Set<'SI' | 'NO'>();
+
+    outgoingTransitions.forEach((transition, index) => {
+      const classification = this.classifyBinaryDecisionResult(transition);
+      if (!classification || usedResults.has(classification)) {
+        return;
+      }
+
+      assignedResults[index] = classification;
+      usedResults.add(classification);
+    });
+
+    const missingResults = (['SI', 'NO'] as const).filter(
+      (result) => !usedResults.has(result)
+    );
+
+    outgoingTransitions.forEach((_, index) => {
+      if (assignedResults[index]) {
+        return;
+      }
+
+      const fallback = missingResults.shift() ?? (index === 0 ? 'SI' : 'NO');
+      assignedResults[index] = fallback;
+    });
+
+    return assignedResults.map((result, index) =>
+      result ?? (index === 0 ? 'SI' : 'NO')
+    );
   }
 
   private findPreviousActivityId(
@@ -389,17 +445,9 @@ export class IaFlujoMapperService {
     index: number,
     total: number
   ): string {
-    const text = this.normalizeText(`${transition.condition ?? ''} ${transition.label ?? ''}`);
-
-    const yesKeywords = ['si', 'yes', 'true', 'aprueba', 'aprobado', 'cumple', 'valido'];
-    const noKeywords = ['no', 'false', 'rechaza', 'rechazado', 'incumple', 'invalido'];
-
-    if (yesKeywords.some((keyword) => text.includes(keyword))) {
-      return 'SI';
-    }
-
-    if (noKeywords.some((keyword) => text.includes(keyword))) {
-      return 'NO';
+    const binaryResult = this.classifyBinaryDecisionResult(transition);
+    if (binaryResult) {
+      return binaryResult;
     }
 
     if (total === 2) {
@@ -415,6 +463,96 @@ export class IaFlujoMapperService {
     }
 
     return `RUTA_${index + 1}`;
+  }
+
+  private classifyBinaryDecisionResult(
+    transition: Pick<IaTransicion, 'condition' | 'label'>
+  ): 'SI' | 'NO' | null {
+    const text = this.normalizeText(`${transition.condition ?? ''} ${transition.label ?? ''}`);
+    if (!text) {
+      return null;
+    }
+
+    const falsePatterns = [
+      /\bsi\s+no\b/,
+      /\bsino\b/,
+      /\bde\s+lo\s+contrario\b/,
+      /\bcaso\s+contrario\b/,
+      /\botherwise\b/,
+      /\belse\b/,
+      /\bno\b/,
+      /\bfalse\b/,
+      /\brechaz(?:a|ado|ada|ar)\b/,
+      /\bdeneg(?:a|ado|ada|ar)\b/,
+      /\bincumpl(?:e|a|io|ido|ida)\b/,
+      /\binvalid(?:o|a|os|as)\b/,
+      /\bno\s+cumpl(?:e|a|io|ido|ida)\b/,
+      /\bno\s+aprueb(?:a|ado|ada)\b/,
+    ];
+
+    if (falsePatterns.some((pattern) => pattern.test(text))) {
+      return 'NO';
+    }
+
+    const truePatterns = [
+      /\bsi\b/,
+      /\byes\b/,
+      /\btrue\b/,
+      /\baprueb(?:a|ado|ada|ar)\b/,
+      /\bcumpl(?:e|a|io|ido|ida)\b/,
+      /\bvalid(?:o|a|os|as)\b/,
+      /\bautoriz(?:a|ado|ada|ar)\b/,
+      /\bacept(?:a|ado|ada|ar)\b/,
+      /\bprocede\b/,
+    ];
+
+    if (truePatterns.some((pattern) => pattern.test(text))) {
+      return 'SI';
+    }
+
+    return null;
+  }
+
+  private resolveDecisionConnectionSourcePort(
+    node: Nodo | undefined,
+    destinationId: string
+  ): 'LEFT' | 'RIGHT' | null {
+    if (!node || node.tipo !== 'DECISION') {
+      return null;
+    }
+
+    const matchingCondition = node.condiciones?.find(
+      (condition) => condition.siguiente === destinationId
+    );
+    if (!matchingCondition) {
+      return null;
+    }
+
+    if (this.isDecisionTrueResult(matchingCondition.resultado)) {
+      return 'RIGHT';
+    }
+
+    if (this.isDecisionFalseResult(matchingCondition.resultado)) {
+      return 'LEFT';
+    }
+
+    return null;
+  }
+
+  private isDecisionTrueResult(resultado: string | null | undefined): boolean {
+    const normalized = this.normalizeText(resultado);
+    return normalized === 'true' || normalized === 'si' || normalized === 'yes';
+  }
+
+  private isDecisionFalseResult(resultado: string | null | undefined): boolean {
+    const normalized = this.normalizeText(resultado);
+    return (
+      normalized === 'false' ||
+      normalized === 'no' ||
+      normalized === '*' ||
+      normalized === 'default' ||
+      normalized === 'else'
+    );
   }
 
   private normalizeConditionText(
