@@ -1,0 +1,231 @@
+﻿<section class="space-y-6">
+  <div class="flex flex-wrap items-start justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div>
+      <a
+        [routerLink]="['/admin/simulations']"
+        [queryParams]="policyId() ? { policyId: policyId() } : {}"
+        class="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:text-sky-800"
+      >
+        <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+        Volver al historial
+      </a>
+
+      <h1 class="flex items-center gap-2 text-3xl font-bold tracking-tight text-slate-900">
+        <lucide-icon name="sparkles" [size]="30" class="text-sky-600"></lucide-icon>
+        Simular politica
+      </h1>
+      <p class="mt-2 max-w-3xl text-sm text-slate-500">
+        Completa los datos de forma simple y ejecuta una simulacion para estimar tiempos, carga y posibles cuellos de botella.
+      </p>
+    </div>
+
+    <a
+      [routerLink]="['/admin/policies/compare']"
+      class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+    >
+      <lucide-icon name="arrow-left-right" [size]="16"></lucide-icon>
+      Comparar politicas
+    </a>
+  </div>
+
+  @if (error()) {
+    <app-alert variant="danger" title="No fue posible abrir la politica" [message]="error()" />
+  }
+
+  @if (loadingPolicies() || loadingPolicy()) {
+    <app-loader message="Cargando informacion de la politica..." />
+  } @else if (!policy()) {
+    <app-empty-state
+      title="Politica no disponible"
+      message="No se encontro una politica disponible para ejecutar la simulacion."
+    />
+  } @else {
+    <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <app-card className="p-6">
+        <div class="mb-6 space-y-2">
+          <label for="policyId" class="text-sm font-semibold text-slate-700">
+            Politica a simular
+          </label>
+          <select
+            id="policyId"
+            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-500"
+            [ngModel]="policyId()"
+            (ngModelChange)="onPolicyChange($event)"
+          >
+            @for (availablePolicy of policies(); track availablePolicy.id) {
+              <option [value]="availablePolicy.id">{{ availablePolicy.nombre }}</option>
+            }
+          </select>
+          <p class="text-sm text-slate-500">
+            Elige la politica que quieres probar antes de completar los demas datos.
+          </p>
+        </div>
+
+        <div class="mb-6">
+          <h2 class="text-xl font-semibold text-slate-900">{{ policy()?.nombre }}</h2>
+          <p class="mt-2 text-sm text-slate-500">
+            {{ policy()?.descripcion || 'La politica no tiene descripcion registrada.' }}
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <app-badge variant="info">{{ policy()?.estado }}</app-badge>
+            <app-badge variant="neutral">{{ policy()?.tipoPolitica }}</app-badge>
+            <app-badge variant="neutral">{{ policy()?.nodos?.length ?? 0 }} nodos</app-badge>
+          </div>
+        </div>
+
+        <div class="grid gap-5 md:grid-cols-2">
+          <div class="space-y-2 md:col-span-2">
+            <label for="scenarioName" class="text-sm font-semibold text-slate-700">
+              Nombre de la simulacion
+            </label>
+            <input
+              id="scenarioName"
+              type="text"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-500"
+              [(ngModel)]="form.scenarioName"
+              placeholder="Ej. Simulacion para alta demanda"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <label for="instances" class="text-sm font-semibold text-slate-700">
+              Cantidad de casos a simular
+            </label>
+            <input
+              id="instances"
+              type="number"
+              min="1"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-500"
+              [(ngModel)]="form.instances"
+              placeholder="Ej. 250"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <label for="baseNodeDurationHours" class="text-sm font-semibold text-slate-700">
+              Tiempo promedio por tarea (en horas)
+            </label>
+            <input
+              id="baseNodeDurationHours"
+              type="number"
+              min="0.1"
+              step="0.1"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-500"
+              [(ngModel)]="form.baseNodeDurationHours"
+              placeholder="Ej. 8"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <label for="variabilityPercent" class="text-sm font-semibold text-slate-700">
+              Variacion estimada en porcentaje
+            </label>
+            <input
+              id="variabilityPercent"
+              type="number"
+              min="0"
+              step="1"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-500"
+              [(ngModel)]="form.variabilityPercent"
+              placeholder="Ej. 15"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <label for="randomSeed" class="text-sm font-semibold text-slate-700">
+              Numero de referencia opcional
+            </label>
+            <input
+              id="randomSeed"
+              type="number"
+              step="1"
+              class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-500"
+              [(ngModel)]="form.randomSeed"
+              placeholder="Solo si quieres repetir la misma simulacion"
+            />
+          </div>
+
+          <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+            <input
+              type="checkbox"
+              class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600"
+              [(ngModel)]="form.includeAiAnalysis"
+            />
+            <div>
+              <p class="text-sm font-semibold text-slate-800">Incluir analisis inteligente</p>
+              <p class="text-sm text-slate-500">
+                Si el backend genera un analisis adicional, lo veras en el resultado. No necesitas hacer nada extra.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          <app-button
+            [pending]="submitting()"
+            pendingLabel="Ejecutando..."
+            [disabled]="!canSubmit()"
+            (click)="submit()"
+          >
+            <lucide-icon name="play-circle" [size]="16"></lucide-icon>
+            Ejecutar simulacion
+          </app-button>
+
+          <a
+            [routerLink]="['/admin/simulations']"
+            [queryParams]="{ policyId: policyId() }"
+            class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            Ver historial
+          </a>
+        </div>
+      </app-card>
+
+      <div class="space-y-6">
+        <app-card className="p-6">
+          <h3 class="text-lg font-semibold text-slate-900">Ayuda para completar el formulario</h3>
+          <div class="mt-4 space-y-3 text-sm text-slate-600">
+            <p><span class="font-semibold text-slate-800">Cantidad de casos a simular:</span> usa un numero cercano a tu volumen real para obtener una estimacion mas util.</p>
+            <p><span class="font-semibold text-slate-800">Tiempo promedio por tarea (en horas):</span> representa el tiempo promedio inicial que toma cada paso del flujo.</p>
+            <p><span class="font-semibold text-slate-800">Variacion estimada en porcentaje:</span> sirve para reflejar que no todos los casos tardan exactamente lo mismo.</p>
+            <p><span class="font-semibold text-slate-800">Numero de referencia opcional:</span> ayuda a repetir la simulacion con resultados comparables.</p>
+          </div>
+        </app-card>
+
+        <app-card className="p-6">
+          <h3 class="text-lg font-semibold text-slate-900">Ultimas simulaciones</h3>
+          <p class="text-sm text-slate-500">Referencia rapida para este flujo</p>
+
+          @if (loadingHistory()) {
+            <app-loader message="Cargando historial reciente..." />
+          } @else if (recentSimulations().length === 0) {
+            <p class="mt-4 text-sm text-slate-500">
+              Aun no existen simulaciones previas para esta politica.
+            </p>
+          } @else {
+            <div class="mt-4 space-y-3">
+              @for (simulation of recentSimulations(); track simulation.id) {
+                <a
+                  [routerLink]="['/admin/simulations', simulation.id]"
+                  class="block rounded-2xl border border-slate-200 p-4 transition hover:border-sky-300 hover:bg-sky-50/50"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <div>
+                      <p class="font-semibold text-slate-900">{{ simulation.scenarioName }}</p>
+                      <p class="text-xs text-slate-500">
+                        {{ formatHours(simulation.averageEstimatedTimeHours) }} promedio
+                      </p>
+                    </div>
+                    <app-badge variant="info">
+                      {{ simulation.totalSimulatedInstances ?? 0 }} instancias
+                    </app-badge>
+                  </div>
+                </a>
+              }
+            </div>
+          }
+        </app-card>
+      </div>
+    </div>
+  }
+</section>

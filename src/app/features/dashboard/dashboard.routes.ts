@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
-import { DashboardAdmin } from './pages/dashboard-admin/dashboard-admin';
+import { DashboardAdministrador } from './pages/dashboard-administrador/dashboard-administrador';
 import { DashboardFuncionario } from './pages/dashboard-funcionario/dashboard-funcionario';
-import { DashboardAnalyticsMenuPageComponent } from './pages/dashboard-analytics-menu/dashboard-analytics-menu';
+import { DashboardAnaliticasMenuPageComponent } from './pages/dashboard-analiticas-menu/dashboard-analiticas-menu';
 import { DashboardPoliticasMenuPageComponent } from './pages/dashboard-politicas-menu/dashboard-politicas-menu';
 import { DashboardPoliticasIaMenuPageComponent } from './pages/dashboard-politicas-ia-menu/dashboard-politicas-ia-menu';
 import { adminOnlyGuard } from '../../core/guards/admin-only.guard';
@@ -10,15 +10,15 @@ import { funcionarioOnlyGuard } from '../../core/guards/auth.guard';
 export const DASHBOARD_ROUTES: Routes = [
   {
     path: 'dashboard-admin',
-    component: DashboardAdmin,
+    component: DashboardAdministrador,
     canActivate: [adminOnlyGuard],
   },
   {
     path: 'dashboard-admin/administracion',
     canActivate: [adminOnlyGuard],
     loadComponent: () =>
-      import('./pages/dashboard-admin-menu/dashboard-admin-menu').then(
-        (module) => module.DashboardAdminMenuPageComponent
+      import('./pages/dashboard-administrador-menu/dashboard-administrador-menu').then(
+        (module) => module.DashboardAdministradorMenuPageComponent
       ),
   },
   {
@@ -28,7 +28,7 @@ export const DASHBOARD_ROUTES: Routes = [
   },
   {
     path: 'dashboard-admin/analitica',
-    component: DashboardAnalyticsMenuPageComponent,
+    component: DashboardAnaliticasMenuPageComponent,
     canActivate: [adminOnlyGuard],
   },
   {

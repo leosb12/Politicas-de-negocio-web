@@ -1,0 +1,126 @@
+<section class="space-y-6">
+  <header class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl font-bold text-slate-900">Administracion de roles</h2>
+      <p class="text-sm text-slate-500">
+        Define permisos, descripcion y ciclo de vida de cada rol.
+      </p>
+    </div>
+
+    <app-button type="button" (click)="openCreateRole()">
+      Crear rol
+    </app-button>
+  </header>
+
+  @if (error()) {
+    <app-alert variant="danger" className="flex items-center justify-between gap-3">
+      <div class="flex items-center justify-between gap-3">
+        <span>{{ error() }}</span>
+        <app-button type="button" variant="outline" size="sm" (click)="loadRoles()">
+          Reintentar
+        </app-button>
+      </div>
+    </app-alert>
+  }
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <app-input
+      [formControl]="searchControl"
+      label="Buscar por nombre o descripcion"
+      placeholder="Ejemplo: ADMIN"
+      labelClass="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500"
+    />
+  </section>
+
+  <app-data-table
+    [columns]="tableColumns"
+    [loading]="loading()"
+    [hasData]="filteredRoles().length > 0"
+    [emptyTitle]="emptyTitle()"
+    [emptyMessage]="emptyMessage()"
+    [emptyActionLabel]="roles().length === 0 ? 'Crear rol' : null"
+    (emptyAction)="openCreateRole()"
+  >
+    <div table-toolbar class="flex items-center justify-between gap-3 text-sm text-slate-600">
+      <span>Resultados: {{ filteredRoles().length }}</span>
+      <app-button type="button" variant="secondary" size="sm" (click)="loadRoles()">
+        Actualizar
+      </app-button>
+    </div>
+
+    <ng-container table-body>
+      @for (role of filteredRoles(); track role.id) {
+        <tr>
+          <td class="px-4 py-3 font-semibold">{{ role.nombre }}</td>
+          <td class="px-4 py-3">{{ role.descripcion || '-' }}</td>
+          <td class="px-4 py-3">
+            <app-badge [variant]="role.activo ? 'success' : 'neutral'">
+              {{ role.activo ? 'Activo' : 'Inactivo' }}
+            </app-badge>
+          </td>
+          <td class="px-4 py-3">
+            <app-badge [variant]="role.sistema ? 'info' : 'neutral'">
+              {{ role.sistema ? 'Sistema' : 'Personalizado' }}
+            </app-badge>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap gap-2">
+              <app-button
+                type="button"
+                variant="info"
+                size="sm"
+                (click)="openEditRole(role)"
+                [disabled]="isRoleActionBusy(role.id)"
+              >
+                Editar
+              </app-button>
+
+              <app-button
+                type="button"
+                variant="warning"
+                size="sm"
+                (click)="requestToggleRoleStatus(role)"
+                [disabled]="isRoleActionBusy(role.id) || (role.nombre === 'ADMIN' && role.activo)"
+              >
+                {{ role.activo ? 'Desactivar' : 'Activar' }}
+              </app-button>
+
+              <app-button
+                type="button"
+                variant="danger"
+                size="sm"
+                (click)="requestDeleteRole(role)"
+                [disabled]="isRoleActionBusy(role.id) || role.sistema"
+              >
+                Eliminar
+              </app-button>
+            </div>
+          </td>
+        </tr>
+      }
+    </ng-container>
+  </app-data-table>
+</section>
+
+@if (roleFormOpen()) {
+  <app-administrador-rol-formulario
+    [mode]="roleFormMode()"
+    [initialValue]="selectedRole()"
+    [pending]="roleFormPending()"
+    [serverError]="roleFormError()"
+    (save)="saveRole($event)"
+    (close)="closeRoleForm()"
+  />
+}
+
+@if (confirmState()) {
+  <app-confirm-dialog
+    [title]="confirmState()!.title"
+    [message]="confirmState()!.message"
+    [confirmLabel]="confirmState()!.confirmLabel"
+    [danger]="confirmState()!.danger"
+    [pending]="confirmPending()"
+    (confirmed)="confirmDialogAction()"
+    (cancelled)="closeConfirmDialog()"
+  />
+}

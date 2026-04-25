@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { AuthService } from '../../../../core/auth/services/auth.service';
-import { FuncionarioTareasPageComponent } from '../../../funcionario-workflow/pages/funcionario-tareas/funcionario-tareas';
+import { FuncionarioTareasPageComponent } from '../../../funcionario-flujo/pages/funcionario-tareas/funcionario-tareas';
 import { AppHeaderComponent } from '../../../../shared/components/app-header/app-header';
 
 @Component({

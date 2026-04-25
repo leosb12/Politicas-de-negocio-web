@@ -1,0 +1,708 @@
+<section class="analytics-shell">
+  <header class="analytics-hero">
+    <div class="analytics-hero__orb analytics-hero__orb--one"></div>
+    <div class="analytics-hero__orb analytics-hero__orb--two"></div>
+    <div class="analytics-hero__mesh"></div>
+
+    <div class="analytics-hero__grid">
+      <div class="analytics-hero__copy">
+        <div class="analytics-hero__eyebrow">
+          <lucide-icon name="sparkles" [size]="16"></lucide-icon>
+          <span>Centro de control analitico</span>
+        </div>
+
+        <h1 class="analytics-hero__title">Analitica y Optimizacion</h1>
+        <p class="analytics-hero__subtitle">
+          Mide carga operativa, tiempos de atencion y puntos de friccion con una vista ejecutiva clara, directa y accionable.
+        </p>
+
+        <div class="analytics-hero__actions">
+          <app-button
+            variant="outline"
+            className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+            [pending]="loading()"
+            pendingLabel="Actualizando..."
+            (click)="loadDashboardSummary()"
+          >
+            <lucide-icon name="refresh-cw" [size]="16"></lucide-icon>
+            Refrescar metricas
+          </app-button>
+        </div>
+
+        <div class="analytics-hero__stats">
+          <div class="analytics-hero-stat">
+            <span class="analytics-hero-stat__label">Politicas activas</span>
+            <strong class="analytics-hero-stat__value">
+              {{ formatCount(general()?.activePolicies) }}/{{ formatCount(general()?.totalPolicies) }}
+            </strong>
+          </div>
+          <div class="analytics-hero-stat">
+            <span class="analytics-hero-stat__label">Tareas pendientes</span>
+            <strong class="analytics-hero-stat__value">{{ formatCount(general()?.pendingTasks) }}</strong>
+          </div>
+          <div class="analytics-hero-stat">
+            <span class="analytics-hero-stat__label">Resolucion</span>
+            <strong class="analytics-hero-stat__value">{{ taskCompletionRate() }}%</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="analytics-hero__panel">
+        <div class="analytics-glass-card analytics-glass-card--dark">
+          <div class="analytics-mini-head">
+            <p class="analytics-mini-head__label">Instancias</p>
+            <span class="analytics-mini-head__value">{{ formatCount(general()?.totalInstances) }}</span>
+          </div>
+
+          @if (instanceDistribution().length > 0) {
+            <div class="analytics-segmented-bar">
+              @for (segment of instanceDistribution(); track segment.label) {
+                <div
+                  [ngClass]="segment.tone"
+                  [style.width.%]="segment.width"
+                  [attr.title]="segment.label + ': ' + formatCount(segment.value)"
+                ></div>
+              }
+            </div>
+
+            <div class="analytics-legend-grid">
+              @for (segment of instanceDistribution(); track segment.label) {
+                <div class="analytics-legend-item">
+                  <span class="analytics-legend-item__dot" [ngClass]="segment.tone"></span>
+                  <div>
+                    <p class="analytics-legend-item__label">{{ segment.label }}</p>
+                    <p class="analytics-legend-item__value">{{ formatCount(segment.value) }}</p>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="analytics-empty-copy">Sin instancias registradas.</p>
+          }
+        </div>
+
+        <div class="analytics-glass-card analytics-glass-card--light">
+          <p class="analytics-mini-head__label">Ritmo de ejecucion</p>
+          <div class="mt-3 flex items-end gap-3">
+            <div>
+              <p class="text-4xl font-bold text-white">{{ taskCompletionRate() }}%</p>
+              <p class="mt-1 text-sm text-white/70">tareas cerradas sobre el total observado</p>
+            </div>
+            <div class="ml-auto rounded-2xl bg-white/10 p-3 text-white/80">
+              <lucide-icon name="arrow-left-right" [size]="22"></lucide-icon>
+            </div>
+          </div>
+          <div class="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              class="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-emerald-300"
+              [style.width.%]="taskCompletionRate()"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  @if (loading() && !hasSummary()) {
+    <app-loader message="Cargando analitica del sistema..." />
+  } @else if (error() && !hasSummary()) {
+    <app-empty-state
+      title="No se pudo cargar la analitica"
+      [message]="error()!"
+      actionLabel="Reintentar"
+      (action)="loadDashboardSummary()"
+    />
+  } @else if (!hasSummary()) {
+    <app-empty-state
+      title="Sin informacion disponible"
+      message="El backend no devolvio metricas para este dashboard."
+      actionLabel="Reintentar"
+      (action)="loadDashboardSummary()"
+    />
+  } @else {
+    @if (error()) {
+      <app-alert
+        variant="warning"
+        title="Ultima actualizacion parcial"
+        [message]="error()"
+      />
+    }
+
+    <section class="analytics-section-block">
+      <div class="analytics-section-head">
+        <div>
+          <p class="analytics-section-kicker">Vista principal</p>
+          <h2 class="analytics-section-title">Resumen general</h2>
+          <p class="analytics-section-subtitle">KPIs clave del sistema con lectura ejecutiva.</p>
+        </div>
+        <span class="analytics-pill analytics-pill--sky">Panorama</span>
+      </div>
+
+      <div class="analytics-kpi-grid analytics-kpi-grid--compact">
+        <app-analiticas-kpi-tarjeta
+          title="Total de politicas"
+          [value]="formatCount(general()!.totalPolicies)"
+          icon="clipboard-list"
+          tone="slate"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Politicas activas"
+          [value]="formatCount(general()!.activePolicies)"
+          icon="check-circle-2"
+          tone="emerald"
+          chip="Activas"
+          [progress]="general()!.totalPolicies > 0 ? barWidth(general()!.activePolicies, general()!.totalPolicies) : 0"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Total de instancias"
+          [value]="formatCount(general()!.totalInstances)"
+          icon="circle-dot"
+          tone="sky"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Instancias en curso"
+          [value]="formatCount(general()!.inProgressInstances)"
+          icon="pause-circle"
+          tone="amber"
+          chip="Flujo vivo"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Instancias completadas"
+          [value]="formatCount(general()!.completedInstances)"
+          icon="check-circle-2"
+          tone="emerald"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Instancias rechazadas"
+          [value]="formatCount(general()!.rejectedInstances)"
+          icon="ban"
+          tone="rose"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Tareas pendientes"
+          [value]="formatCount(general()!.pendingTasks)"
+          icon="alert-triangle"
+          tone="amber"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Tareas completadas"
+          [value]="formatCount(general()!.completedTasks)"
+          icon="arrow-up-down"
+          tone="violet"
+        />
+        <app-analiticas-kpi-tarjeta
+          title="Tiempo promedio de resolucion"
+          [value]="general()!.hasEnoughResolutionTimeData ? formatHours(general()!.averageResolutionTimeHours) : 'Sin datos'"
+          [subtitle]="general()!.hasEnoughResolutionTimeData ? 'Promedio global de instancias resueltas.' : 'No hay datos suficientes de resolucion.'"
+          icon="settings-2"
+          tone="sky"
+        />
+      </div>
+    </section>
+
+    <section class="analytics-section-block analytics-section-block--soft">
+      <div class="analytics-section-head">
+        <div>
+          <p class="analytics-section-kicker">Monitoreo</p>
+          <h2 class="analytics-section-title">Ritmo operativo</h2>
+          <p class="analytics-section-subtitle">Lectura compacta del estado global del flujo y las prioridades inmediatas.</p>
+        </div>
+        <span class="analytics-pill analytics-pill--rose">Seguimiento</span>
+      </div>
+
+      <div class="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+        <app-card className="analytics-surface p-5">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="analytics-section-title">Ritmo operativo</h2>
+              <p class="analytics-section-subtitle">Lectura compacta del estado global del flujo.</p>
+            </div>
+            <div class="analytics-pill analytics-pill--sky">Vista ejecutiva</div>
+          </div>
+
+          <div class="mt-6 grid gap-5 lg:grid-cols-2">
+            <div class="analytics-meter">
+              <div class="analytics-meter__header">
+                <span>Distribucion de instancias</span>
+                <strong>{{ formatCount(general()!.totalInstances) }}</strong>
+              </div>
+              <div class="analytics-segmented-bar analytics-segmented-bar--large">
+                @for (segment of instanceDistribution(); track segment.label) {
+                  <div [ngClass]="segment.tone" [style.width.%]="segment.width"></div>
+                }
+              </div>
+              <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                @for (segment of instanceDistribution(); track segment.label) {
+                  <div class="analytics-stat-chip">
+                    <span class="analytics-stat-chip__label">{{ segment.label }}</span>
+                    <span class="analytics-stat-chip__value">{{ formatCount(segment.value) }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <div class="analytics-meter">
+              <div class="analytics-meter__header">
+                <span>Resolucion de tareas</span>
+                <strong>{{ taskCompletionRate() }}%</strong>
+              </div>
+              <div class="analytics-circle">
+                <div
+                  class="analytics-circle__ring"
+                  [style.background]="'conic-gradient(#22c55e 0 ' + taskCompletionRate() + '%, rgba(148,163,184,0.18) ' + taskCompletionRate() + '% 100%)'"
+                >
+                  <div class="analytics-circle__center">
+                    <span>{{ taskCompletionRate() }}%</span>
+                    <small>completado</small>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
+                <span>Pendientes: {{ formatCount(general()!.pendingTasks) }}</span>
+                <span>Completadas: {{ formatCount(general()!.completedTasks) }}</span>
+              </div>
+            </div>
+          </div>
+        </app-card>
+
+        <app-card className="analytics-surface p-5">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="analytics-section-title">Senales rapidas</h2>
+              <p class="analytics-section-subtitle">Puntos calientes y oportunidades visibles de inmediato.</p>
+            </div>
+            <div class="analytics-pill analytics-pill--rose">Prioridades</div>
+          </div>
+
+          <div class="mt-5 space-y-3">
+            @for (signal of operationalSignals(); track signal.title) {
+              <article class="analytics-signal" [ngClass]="toneClass(signal.tone)">
+                <div class="analytics-signal__icon">
+                  <lucide-icon [name]="signal.icon" [size]="18"></lucide-icon>
+                </div>
+                <div class="min-w-0">
+                  <p class="analytics-signal__title">{{ signal.title }}</p>
+                  <p class="analytics-signal__value">{{ signal.value }}</p>
+                  <p class="analytics-signal__description">{{ signal.description }}</p>
+                </div>
+              </article>
+            }
+          </div>
+        </app-card>
+      </div>
+    </section>
+
+    <section class="analytics-section-block">
+      <div class="analytics-section-head">
+        <div>
+          <p class="analytics-section-kicker">Comparativas</p>
+          <h2 class="analytics-section-title">Tiempos de atencion</h2>
+          <p class="analytics-section-subtitle">Comparativas por politica, nodo, departamento y funcionario.</p>
+        </div>
+        <span class="analytics-pill analytics-pill--amber">Desempeno</span>
+      </div>
+
+      @if (!attentionTimes()!.hasEnoughData) {
+        <app-card className="p-5">
+          <app-empty-state
+            title="Sin datos suficientes"
+            message="Aun no hay suficientes tiempos registrados para construir esta seccion."
+          />
+        </app-card>
+      } @else {
+        <div class="grid gap-4 md:grid-cols-2">
+          <app-card className="analytics-feature-card analytics-feature-card--slow p-5">
+            <p class="analytics-feature-card__eyebrow">Actividad mas lenta</p>
+            <h3 class="mt-3 text-xl font-bold text-slate-950">{{ attentionTimes()!.slowestActivity?.nodeName ?? 'Sin datos' }}</h3>
+            <p class="mt-2 text-sm text-slate-700">{{ formatHours(attentionTimes()!.slowestActivity?.averageHours) }}</p>
+          </app-card>
+
+          <app-card className="analytics-feature-card analytics-feature-card--fast p-5">
+            <p class="analytics-feature-card__eyebrow">Actividad mas rapida</p>
+            <h3 class="mt-3 text-xl font-bold text-slate-950">{{ attentionTimes()!.fastestActivity?.nodeName ?? 'Sin datos' }}</h3>
+            <p class="mt-2 text-sm text-slate-700">{{ formatHours(attentionTimes()!.fastestActivity?.averageHours) }}</p>
+          </app-card>
+        </div>
+
+        <div class="grid gap-4 xl:grid-cols-2">
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
+            <div class="analytics-card-head">
+              <h3>Promedio por politica</h3>
+              <span class="analytics-pill analytics-pill--violet">Politicas</span>
+            </div>
+            @if (attentionTimes()!.averageByPolicy.length === 0) {
+              <app-empty-state
+                title="No hay tiempos registrados"
+                message="No existen promedios por politica para mostrar."
+              />
+            } @else {
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
+                <thead>
+                  <tr class="analytics-table__head-row">
+                    <th class="px-5 py-3">Politica</th>
+                    <th class="px-5 py-3">Promedio</th>
+                    <th class="px-5 py-3">Instancias</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of attentionTimes()!.averageByPolicy; track item.policyId) {
+                    <tr class="analytics-table__row">
+                      <td class="px-5 py-3">
+                        <div class="analytics-bar-cell">
+                          <p class="font-semibold text-slate-900">{{ item.policyName }}</p>
+                          <div class="analytics-inline-bar">
+                            <span
+                              class="analytics-inline-bar__fill analytics-inline-bar__fill--violet"
+                              [style.width.%]="barWidth(item.averageHours, maxPolicyAverage())"
+                            ></span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatHours(item.averageHours) }}</td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatCount(item.completedInstances) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                </app-table>
+              </div>
+            }
+          </app-card>
+
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
+            <div class="analytics-card-head">
+              <h3>Promedio por nodo</h3>
+              <span class="analytics-pill analytics-pill--amber">Nodos</span>
+            </div>
+            @if (attentionTimes()!.averageByNode.length === 0) {
+              <app-empty-state
+                title="No hay tiempos registrados"
+                message="No existen promedios por nodo para mostrar."
+              />
+            } @else {
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
+                <thead>
+                  <tr class="analytics-table__head-row">
+                    <th class="px-5 py-3">Nodo</th>
+                    <th class="px-5 py-3">Promedio</th>
+                    <th class="px-5 py-3">Tareas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of attentionTimes()!.averageByNode; track item.nodeId) {
+                    <tr class="analytics-table__row">
+                      <td class="px-5 py-3">
+                        <div class="analytics-bar-cell">
+                          <p class="font-semibold text-slate-900">{{ item.nodeName }}</p>
+                          <div class="analytics-inline-bar">
+                            <span
+                              class="analytics-inline-bar__fill analytics-inline-bar__fill--amber"
+                              [style.width.%]="barWidth(item.averageHours, maxNodeAverage())"
+                            ></span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatHours(item.averageHours) }}</td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatCount(item.completedTasks) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                </app-table>
+              </div>
+            }
+          </app-card>
+
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
+            <div class="analytics-card-head">
+              <h3>Promedio por departamento</h3>
+              <span class="analytics-pill analytics-pill--sky">Departamentos</span>
+            </div>
+            @if (attentionTimes()!.averageByDepartment.length === 0) {
+              <app-empty-state
+                title="Sin datos suficientes"
+                message="No hay tiempos registrados por departamento."
+              />
+            } @else {
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
+                <thead>
+                  <tr class="analytics-table__head-row">
+                    <th class="px-5 py-3">Departamento</th>
+                    <th class="px-5 py-3">Promedio</th>
+                    <th class="px-5 py-3">Tareas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of attentionTimes()!.averageByDepartment; track item.departmentId) {
+                    <tr class="analytics-table__row">
+                      <td class="px-5 py-3">
+                        <div class="analytics-bar-cell">
+                          <p class="font-semibold text-slate-900">{{ item.departmentName }}</p>
+                          <div class="analytics-inline-bar">
+                            <span
+                              class="analytics-inline-bar__fill analytics-inline-bar__fill--sky"
+                              [style.width.%]="barWidth(item.averageHours, maxDepartmentAverage())"
+                            ></span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatHours(item.averageHours) }}</td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatCount(item.completedTasks) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                </app-table>
+              </div>
+            }
+          </app-card>
+
+          <app-card className="analytics-surface analytics-data-card overflow-hidden">
+            <div class="analytics-card-head">
+              <h3>Promedio por funcionario</h3>
+              <span class="analytics-pill analytics-pill--emerald">Funcionarios</span>
+            </div>
+            @if (attentionTimes()!.averageByOfficial.length === 0) {
+              <app-empty-state
+                title="Sin datos suficientes"
+                message="No hay tiempos registrados por funcionario."
+              />
+            } @else {
+              <div class="analytics-table-wrap analytics-table-wrap--fixed">
+                <app-table className="analytics-table">
+                <thead>
+                  <tr class="analytics-table__head-row">
+                    <th class="px-5 py-3">Funcionario</th>
+                    <th class="px-5 py-3">Promedio</th>
+                    <th class="px-5 py-3">Tareas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of attentionTimes()!.averageByOfficial; track item.officialId) {
+                    <tr class="analytics-table__row">
+                      <td class="px-5 py-3">
+                        <div class="analytics-bar-cell">
+                          <p class="font-semibold text-slate-900">{{ item.officialName }}</p>
+                          <div class="analytics-inline-bar">
+                            <span
+                              class="analytics-inline-bar__fill analytics-inline-bar__fill--emerald"
+                              [style.width.%]="barWidth(item.averageHours, maxOfficialAverage())"
+                            ></span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatHours(item.averageHours) }}</td>
+                      <td class="px-5 py-3 text-slate-600">{{ formatCount(item.completedTasks) }}</td>
+                    </tr>
+                  }
+                </tbody>
+                </app-table>
+              </div>
+            }
+          </app-card>
+        </div>
+      }
+    </section>
+
+    <section class="analytics-section-block analytics-section-block--soft">
+      <div class="analytics-section-head">
+        <div>
+          <p class="analytics-section-kicker">Capacidad</p>
+          <h2 class="analytics-section-title">Acumulacion de tareas</h2>
+          <p class="analytics-section-subtitle">Pendientes, carga por equipo y antiguedad operativa.</p>
+        </div>
+        <span class="analytics-pill analytics-pill--emerald">Backlog</span>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
+          <div class="analytics-card-head">
+            <h3>Pendientes por funcionario</h3>
+            <span class="analytics-pill analytics-pill--emerald">Carga humana</span>
+          </div>
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
+            <thead>
+              <tr class="analytics-table__head-row">
+                <th class="px-5 py-3">Funcionario</th>
+                <th class="px-5 py-3">Pendientes</th>
+                <th class="px-5 py-3">Tarea mas antigua</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of taskAccumulation()!.pendingByOfficial; track item.officialId) {
+                <tr class="analytics-table__row">
+                  <td class="px-5 py-3">
+                    <div class="analytics-bar-cell">
+                      <p class="font-semibold text-slate-900">{{ item.officialName }}</p>
+                      <div class="analytics-inline-bar">
+                        <span
+                          class="analytics-inline-bar__fill analytics-inline-bar__fill--emerald"
+                          [style.width.%]="barWidth(item.pendingTasks, maxPendingByOfficial())"
+                        ></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3">{{ formatCount(item.pendingTasks) }}</td>
+                  <td class="px-5 py-3">{{ formatHours(item.oldestTaskAgeHours) }}</td>
+                </tr>
+              }
+            </tbody>
+            </app-table>
+          </div>
+        </app-card>
+
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
+          <div class="analytics-card-head">
+            <h3>Pendientes por departamento</h3>
+            <span class="analytics-pill analytics-pill--sky">Carga estructural</span>
+          </div>
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
+            <thead>
+              <tr class="analytics-table__head-row">
+                <th class="px-5 py-3">Departamento</th>
+                <th class="px-5 py-3">Pendientes</th>
+                <th class="px-5 py-3">Tarea mas antigua</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of taskAccumulation()!.pendingByDepartment; track item.departmentId) {
+                <tr class="analytics-table__row">
+                  <td class="px-5 py-3">
+                    <div class="analytics-bar-cell">
+                      <p class="font-semibold text-slate-900">{{ item.departmentName }}</p>
+                      <div class="analytics-inline-bar">
+                        <span
+                          class="analytics-inline-bar__fill analytics-inline-bar__fill--sky"
+                          [style.width.%]="barWidth(item.pendingTasks, maxPendingByDepartment())"
+                        ></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3">{{ formatCount(item.pendingTasks) }}</td>
+                  <td class="px-5 py-3">{{ formatHours(item.oldestTaskAgeHours) }}</td>
+                </tr>
+              }
+            </tbody>
+            </app-table>
+          </div>
+        </app-card>
+
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
+          <div class="analytics-card-head">
+            <h3>Pendientes por politica</h3>
+            <span class="analytics-pill analytics-pill--violet">Politicas</span>
+          </div>
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
+            <thead>
+              <tr class="analytics-table__head-row">
+                <th class="px-5 py-3">Politica</th>
+                <th class="px-5 py-3">Pendientes</th>
+                <th class="px-5 py-3">Tarea mas antigua</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of taskAccumulation()!.pendingByPolicy; track item.policyId) {
+                <tr class="analytics-table__row">
+                  <td class="px-5 py-3">
+                    <div class="analytics-bar-cell">
+                      <p class="font-semibold text-slate-900">{{ item.policyName }}</p>
+                      <div class="analytics-inline-bar">
+                        <span
+                          class="analytics-inline-bar__fill analytics-inline-bar__fill--violet"
+                          [style.width.%]="barWidth(item.pendingTasks, maxPendingByPolicy())"
+                        ></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3">{{ formatCount(item.pendingTasks) }}</td>
+                  <td class="px-5 py-3">{{ formatHours(item.oldestTaskAgeHours) }}</td>
+                </tr>
+              }
+            </tbody>
+            </app-table>
+          </div>
+        </app-card>
+
+        <app-card className="analytics-surface analytics-data-card overflow-hidden">
+          <div class="analytics-card-head">
+            <h3>Pendientes por nodo</h3>
+            <span class="analytics-pill analytics-pill--amber">Nodos</span>
+          </div>
+          <div class="analytics-table-wrap analytics-table-wrap--fixed">
+            <app-table className="analytics-table">
+            <thead>
+              <tr class="analytics-table__head-row">
+                <th class="px-5 py-3">Nodo</th>
+                <th class="px-5 py-3">Pendientes</th>
+                <th class="px-5 py-3">Tarea mas antigua</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of taskAccumulation()!.pendingByNode; track item.nodeId) {
+                <tr class="analytics-table__row">
+                  <td class="px-5 py-3">
+                    <div class="analytics-bar-cell">
+                      <p class="font-semibold text-slate-900">{{ item.nodeName }}</p>
+                      <div class="analytics-inline-bar">
+                        <span
+                          class="analytics-inline-bar__fill analytics-inline-bar__fill--amber"
+                          [style.width.%]="barWidth(item.pendingTasks, maxPendingByNode())"
+                        ></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-3">{{ formatCount(item.pendingTasks) }}</td>
+                  <td class="px-5 py-3">{{ formatHours(item.oldestTaskAgeHours) }}</td>
+                </tr>
+              }
+            </tbody>
+            </app-table>
+          </div>
+        </app-card>
+      </div>
+
+      <app-card className="analytics-surface analytics-oldest-card overflow-hidden">
+        <div class="analytics-card-head">
+          <h3>Tareas pendientes mas antiguas</h3>
+          <span class="analytics-pill analytics-pill--rose">Riesgo operativo</span>
+        </div>
+        <div class="analytics-table-wrap analytics-table-wrap--tall">
+          <app-table className="analytics-table analytics-table--oldest">
+          <thead>
+            <tr class="analytics-table__head-row">
+              <th class="px-4 py-3">Politica</th>
+              <th class="px-4 py-3">Nodo</th>
+              <th class="px-4 py-3">Asignado a</th>
+              <th class="px-4 py-3">Departamento</th>
+              <th class="px-4 py-3">Antiguedad</th>
+              <th class="px-4 py-3">Creada</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of taskAccumulation()!.oldestPendingTasks; track item.taskId) {
+              <tr class="analytics-table__row">
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.policyName }}</td>
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.nodeName }}</td>
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.assignedToName ?? '-' }}</td>
+                <td class="px-4 py-3 analytics-table__cell-wrap">{{ item.departmentName ?? '-' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ formatHours(item.ageHours) }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ item.createdAt | date : 'dd/MM/yy HH:mm' }}</td>
+              </tr>
+            }
+          </tbody>
+          </app-table>
+        </div>
+      </app-card>
+    </section>
+
+    <app-analiticas-ia-seccion
+      [loading]="loadingAI()"
+      [error]="aiError()"
+      [bottlenecks]="bottlenecks()"
+      [taskRecommendations]="taskRecommendations()"
+    />
+  }
+</section>

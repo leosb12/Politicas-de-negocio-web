@@ -6,13 +6,13 @@ export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
   request,
   next
 ) => {
-  const isWorkflowRequest =
+  const isFlujoRequest =
     request.url.includes('/api/tareas') ||
     request.url.includes('/api/instancias') ||
     request.url.includes('/api/archivos') ||
     request.url.includes('/api/guide/employee');
 
-  if (!isWorkflowRequest) {
+  if (!isFlujoRequest) {
     return next(request);
   }
 

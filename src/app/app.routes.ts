@@ -16,13 +16,13 @@ export const routes: Routes = [
   {
     path: 'admin',
     loadChildren: () =>
-      import('./features/admin/admin.routes').then((module) => module.ADMIN_ROUTES),
+      import('./features/administrador/administrador.routes').then((module) => module.ADMINISTRADOR_ROUTES),
   },
   {
     path: 'funcionario',
     loadChildren: () =>
-      import('./features/funcionario-workflow/funcionario-workflow.routes').then(
-        (module) => module.FUNCIONARIO_WORKFLOW_ROUTES
+      import('./features/funcionario-flujo/funcionario-flujo.routes').then(
+        (module) => module.FUNCIONARIO_FLUJO_ROUTES
       ),
   },
   ...DASHBOARD_ROUTES,

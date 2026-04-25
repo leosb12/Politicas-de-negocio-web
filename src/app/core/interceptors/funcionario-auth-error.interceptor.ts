@@ -14,14 +14,14 @@ export const funcionarioAuthErrorInterceptor: HttpInterceptorFn = (
   const router = inject(Router);
   const authService = inject(AuthService);
 
-  const isWorkflowRequest =
+  const isFlujoRequest =
     request.url.includes('/api/tareas') || request.url.includes('/api/instancias');
   const session = authService.obtenerSesion();
   const isFuncionarioSession = session?.rol === 'FUNCIONARIO';
 
   return next(request).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (!isWorkflowRequest) {
+      if (!isFlujoRequest) {
         return throwError(() => error);
       }
 

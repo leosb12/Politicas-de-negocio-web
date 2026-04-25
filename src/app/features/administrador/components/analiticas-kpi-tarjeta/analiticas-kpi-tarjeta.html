@@ -1,0 +1,43 @@
+<section [class]="'analiticas-kpi-tarjeta analiticas-kpi-tarjeta--gradient p-4 ' + toneClasses()">
+  <div class="analiticas-kpi-tarjeta__glow"></div>
+  <div class="analiticas-kpi-tarjeta__content">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
+          {{ title() }}
+        </p>
+        <p class="mt-2.5 text-[1.7rem] font-bold tracking-tight text-white">{{ value() }}</p>
+      </div>
+
+      <div class="analiticas-kpi-tarjeta__icon">
+        <lucide-icon [name]="icon()" [size]="18"></lucide-icon>
+      </div>
+    </div>
+
+    @if (subtitle() || chip()) {
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        @if (chip()) {
+          <span class="analiticas-kpi-tarjeta__chip">{{ chip() }}</span>
+        }
+
+        @if (subtitle()) {
+          <p class="text-sm text-white/75">{{ subtitle() }}</p>
+        }
+      </div>
+    }
+
+    @if (progress() !== null) {
+      <div class="mt-3 space-y-2">
+        <div class="analiticas-kpi-tarjeta__progress-track">
+          <span
+            class="analiticas-kpi-tarjeta__progress-fill"
+            [style.width.%]="progress()"
+          ></span>
+        </div>
+        <p class="text-xs uppercase tracking-[0.2em] text-white/55">
+          {{ progress() }}% del total observado
+        </p>
+      </div>
+    }
+  </div>
+</section>
