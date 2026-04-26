@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { IA_API_BASE_URL } from '../../../core/config/api.config';
+import { API_ENDPOINTS } from '../../../core/config/api.config';
 import {
   IaFlujoResponse,
   IaFlujoRequest,
@@ -11,10 +11,10 @@ import {
 @Injectable({ providedIn: 'root' })
 export class IaFlujoService {
   private readonly http = inject(HttpClient);
-  private readonly iaUrl = `${IA_API_BASE_URL}/api/ia`;
+  private readonly iaUrl = API_ENDPOINTS.ia;
 
   /**
-   * Consume el microservicio de IA para generar un workflow
+   * Consume el backend para generar un workflow via /api/ia/texto-a-flujo
    * POST /api/ia/texto-a-flujo
    *
    * @param descripcion Descripción en texto del flujo de negocio

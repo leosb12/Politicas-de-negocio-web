@@ -1,6 +1,5 @@
 globalThis.__APP_CONFIG__ = globalThis.__APP_CONFIG__ || {};
 globalThis.__APP_CONFIG__.apiBaseUrl = "";
-globalThis.__APP_CONFIG__.iaApiBaseUrl = "http://127.0.0.1:8001";
 
 globalThis.__APP_CONFIG__.firebaseApiKey ="AIzaSyCPnZzU28bMdUtFlrkH05SWkmO8V4Ix860";
 globalThis.__APP_CONFIG__.firebaseAuthDomain ="workflow-46bf7.firebaseapp.com";

@@ -1,6 +1,5 @@
 type AppRuntimeConfig = {
   apiBaseUrl?: string;
-  iaApiBaseUrl?: string;
   firebaseApiKey?: string;
   firebaseAuthDomain?: string;
   firebaseProjectId?: string;
@@ -34,21 +33,7 @@ function resolveApiBaseUrl(): string {
   return normalizeApiBaseUrl(window.__APP_CONFIG__?.apiBaseUrl);
 }
 
-function resolveIaApiBaseUrl(): string {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  const runtimeIaApiBaseUrl = normalizeApiBaseUrl(window.__APP_CONFIG__?.iaApiBaseUrl);
-  if (runtimeIaApiBaseUrl) {
-    return runtimeIaApiBaseUrl;
-  }
-
-  return 'http://127.0.0.1:8001';
-}
-
 export const API_BASE_URL = resolveApiBaseUrl();
-export const IA_API_BASE_URL = resolveIaApiBaseUrl();
 
 export const API_ENDPOINTS = {
   auth: `${API_BASE_URL}/api/auth`,
@@ -64,4 +49,5 @@ export const API_ENDPOINTS = {
   instancias: `${API_BASE_URL}/api/instancias`,
   archivos: `${API_BASE_URL}/api/archivos`,
   pushTokens: `${API_BASE_URL}/api/push/tokens`,
+  ia: `${API_BASE_URL}/api/ia`,
 } as const;

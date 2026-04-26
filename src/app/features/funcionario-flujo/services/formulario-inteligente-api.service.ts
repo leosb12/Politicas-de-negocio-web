@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { IA_API_BASE_URL } from '../../../core/config/api.config';
+import { API_ENDPOINTS } from '../../../core/config/api.config';
 import {
   FormularioInteligenteRequestDto,
   FormularioInteligenteResponseDto,
@@ -12,7 +12,7 @@ import {
 })
 export class FormularioInteligenteApiService {
   private readonly http = inject(HttpClient);
-  private readonly endpointUrl = `${IA_API_BASE_URL}/api/ia/forms/fill`;
+  private readonly endpointUrl = `${API_ENDPOINTS.ia}/forms/fill`;
 
   completarFormulario(
     payload: FormularioInteligenteRequestDto

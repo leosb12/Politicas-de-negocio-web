@@ -1,6 +1,5 @@
 globalThis.__APP_CONFIG__ = globalThis.__APP_CONFIG__ || {};
 globalThis.__APP_CONFIG__.apiBaseUrl = "${API_BASE_URL}";
-globalThis.__APP_CONFIG__.iaApiBaseUrl = "${IA_API_BASE_URL}";
 globalThis.__APP_CONFIG__.firebaseApiKey ="AIzaSyCPnZzU28bMdUtFlrkH05SWkmO8V4Ix860";
 globalThis.__APP_CONFIG__.firebaseAuthDomain ="workflow-46bf7.firebaseapp.com";
 globalThis.__APP_CONFIG__.firebaseProjectId = "workflow-46bf7";
