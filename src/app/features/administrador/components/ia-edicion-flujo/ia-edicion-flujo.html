@@ -1,0 +1,106 @@
+<section class="ia-compact-shell">
+  <div class="ia-compact-label-row">
+    <span class="ia-compact-label">Editar con IA</span>
+    <button type="button" class="ia-compact-toggle" (click)="toggleExpanded()">
+      {{ expanded() ? 'Ocultar' : 'Ver mas' }}
+    </button>
+  </div>
+
+  <div class="ia-compact-input-row">
+    <input
+      class="ia-compact-input"
+      type="text"
+      [value]="prompt()"
+      placeholder="Escribe y presiona Enter"
+      (input)="onPromptChange($any($event.target).value)"
+      (keydown)="handlePromptKeydown($event)"
+    />
+
+    <button
+      type="button"
+      class="ia-compact-send"
+      [disabled]="!canPreview()"
+      (click)="requestPreview()"
+      aria-label="Enviar prompt"
+      title="Enviar prompt"
+    >
+      <lucide-icon name="send" [size]="16"></lucide-icon>
+    </button>
+  </div>
+
+  @if (compactStatus()) {
+    <div class="ia-compact-status">
+      <span class="ia-compact-chip" [class]="'tone-' + previewTone()">{{ compactStatus() }}</span>
+      @if (previewResponse()?.summary) {
+        <span class="ia-compact-summary">{{ previewResponse()!.summary }}</span>
+      }
+    </div>
+  }
+
+  @if (expanded()) {
+    <div class="ia-compact-panel">
+      <p class="ia-compact-help">
+        Enter aplica y guarda el cambio directamente.
+      </p>
+
+      @if (previewError()) {
+        <app-alert
+          variant="danger"
+          title="No se pudo consultar la IA"
+          [message]="previewError()"
+        />
+      }
+
+      @if (previewLoading()) {
+        <div class="ia-compact-loading">
+          <span class="ia-inline-spinner"></span>
+          <span>Aplicando cambios sobre la politica...</span>
+        </div>
+      }
+
+      @if (previewResponse(); as preview) {
+        <div class="ia-compact-result" [class.invalid]="!preview.valid || preview.errors.length > 0">
+          <div class="ia-compact-result-head">
+            <span class="ia-compact-intent">{{ preview.intent }}</span>
+            <span class="ia-compact-meta">{{ preview.operations.length }} operaciones</span>
+          </div>
+
+          @if (preview.operations.length) {
+            <div class="ia-compact-ops">
+              @for (operation of preview.operations; track trackOperation($index, operation)) {
+                <div class="ia-compact-op">
+                  <strong>{{ formatOperationTitle(operation) }}</strong>
+                  <span>{{ buildOperationSummary(operation) }}</span>
+                </div>
+              }
+            </div>
+          }
+
+          @if (preview.errors.length) {
+            <div class="ia-inline-list errors">
+              @for (error of preview.errors; track error) {
+                <p>{{ error }}</p>
+              }
+            </div>
+          }
+
+          @if (applyError()) {
+            <app-alert
+              variant="danger"
+              title="No se pudo aplicar"
+              [message]="applyError()"
+            />
+          }
+
+          @if (applyResultMessage()) {
+            <app-alert
+              variant="info"
+              title="Estado"
+              [message]="applyResultMessage()"
+            />
+          }
+        </div>
+      }
+    </div>
+  }
+</section>

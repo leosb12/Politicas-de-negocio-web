@@ -1,0 +1,247 @@
+.ia-compact-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.ia-compact-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ia-compact-label {
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ia-compact-toggle {
+  border: 0;
+  background: transparent;
+  color: #818cf8;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0;
+}
+
+.ia-compact-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 1rem;
+  background: rgba(30, 27, 75, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ia-compact-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #f8fafc;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.55rem 0.7rem;
+}
+
+.ia-compact-input::placeholder {
+  color: #94a3b8;
+}
+
+.ia-compact-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: 0.8rem;
+  background: rgba(99, 102, 241, 0.28);
+  color: #c7d2fe;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.ia-compact-send:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.42);
+}
+
+.ia-compact-send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ia-compact-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ia-compact-chip {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ia-compact-chip.tone-success {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
+.ia-compact-chip.tone-warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+}
+
+.ia-compact-chip.tone-danger {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+.ia-compact-chip.tone-info {
+  background: rgba(56, 189, 248, 0.18);
+  color: #bae6fd;
+}
+
+.ia-compact-summary {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.ia-compact-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.44);
+}
+
+.ia-compact-help {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.ia-compact-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.ia-inline-spinner {
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid rgba(148, 163, 184, 0.4);
+  border-top-color: #67e8f9;
+  border-radius: 999px;
+  animation: ia-inline-spin 0.8s linear infinite;
+}
+
+@keyframes ia-inline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ia-compact-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.8rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.ia-compact-result.invalid {
+  background: rgba(255, 241, 242, 0.98);
+}
+
+.ia-compact-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ia-compact-intent,
+.ia-compact-meta {
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ia-compact-ops {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ia-compact-op {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  background: #f8fafc;
+}
+
+.ia-compact-op strong {
+  color: #0f172a;
+  font-size: 0.8rem;
+}
+
+.ia-compact-op span,
+.ia-inline-list p,
+.ia-inline-confirm span {
+  color: #334155;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.ia-inline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ia-inline-list p {
+  margin: 0;
+}
+
+.ia-inline-list.warnings p {
+  color: #92400e;
+}
+
+.ia-inline-list.errors p {
+  color: #b91c1c;
+}
+
+.ia-inline-confirm {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+
+.ia-inline-confirm input {
+  margin-top: 0.15rem;
+}

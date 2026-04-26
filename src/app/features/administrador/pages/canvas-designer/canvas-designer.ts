@@ -49,6 +49,7 @@ import { AdministradorUsuario } from '../../models/administrador-usuario.model';
 import { FindNodePipe } from '../../pipes/find-node.pipe';
 import { PoliticaColaboracionFacadeService } from '../../services/politica-colaboracion-facade.service';
 import { IaGeneradorFlujoComponent } from '../../components/ia-generador-flujo/ia-generador-flujo';
+import { IaEdicionFlujoComponent } from '../../components/ia-edicion-flujo/ia-edicion-flujo';
 import { AdministradorGuiaContextService } from '../../services/administrador-guia-context.service';
 import { IaFlujoMapperService } from '../../services/ia-flujo-mapper.service';
 import { IaFlujoResponse } from '../../models/ia-flujo.model';
@@ -175,6 +176,7 @@ import { LucideAngularModule } from 'lucide-angular';
     SlicePipe,
     LucideAngularModule,
     IaGeneradorFlujoComponent,
+    IaEdicionFlujoComponent,
   ],
   templateUrl: './canvas-designer.html',
   styleUrl: './canvas-designer.css',

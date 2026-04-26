@@ -116,6 +116,11 @@
         <span>Haz clic en un elemento para añadirlo al canvas</span>
       </div>
 
+      <app-ia-edicion-flujo
+        [policyId]="politica()?.id ?? null"
+        [policyName]="politica()?.nombre ?? null"
+      ></app-ia-edicion-flujo>
+
       <div class="palette-divider"></div>
       <div class="palette-title">Generación Automática</div>
       <button
