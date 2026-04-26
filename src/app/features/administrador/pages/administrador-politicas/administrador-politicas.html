@@ -7,10 +7,16 @@
       </h1>
       <p class="page-subtitle">Diseña, gestiona y activa flujos de trabajo para tu organizacion</p>
     </div>
-    <button class="btn-primary flex items-center gap-2" (click)="openModal()" id="btn-nueva-politica">
-      <lucide-icon name="plus" [size]="18"></lucide-icon>
-      Nueva Politica
-    </button>
+    <div class="flex items-center gap-3">
+      <button class="flex items-center gap-2 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 hover:text-white border border-indigo-500/30 hover:border-indigo-500/50 px-6 py-3 rounded-xl font-bold text-[0.95rem] transition-all hover:-translate-y-0.5 whitespace-nowrap shadow-lg shadow-indigo-500/10" (click)="openIaModal()" id="btn-nueva-politica-ia">
+        <lucide-icon name="sparkles" [size]="18"></lucide-icon>
+        Nueva Politica con IA
+      </button>
+      <button class="btn-primary flex items-center gap-2" (click)="openModal()" id="btn-nueva-politica">
+        <lucide-icon name="plus" [size]="18"></lucide-icon>
+        Nueva Politica
+      </button>
+    </div>
   </div>
 
   <div class="stats-bar">
@@ -83,8 +89,8 @@
           </button>
 
           <div class="card-top flex justify-between items-start">
-            <div class="card-icon-wrap bg-indigo-50 p-2 rounded-lg">
-              <lucide-icon name="refresh-cw" [size]="20" class="text-indigo-500"></lucide-icon>
+            <div class="card-icon-wrap">
+              <lucide-icon name="file-text" [size]="24" class="text-white"></lucide-icon>
             </div>
             <span
               class="estado-badge flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -168,6 +174,54 @@
     </div>
   }
 </section>
+
+@if (showIaModal()) {
+  <div class="modal-overlay" (click)="closeIaModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()" id="modal-nueva-politica-ia">
+      <div class="modal-header flex justify-between items-center mb-6">
+        <h2 class="modal-title flex items-center gap-2 text-xl font-bold text-white">
+          <lucide-icon name="sparkles" [size]="24" class="text-indigo-400"></lucide-icon>
+          Generar Politica con IA
+        </h2>
+        <button class="modal-close text-slate-400 hover:text-slate-200 transition-colors" (click)="closeIaModal()" id="btn-cerrar-modal-ia">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label" for="input-prompt-ia">¿Que politica deseas crear? *</label>
+          <textarea
+            id="input-prompt-ia"
+            class="field-input field-textarea"
+            placeholder="Ej. Crea una politica para solicitud de becas con revision documental, aprobacion academica, validacion financiera y notificacion final."
+            [(ngModel)]="promptIa"
+            rows="5"
+            [disabled]="generatingIa()"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-ghost" (click)="closeIaModal()" [disabled]="generatingIa()">
+          Cancelar
+        </button>
+        <button
+          class="btn-primary flex items-center gap-2"
+          (click)="submitPromptIa()"
+          [disabled]="generatingIa() || !promptIa().trim()"
+          id="btn-confirmar-ia"
+        >
+          @if (generatingIa()) {
+            <span class="btn-spinner"></span> Generando con IA...
+          } @else {
+            <lucide-icon name="sparkles" [size]="18"></lucide-icon> Generar Politica
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
 
 @if (showModal()) {
   <div class="modal-overlay" (click)="closeModal()">

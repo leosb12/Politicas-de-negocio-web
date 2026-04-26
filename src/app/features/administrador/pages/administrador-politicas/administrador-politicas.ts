@@ -23,6 +23,8 @@ import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 import { AuthService } from '../../../../core/auth/services/auth.service';
 import { AdministradorDepartamentosService } from '../../services/administrador-departamentos.service';
 import { AdministradorDepartamento } from '../../models/administrador-departamento.model';
+import { IaFlujoService } from '../../services/ia-flujo.service';
+import { IaFlujoMapperService } from '../../services/ia-flujo-mapper.service';
 
 import { LucideAngularModule } from 'lucide-angular';
 
@@ -54,12 +56,17 @@ export class AdministradorPoliticasPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
   private readonly departmentsService = inject(AdministradorDepartamentosService);
+  private readonly iaService = inject(IaFlujoService);
+  private readonly iaMapper = inject(IaFlujoMapperService);
 
   politicas = signal<PoliticaNegocio[]>([]);
   departments = signal<AdministradorDepartamento[]>([]);
   loading = signal(false);
   departmentsLoading = signal(false);
   showModal = signal(false);
+  showIaModal = signal(false);
+  promptIa = signal('');
+  generatingIa = signal(false);
   saving = signal(false);
   search = signal('');
   actionPending = signal(false);
@@ -215,6 +222,87 @@ export class AdministradorPoliticasPageComponent implements OnInit {
     }
 
     this.createPolitica();
+  }
+
+  openIaModal(): void {
+    this.promptIa.set('');
+    this.showIaModal.set(true);
+  }
+
+  closeIaModal(): void {
+    if (this.generatingIa()) return;
+    this.showIaModal.set(false);
+  }
+
+  submitPromptIa(): void {
+    const prompt = this.promptIa().trim();
+    if (!prompt) {
+      this.toast.error('Validacion', 'Por favor ingresa una instruccion o prompt');
+      return;
+    }
+
+    if (prompt.length < 10) {
+      this.toast.error('Validacion', 'Por favor brinda mas detalles en tu descripcion (minimo 10 caracteres)');
+      return;
+    }
+
+    this.generatingIa.set(true);
+
+    const context = {
+      departamentos: this.departments().map((d) => ({
+        id: d.id,
+        nombre: d.nombre,
+      })),
+    };
+
+    this.iaService.generarFlujoDesdeTexto(prompt, context).subscribe({
+      next: (iaResponse) => {
+        const nombre = iaResponse.policy?.name || 'Politica generada con IA';
+        const descripcion = iaResponse.policy?.description || 'Politica generada automaticamente a partir de una instruccion del administrador.';
+
+        const payloadCreate: CreatePoliticaRequest = {
+          nombre,
+          descripcion,
+          tipoPolitica: 'EXTERNA',
+          requierePago: false,
+          montoPago: null,
+          monedaPago: 'USD',
+          descripcionPago: '',
+          departamentoInicioId: null,
+        };
+
+        this.svc.create(payloadCreate).subscribe({
+          next: (created) => {
+            const mapperContext = { departamentos: context.departamentos };
+            const mapped = this.iaMapper.mapIaResponseToFlujo(iaResponse, mapperContext);
+
+            this.svc.saveFlujo(created.id, {
+              nodos: mapped.nodos,
+              conexiones: mapped.conexiones,
+            }).subscribe({
+              next: () => {
+                this.generatingIa.set(false);
+                this.closeIaModal();
+                this.toast.success('Generada', `Politica "${created.nombre}" generada con IA exitosamente`);
+                this.router.navigate(['/admin/politicas', created.id, 'canvas']);
+              },
+              error: () => {
+                this.generatingIa.set(false);
+                this.toast.error('Error', 'La IA genero la politica, pero no se pudo guardar el flujo en el sistema.');
+              }
+            });
+          },
+          error: () => {
+            this.generatingIa.set(false);
+            this.toast.error('Error', 'La IA genero la politica, pero no se pudo crear en el sistema.');
+          }
+        });
+      },
+      error: () => {
+        this.generatingIa.set(false);
+        this.toast.error('Error', 'No se pudo generar la politica con IA. Intenta nuevamente o revisa el servicio de IA.');
+      }
+    });
   }
 
   createPolitica(): void {
