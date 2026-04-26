@@ -1,3 +1,11 @@
-window.__APP_CONFIG__ = window.__APP_CONFIG__ || {};
-window.__APP_CONFIG__.apiBaseUrl = "${API_BASE_URL}";
-window.__APP_CONFIG__.iaApiBaseUrl = "${IA_API_BASE_URL}";
+globalThis.__APP_CONFIG__ = globalThis.__APP_CONFIG__ || {};
+globalThis.__APP_CONFIG__.apiBaseUrl = "${API_BASE_URL}";
+globalThis.__APP_CONFIG__.iaApiBaseUrl = "${IA_API_BASE_URL}";
+globalThis.__APP_CONFIG__.firebaseApiKey ="AIzaSyCPnZzU28bMdUtFlrkH05SWkmO8V4Ix860";
+globalThis.__APP_CONFIG__.firebaseAuthDomain ="workflow-46bf7.firebaseapp.com";
+globalThis.__APP_CONFIG__.firebaseProjectId = "workflow-46bf7";
+globalThis.__APP_CONFIG__.firebaseStorageBucket = "workflow-46bf7.firebasestorage.app";
+globalThis.__APP_CONFIG__.firebaseMessagingSenderId = "593050637897";
+globalThis.__APP_CONFIG__.firebaseAppId = "1:593050637897:web:bac71a0ca60f8d36ded198";
+globalThis.__APP_CONFIG__.firebaseMeasurementId = "G-JVCHM168CJ";
+globalThis.__APP_CONFIG__.firebaseVapidKey = "BNaxPMDHMc4Qxkyi5MQaqA2YXLRP5EkpiJwSCCmdSZ97bZnKNDVvYjnFa5AJMzNKb7UvCjd9cHZm6cz4YRaRjT0";

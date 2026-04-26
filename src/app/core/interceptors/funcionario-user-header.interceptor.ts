@@ -10,7 +10,8 @@ export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
     request.url.includes('/api/tareas') ||
     request.url.includes('/api/instancias') ||
     request.url.includes('/api/archivos') ||
-    request.url.includes('/api/guide/employee');
+    request.url.includes('/api/guide/employee') ||
+    request.url.includes('/api/push');
 
   if (!isFlujoRequest) {
     return next(request);

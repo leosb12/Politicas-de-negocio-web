@@ -2232,6 +2232,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     void this.applyIaFlujo(event);
   }
 
+  onIaWorkflowApplied(): void {
+    void this.refreshCanvasAfterIaWorkflowEdit();
+  }
+
   private async applyIaFlujo(event: {
     nodos: Nodo[];
     conexiones: Conexion[];
@@ -2294,6 +2298,30 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       );
     } finally {
       this.isApplyingIaFlujo.set(false);
+    }
+  }
+
+  private async refreshCanvasAfterIaWorkflowEdit(): Promise<void> {
+    const currentPolicy = this.politica();
+    if (!currentPolicy?.id) {
+      return;
+    }
+
+    this.saving.set(true);
+    try {
+      const updatedPolicy = await firstValueFrom(this.svc.getById(currentPolicy.id));
+      this.setPoliticaState(updatedPolicy);
+      this.hydrateCanvas(updatedPolicy);
+      this.broadcastCurrentFlowToCollaborators();
+      this.tryApplyDeferredCollaborativeFlow();
+    } catch (error) {
+      console.error('Error refreshing workflow after IA edit:', error);
+      this.toast.error(
+        'Edicion IA',
+        'Los cambios se guardaron, pero no se pudo sincronizar el canvas en vivo.'
+      );
+    } finally {
+      this.saving.set(false);
     }
   }
 

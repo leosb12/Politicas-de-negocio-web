@@ -119,6 +119,7 @@
       <app-ia-edicion-flujo
         [policyId]="politica()?.id ?? null"
         [policyName]="politica()?.nombre ?? null"
+        (workflowApplied)="onIaWorkflowApplied()"
       ></app-ia-edicion-flujo>
 
       <div class="palette-divider"></div>

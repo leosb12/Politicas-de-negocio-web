@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { AppAlertComponent } from '../../../../shared/ui/alert/alert';
 import { ToastService } from '../../../../shared/services/toast.service';
@@ -28,6 +28,7 @@ type PreviewTone = 'success' | 'warning' | 'danger' | 'info';
 export class IaEdicionFlujoComponent {
   readonly policyId = input<string | null>(null);
   readonly policyName = input<string | null>(null);
+  readonly workflowApplied = output<IaWorkflowEditApplyResponse>();
 
   private readonly iaEdicionFlujoService = inject(IaEdicionFlujoService);
   private readonly toast = inject(ToastService);
@@ -158,7 +159,7 @@ export class IaEdicionFlujoComponent {
         this.applyLoading.set(false);
         this.prompt.set('');
         this.toast.success('Edicion IA', message);
-        this.reloadCanvasAfterApply();
+        this.workflowApplied.emit(response);
       },
       error: (error: unknown) => {
         this.previewLoading.set(false);
@@ -305,13 +306,6 @@ export class IaEdicionFlujoComponent {
     this.applyError.set(
       getApiErrorMessage(error, 'No se pudieron aplicar los cambios sugeridos por la IA.')
     );
-  }
-
-  private reloadCanvasAfterApply(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.setTimeout(() => window.location.reload(), 450);
   }
 
   private resetState(): void {

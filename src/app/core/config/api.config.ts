@@ -1,6 +1,14 @@
 type AppRuntimeConfig = {
   apiBaseUrl?: string;
   iaApiBaseUrl?: string;
+  firebaseApiKey?: string;
+  firebaseAuthDomain?: string;
+  firebaseProjectId?: string;
+  firebaseStorageBucket?: string;
+  firebaseMessagingSenderId?: string;
+  firebaseAppId?: string;
+  firebaseMeasurementId?: string;
+  firebaseVapidKey?: string;
 };
 
 declare global {
@@ -55,4 +63,5 @@ export const API_ENDPOINTS = {
   tareas: `${API_BASE_URL}/api/tareas`,
   instancias: `${API_BASE_URL}/api/instancias`,
   archivos: `${API_BASE_URL}/api/archivos`,
+  pushTokens: `${API_BASE_URL}/api/push/tokens`,
 } as const;

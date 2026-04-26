@@ -1,7 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { UiToastComponent } from './shared/ui/ui-toast/ui-toast';
 import { AdministradorGuiaBotComponent } from './features/administrador/components/administrador-guia-bot/administrador-guia-bot';
+import { NotificacionesPushService } from './core/services/notificaciones-push.service';
 
 @Component({
   selector: 'app-root',
@@ -10,5 +11,11 @@ import { AdministradorGuiaBotComponent } from './features/administrador/componen
   styleUrl: './app.css'
 })
 export class App {
+  private readonly notificacionesPushService = inject(NotificacionesPushService);
+
   protected readonly title = signal('politicas-negocio-web');
+
+  constructor() {
+    this.notificacionesPushService.inicializar();
+  }
 }
