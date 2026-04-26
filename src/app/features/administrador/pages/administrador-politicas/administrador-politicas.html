@@ -105,12 +105,23 @@
               <span class="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
                 {{ getTipoPoliticaLabel(p.tipoPolitica) }}
               </span>
+              @if (!policyRequiresPayment(p)) {
+                <span class="badge-pago badge-gratis">Gratis</span>
+              } @else {
+                <span class="badge-pago badge-de-paga">De paga</span>
+              }
               @if (p.tipoPolitica === 'INTERNA' && getDepartmentName(p.departamentoInicioId)) {
                 <span class="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
                   Solo inicia {{ getDepartmentName(p.departamentoInicioId) }}
                 </span>
               }
             </div>
+            @if (policyRequiresPayment(p)) {
+              <p class="payment-summary">
+                {{ formatPaymentAmount(p.montoPago, p.monedaPago) }}
+                <span class="payment-summary-currency">{{ (p.monedaPago ?? 'USD') }}</span>
+              </p>
+            }
           </div>
 
           <div class="card-footer">
@@ -233,6 +244,58 @@
             </p>
           </div>
         }
+
+        <section class="payment-section">
+          <h3 class="payment-title">Configuracion de pago</h3>
+
+          <label class="payment-toggle" for="checkbox-requiere-pago">
+            <input
+              id="checkbox-requiere-pago"
+              type="checkbox"
+              [ngModel]="form.requierePago"
+              (ngModelChange)="onRequierePagoChange($event)"
+            />
+            <span>Esta politica requiere pago</span>
+          </label>
+
+          @if (form.requierePago) {
+            <div class="field-group">
+              <label class="field-label" for="input-precio">Precio *</label>
+              <input
+                id="input-precio"
+                type="number"
+                class="field-input"
+                placeholder="Ej. 25"
+                min="0.01"
+                step="0.01"
+                [(ngModel)]="form.montoPago"
+              />
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="input-moneda">Moneda *</label>
+              <input
+                id="input-moneda"
+                type="text"
+                class="field-input"
+                maxlength="6"
+                placeholder="USD"
+                [(ngModel)]="form.monedaPago"
+              />
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="input-descripcion-pago">Descripcion del pago</label>
+              <textarea
+                id="input-descripcion-pago"
+                class="field-input field-textarea"
+                rows="2"
+                placeholder="Pago de trámite"
+                [(ngModel)]="form.descripcionPago"
+              ></textarea>
+            </div>
+          }
+        </section>
       </div>
 
       <div class="modal-footer">

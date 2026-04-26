@@ -34,6 +34,13 @@ interface PoliticaConfirmAction {
   politica: PoliticaNegocio;
 }
 
+interface PaymentConfigNormalized {
+  requierePago: boolean;
+  montoPago: number | null;
+  monedaPago: string;
+  descripcionPago: string;
+}
+
 @Component({
   selector: 'app-administrador-politicas',
   standalone: true,
@@ -65,11 +72,19 @@ export class AdministradorPoliticasPageComponent implements OnInit {
     descripcion: string;
     tipoPolitica: TipoPolitica;
     departamentoInicioId: string | null;
+    requierePago: boolean;
+    montoPago: number | null;
+    monedaPago: string;
+    descripcionPago: string;
   } = {
     nombre: '',
     descripcion: '',
     tipoPolitica: 'EXTERNA',
     departamentoInicioId: null,
+    requierePago: false,
+    montoPago: null,
+    monedaPago: 'USD',
+    descripcionPago: '',
   };
 
   isEditMode = computed(() => this.modalMode() === 'EDIT');
@@ -158,6 +173,10 @@ export class AdministradorPoliticasPageComponent implements OnInit {
       descripcion: '',
       tipoPolitica: 'EXTERNA',
       departamentoInicioId: null,
+      requierePago: false,
+      montoPago: null,
+      monedaPago: 'USD',
+      descripcionPago: '',
     };
     this.showModal.set(true);
   }
@@ -171,6 +190,14 @@ export class AdministradorPoliticasPageComponent implements OnInit {
       descripcion: politica.descripcion ?? '',
       tipoPolitica: politica.tipoPolitica ?? 'EXTERNA',
       departamentoInicioId: politica.departamentoInicioId ?? null,
+      requierePago: this.policyRequiresPayment(politica),
+      montoPago: this.policyRequiresPayment(politica)
+        ? (politica.montoPago ?? null)
+        : null,
+      monedaPago: (politica.monedaPago ?? 'USD').trim() || 'USD',
+      descripcionPago: this.policyRequiresPayment(politica)
+        ? (politica.descripcionPago ?? 'Pago de trámite')
+        : (politica.descripcionPago ?? ''),
     };
     this.showModal.set(true);
   }
@@ -205,10 +232,19 @@ export class AdministradorPoliticasPageComponent implements OnInit {
       return;
     }
 
+    const paymentConfig = this.getNormalizedPaymentConfig();
+    if (!paymentConfig) {
+      return;
+    }
+
     this.saving.set(true);
     const payload: CreatePoliticaRequest = {
       nombre,
       descripcion,
+      requierePago: paymentConfig.requierePago,
+      montoPago: paymentConfig.montoPago,
+      monedaPago: paymentConfig.monedaPago,
+      descripcionPago: paymentConfig.descripcionPago,
       tipoPolitica: this.form.tipoPolitica,
       departamentoInicioId,
     };
@@ -247,6 +283,11 @@ export class AdministradorPoliticasPageComponent implements OnInit {
       return;
     }
 
+    const paymentConfig = this.getNormalizedPaymentConfig();
+    if (!paymentConfig) {
+      return;
+    }
+
     const current = this.politicas().find((item) => item.id === politicaId);
     if (!current) {
       this.toast.error('Error', 'No se encontro la politica a editar');
@@ -271,16 +312,35 @@ export class AdministradorPoliticasPageComponent implements OnInit {
       payload.departamentoInicioId = departamentoInicioId;
     }
 
+    const currentRequiresPayment = this.policyRequiresPayment(current);
+    const currentMontoPago = currentRequiresPayment ? (current.montoPago ?? null) : null;
+    const currentMonedaPago = (current.monedaPago ?? 'USD').trim() || 'USD';
+    const currentDescripcionPago = currentRequiresPayment
+      ? ((current.descripcionPago ?? 'Pago de trámite').trim() || 'Pago de trámite')
+      : (current.descripcionPago ?? '').trim();
+
+    const paymentChanged =
+      paymentConfig.requierePago !== currentRequiresPayment ||
+      paymentConfig.montoPago !== currentMontoPago ||
+      paymentConfig.monedaPago !== currentMonedaPago ||
+      paymentConfig.descripcionPago !== currentDescripcionPago;
+
     if (
       !payload.nombre &&
       payload.descripcion === undefined &&
       payload.tipoPolitica === undefined &&
-      payload.departamentoInicioId === undefined
+      payload.departamentoInicioId === undefined &&
+      !paymentChanged
     ) {
       this.toast.info('Sin cambios', 'No hay cambios para guardar');
       this.closeModal();
       return;
     }
+
+    payload.requierePago = paymentConfig.requierePago;
+    payload.montoPago = paymentConfig.montoPago;
+    payload.monedaPago = paymentConfig.monedaPago;
+    payload.descripcionPago = paymentConfig.descripcionPago;
 
     this.saving.set(true);
     this.svc.updateMetadata(politicaId, payload).subscribe({
@@ -476,6 +536,43 @@ export class AdministradorPoliticasPageComponent implements OnInit {
     return this.departments().find((department) => department.id === departamentoId)?.nombre ?? null;
   }
 
+  onRequierePagoChange(value: boolean): void {
+    this.form.requierePago = value;
+
+    if (!value) {
+      this.form.montoPago = null;
+      this.form.monedaPago = 'USD';
+      this.form.descripcionPago = '';
+      return;
+    }
+
+    this.form.monedaPago = (this.form.monedaPago ?? '').trim() || 'USD';
+    this.form.descripcionPago = (this.form.descripcionPago ?? '').trim() || 'Pago de trámite';
+    if ((this.form.montoPago ?? 0) <= 0) {
+      this.form.montoPago = null;
+    }
+  }
+
+  policyRequiresPayment(politica: PoliticaNegocio): boolean {
+    return politica.requierePago === true;
+  }
+
+  formatPaymentAmount(montoPago: number | null | undefined, monedaPago: string | null | undefined): string {
+    const value = montoPago ?? 0;
+    const currency = (monedaPago ?? 'USD').trim() || 'USD';
+
+    try {
+      return new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
+    } catch {
+      return `${value.toFixed(2)} ${currency}`;
+    }
+  }
+
   private getActionErrorMessage(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       const fallbackByStatus: Record<number, string> = {
@@ -514,6 +611,38 @@ export class AdministradorPoliticasPageComponent implements OnInit {
 
     const departamentoId = this.form.departamentoInicioId?.trim();
     return departamentoId ? departamentoId : null;
+  }
+
+  private getNormalizedPaymentConfig(): PaymentConfigNormalized | null {
+    if (!this.form.requierePago) {
+      return {
+        requierePago: false,
+        montoPago: null,
+        monedaPago: 'USD',
+        descripcionPago: '',
+      };
+    }
+
+    const montoPago = Number(this.form.montoPago);
+    if (!Number.isFinite(montoPago) || montoPago <= 0) {
+      this.toast.error('Validacion', 'El precio debe ser mayor a 0');
+      return null;
+    }
+
+    const monedaPago = (this.form.monedaPago ?? '').trim().toUpperCase();
+    if (!monedaPago) {
+      this.toast.error('Validacion', 'La moneda es obligatoria cuando la politica es de paga');
+      return null;
+    }
+
+    const descripcionPago = (this.form.descripcionPago ?? '').trim() || 'Pago de trámite';
+
+    return {
+      requierePago: true,
+      montoPago,
+      monedaPago,
+      descripcionPago,
+    };
   }
 
   private departmentExists(departamentoId: string): boolean {

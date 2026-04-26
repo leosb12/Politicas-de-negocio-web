@@ -102,6 +102,10 @@ export interface PoliticaNegocio {
   id: string;
   nombre: string;
   descripcion: string;
+  requierePago?: boolean;
+  montoPago?: number | null;
+  monedaPago?: string | null;
+  descripcionPago?: string | null;
   estado: EstadoPolitica;
   tipoPolitica: TipoPolitica;
   departamentoInicioId?: string | null;
@@ -118,6 +122,10 @@ export interface PoliticaNegocio {
 export interface CreatePoliticaRequest {
   nombre: string;
   descripcion: string;
+  requierePago: boolean;
+  montoPago: number | null;
+  monedaPago: string;
+  descripcionPago: string;
   tipoPolitica: TipoPolitica;
   departamentoInicioId?: string | null;
 }
@@ -125,6 +133,10 @@ export interface CreatePoliticaRequest {
 export interface UpdatePoliticaRequest {
   nombre?: string;
   descripcion?: string;
+  requierePago?: boolean;
+  montoPago?: number | null;
+  monedaPago?: string;
+  descripcionPago?: string;
   tipoPolitica?: TipoPolitica;
   departamentoInicioId?: string | null;
 }
