@@ -62,6 +62,8 @@ import {
   Ban,
   Zap,
   Info,
+  Volume2,
+  VolumeX,
 } from 'lucide-angular';
 
 export const appConfig: ApplicationConfig = {
@@ -131,6 +133,8 @@ export const appConfig: ApplicationConfig = {
         Ban,
         Zap,
         Info,
+        Volume2,
+        VolumeX,
       })
     )
   ]

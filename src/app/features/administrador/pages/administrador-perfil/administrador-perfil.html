@@ -1,0 +1,11 @@
+<app-profile-page
+  theme="admin"
+  badgeLabel="Administrador"
+  heroTitle="Tu cuenta de administracion"
+  heroDescription="Administra tus datos de acceso y manten segura la cuenta con la que gestionas usuarios, politicas y configuraciones del sistema."
+  securityDescription="Usa una contraseña nueva de al menos 6 caracteres y evita reutilizar la actual."
+  note="Este acceso tiene permisos sensibles. Cambia tu contraseña si compartiste el equipo o si sospechas de actividad no autorizada."
+  actionHint="El cambio se aplica inmediatamente."
+  [user]="usuario()"
+  [summaryItems]="summaryItems()"
+></app-profile-page>

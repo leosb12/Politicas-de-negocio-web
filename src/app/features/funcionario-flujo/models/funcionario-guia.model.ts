@@ -2,7 +2,8 @@ export type FuncionarioGuiaScreen =
   | 'EMPLOYEE_DASHBOARD'
   | 'TASK_DETAIL'
   | 'TASK_FORM'
-  | 'TASK_HISTORY';
+  | 'TASK_HISTORY'
+  | 'PERFIL_USUARIO';
 
 export type FuncionarioGuiaSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
 

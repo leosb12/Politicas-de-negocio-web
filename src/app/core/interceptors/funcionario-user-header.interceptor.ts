@@ -1,6 +1,7 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../auth/services/auth.service';
+import { isFuncionarioRole } from '../auth/utils/role.util';
 
 export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
   request,
@@ -31,7 +32,7 @@ export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
     return next(request);
   }
 
-  const headerName = session.rol === 'FUNCIONARIO' ? 'X-User-Id' : 'X-Admin-User-Id';
+  const headerName = isFuncionarioRole(session.rol) ? 'X-User-Id' : 'X-Admin-User-Id';
 
   const requestWithActorHeader = request.clone({
     setHeaders: {

@@ -11,8 +11,19 @@
       <div class="app-header-actions">
         @if (session()) {
           <div class="app-header-user">
-            <span class="app-header-user__name">{{ session()?.nombre }}</span>
+            <a
+              class="app-header-user__name-link"
+              [routerLink]="profileRoute()"
+              (click)="closeMenus()"
+              >
+              {{ session()?.nombre }}
+            </a>
             <span class="app-header-user__role">{{ session()?.rol }}</span>
+            <a
+              class="app-header-user__view-profile"
+              [routerLink]="profileRoute()"
+              (click)="closeMenus()"
+            >Ver perfil</a>
           </div>
 
           <button type="button" (click)="cerrarSesion()" class="app-header-logout desktop-only">
@@ -100,6 +111,7 @@
       }
 
       @if (session()) {
+        <a class="app-header-mobile-link" [routerLink]="profileRoute()" (click)="closeMenus()">Ver perfil</a>
         <button type="button" (click)="cerrarSesion()" class="app-header-logout mobile-only">
           Cerrar sesion
         </button>

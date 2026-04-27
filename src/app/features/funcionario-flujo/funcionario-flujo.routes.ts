@@ -23,6 +23,13 @@ export const FUNCIONARIO_FLUJO_ROUTES: Routes = [
           ),
       },
       {
+        path: 'perfil',
+        loadComponent: () =>
+          import('../../shared/pages/usuario-perfil/usuario-perfil').then(
+            (module) => module.UsuarioPerfilPageComponent
+          ),
+      },
+      {
         path: 'tareas/:id',
         loadComponent: () =>
           import('./pages/funcionario-tarea-detalle/funcionario-tarea-detalle').then(

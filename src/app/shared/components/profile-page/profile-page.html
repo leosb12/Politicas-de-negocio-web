@@ -1,0 +1,82 @@
+<div [class]="pageClasses()">
+  <section class="perfil-hero">
+    <div class="perfil-hero__content">
+      <app-badge variant="info" className="perfil-badge">{{ badgeLabel() }}</app-badge>
+      <h1>{{ heroTitle() }}</h1>
+      <p>{{ heroDescription() }}</p>
+    </div>
+
+    <div class="perfil-hero__glow" aria-hidden="true"></div>
+  </section>
+
+  <section class="perfil-grid">
+    <app-card className="perfil-card perfil-card--highlight">
+      <div class="perfil-card__header">
+        <div>
+          <p class="perfil-eyebrow">Resumen</p>
+          <h2>{{ user()?.nombre ?? badgeLabel() }}</h2>
+        </div>
+        <app-badge variant="success">{{ accountStatusLabel() }}</app-badge>
+      </div>
+
+      <div class="perfil-metrics">
+        @for (item of summaryItems(); track item.label) {
+          <article class="metric">
+            <span class="metric__label">{{ item.label }}</span>
+            <strong class="metric__value">{{ item.value }}</strong>
+          </article>
+        }
+      </div>
+
+      <p class="perfil-note">{{ note() }}</p>
+    </app-card>
+
+    <app-card className="perfil-card">
+      <div class="perfil-card__header">
+        <div>
+          <p class="perfil-eyebrow">Seguridad</p>
+          <h2>{{ securityTitle() }}</h2>
+        </div>
+        <app-badge variant="warning">{{ securityBadgeLabel() }}</app-badge>
+      </div>
+
+      <p class="perfil-card__description">{{ securityDescription() }}</p>
+
+      <app-alert *ngIf="error()" variant="danger" [message]="error()"></app-alert>
+
+      <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="pw-form">
+        <app-input
+          label="Contraseña actual"
+          type="password"
+          autocomplete="current-password"
+          formControlName="currentPassword"
+          [error]="currentPasswordControl.touched && currentPasswordControl.invalid ? 'Ingresa tu contraseña actual.' : null"
+        ></app-input>
+
+        <app-input
+          label="Nueva contraseña"
+          type="password"
+          autocomplete="new-password"
+          hint="Minimo 6 caracteres."
+          formControlName="newPassword"
+          [error]="newPasswordControl.touched && newPasswordControl.invalid ? 'La nueva contraseña debe tener al menos 6 caracteres.' : null"
+        ></app-input>
+
+        <app-input
+          label="Confirmar nueva contraseña"
+          type="password"
+          autocomplete="new-password"
+          formControlName="confirmPassword"
+          [error]="confirmPasswordControl.touched && confirmPasswordControl.invalid ? 'Confirma la nueva contraseña.' : null"
+        ></app-input>
+
+        <div class="perfil-actions">
+          <app-button [pending]="pending()" [disabled]="passwordForm.invalid" type="submit">
+            Actualizar contraseña
+          </app-button>
+          <span class="perfil-actions__hint">{{ actionHint() }}</span>
+        </div>
+      </form>
+    </app-card>
+  </section>
+</div>

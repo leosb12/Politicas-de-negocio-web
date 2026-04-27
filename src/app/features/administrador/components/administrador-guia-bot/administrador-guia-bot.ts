@@ -28,6 +28,7 @@ import {
 } from '../../../funcionario-flujo/models/funcionario-guia.model';
 import { FuncionarioGuiaContextService } from '../../../funcionario-flujo/services/funcionario-guia-context.service';
 import { FuncionarioGuiaService } from '../../../funcionario-flujo/services/funcionario-guia.service';
+import { VozIaService } from '../../../../core/services/voz-ia.service';
 
 type GuideBotRole = 'ADMIN' | 'FUNCIONARIO';
 type GuideBotSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
@@ -58,11 +59,14 @@ export class AdministradorGuiaBotComponent {
   private readonly adminGuideService = inject(AdministradorGuiaService);
   private readonly employeeGuideContext = inject(FuncionarioGuiaContextService);
   private readonly employeeGuideService = inject(FuncionarioGuiaService);
+  private readonly vozIaService = inject(VozIaService);
 
   readonly isOpen = signal(false);
   readonly isLoading = signal(false);
   readonly isListening = signal(false);
   readonly voiceSupported = signal(false);
+  readonly voiceReadingSupported = this.vozIaService.isSupported;
+  readonly voiceReadingEnabled = this.vozIaService.isEnabled;
   readonly draft = signal('');
   readonly messages = signal<GuideChatMessage[]>([]);
   readonly role = computed<GuideBotRole | null>(() => {
@@ -137,6 +141,10 @@ export class AdministradorGuiaBotComponent {
     this.sendDraft();
   }
 
+  toggleVoiceReading(): void {
+    this.vozIaService.toggle();
+  }
+
   toggleVoiceInput(): void {
     this.refreshVoiceSupport();
 
@@ -190,14 +198,17 @@ export class AdministradorGuiaBotComponent {
           sender: 'assistant',
           response,
         });
+        this.vozIaService.read(response.answer);
       },
       error: () => {
         this.isLoading.set(false);
+        const fallback = this.buildEmergencyFallback(normalizedQuestion);
         this.pushMessage({
           id: this.nextId(),
           sender: 'assistant',
-          response: this.buildEmergencyFallback(normalizedQuestion),
+          response: fallback,
         });
+        this.vozIaService.read(fallback.answer);
       },
     });
   }
@@ -223,6 +234,14 @@ export class AdministradorGuiaBotComponent {
         'Que puedo hacer aqui?',
         'Como creo una politica?',
         'Como activo una politica?',
+      ];
+    }
+
+    if (screen === 'PERFIL_USUARIO') {
+      return [
+        'Que hago aqui?',
+        'Donde cambio mi contrasena?',
+        'Olvide mi contrasena',
       ];
     }
 
@@ -302,6 +321,13 @@ export class AdministradorGuiaBotComponent {
         'En que etapa esta el tramite?',
         'Que falta del tramite?',
         'Que pasa despues?',
+      ];
+    }
+    if (screen === 'PERFIL_USUARIO') {
+      return [
+        'Que hago aqui?',
+        'Donde veo mi departamento?',
+        'Donde cambio mi contrasena?',
       ];
     }
     return [
@@ -404,6 +430,9 @@ export class AdministradorGuiaBotComponent {
     if (url.includes('/admin/politicas/') && url.includes('/canvas')) {
       return 'POLICY_DESIGNER';
     }
+    if (url.includes('/admin/perfil')) {
+      return 'PERFIL_USUARIO';
+    }
     if (url.includes('/admin/politicas')) {
       return 'POLICY_LIST';
     }
@@ -436,6 +465,9 @@ export class AdministradorGuiaBotComponent {
   }
 
   private mapUrlToEmployeeScreen(url: string): FuncionarioGuiaScreen {
+    if (url.includes('/funcionario/perfil')) {
+      return 'PERFIL_USUARIO';
+    }
     if (url.includes('/funcionario/instancias/')) {
       return 'TASK_HISTORY';
     }
@@ -480,6 +512,23 @@ export class AdministradorGuiaBotComponent {
           'Agrega o revisa nodos clave.',
           'Configura responsables y formularios.',
           'Valida el flujo antes de activar.',
+        ],
+        suggestedForm: [],
+        detectedIssues: [],
+        suggestedActions: [],
+        severity: 'INFO',
+        source: 'FRONTEND_FALLBACK',
+      };
+    }
+
+    if (screen === 'PERFIL_USUARIO') {
+      return {
+        answer:
+          'Estas en tu perfil. Aqui puedes revisar tu cuenta y cambiar tu contrasena desde la seccion de seguridad.',
+        steps: [
+          'Revisa la informacion de tu cuenta.',
+          'Entra a la seccion de seguridad.',
+          'Actualiza tu contrasena si lo necesitas.',
         ],
         suggestedForm: [],
         detectedIssues: [],
@@ -552,6 +601,23 @@ export class AdministradorGuiaBotComponent {
           'Revisa la etapa actual.',
           'Identifica los pasos ya completados.',
           'Confirma el siguiente paso del flujo.',
+        ],
+        formHelp: [],
+        missingFields: [],
+        suggestedActions: [],
+        severity: 'INFO',
+        source: 'FRONTEND_FALLBACK',
+      };
+    }
+
+    if (screen === 'PERFIL_USUARIO') {
+      return {
+        answer:
+          'Estas en tu perfil. Aqui puedes ver tu departamento y cambiar tu contrasena desde la seccion de seguridad.',
+        steps: [
+          'Revisa el resumen de tu cuenta.',
+          'Consulta el campo Departamento.',
+          'Usa la seccion de seguridad para cambiar tu contrasena.',
         ],
         formHelp: [],
         missingFields: [],

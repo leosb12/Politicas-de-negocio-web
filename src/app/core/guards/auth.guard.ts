@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../auth/services/auth.service';
+import { isFuncionarioRole } from '../auth/utils/role.util';
 
 function validateLoggedSession(): true | UrlTree {
   const authService = inject(AuthService);
@@ -24,7 +25,7 @@ export const funcionarioOnlyGuard: CanActivateFn = () => {
     return router.createUrlTree(['/login']);
   }
 
-  if (session.rol !== 'FUNCIONARIO') {
+  if (!isFuncionarioRole(session.rol)) {
     return router.createUrlTree(['/acceso-denegado']);
   }
 

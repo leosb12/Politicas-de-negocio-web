@@ -4,6 +4,7 @@ export interface Usuario {
   correo: string;
   rol: string;
   departamentoId: string | null;
+  departamentoNombre?: string | null;
   activo?: boolean;
   fechaCreacion?: string;
 }

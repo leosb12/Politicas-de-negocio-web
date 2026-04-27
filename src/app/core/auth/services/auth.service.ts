@@ -7,6 +7,11 @@ import { API_ENDPOINTS } from '../../config/api.config';
 const SESSION_STORAGE_KEY = 'usuarioSesion';
 const LOGIN_TIMEOUT_MS = 8000;
 
+export interface FuncionarioDepartamentoResponse {
+  id: string | null;
+  nombre: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -27,6 +32,44 @@ export class AuthService {
       );
   }
 
+  cambiarContrasena(
+    correo: string,
+    passwordActual: string,
+    nuevaContrasena: string,
+    confirmarNuevaContrasena: string,
+  ): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/cambiar-contrasena`, {
+      correo,
+      passwordActual,
+      nuevaContrasena,
+      confirmarNuevaContrasena,
+    });
+  }
+
+  solicitarRecuperacionContrasena(email: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/forgot-password`, {
+      email,
+    });
+  }
+
+  restablecerContrasena(token: string, newPassword: string): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/reset-password`, {
+      token,
+      newPassword,
+    });
+  }
+
+  obtenerDepartamentoFuncionario(funcionarioUserId: string): Observable<FuncionarioDepartamentoResponse> {
+    return this.http.get<FuncionarioDepartamentoResponse>(
+      `${this.apiUrl}/funcionario/departamento`,
+      {
+        headers: {
+          'X-User-Id': funcionarioUserId,
+        },
+      }
+    );
+  }
+
   guardarSesion(usuario: Usuario, useSessionStorage = false): void {
     const storage = useSessionStorage ? sessionStorage : localStorage;
 
@@ -34,6 +77,11 @@ export class AuthService {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(usuario));
     this.session.set(usuario);
+  }
+
+  actualizarSesion(usuario: Usuario): void {
+    const useSessionStorage = sessionStorage.getItem(SESSION_STORAGE_KEY) !== null;
+    this.guardarSesion(usuario, useSessionStorage);
   }
 
   obtenerSesion(): Usuario | null {

@@ -1,0 +1,224 @@
+.perfil-page {
+  --perfil-bg-accent: rgba(14, 165, 233, 0.18);
+  --perfil-bg-start: #f8fbff;
+  --perfil-bg-end: #eef4f8;
+  --perfil-hero-start: rgba(15, 23, 42, 0.97);
+  --perfil-hero-end: rgba(30, 41, 59, 0.92);
+  --perfil-hero-text: #f8fafc;
+  --perfil-hero-subtitle: rgba(226, 232, 240, 0.9);
+  --perfil-glow: rgba(56, 189, 248, 0.45);
+  --perfil-card-title: #0f172a;
+  --perfil-eyebrow: #64748b;
+  --perfil-copy: #475569;
+  --perfil-metric-border: #dbe5ef;
+  --perfil-metric-bg: rgba(248, 250, 252, 0.92);
+  --perfil-metric-value: #0f172a;
+  --perfil-hint: #64748b;
+  min-height: 100%;
+  padding: 24px;
+  background:
+    radial-gradient(circle at var(--perfil-accent-position, top right), var(--perfil-bg-accent), transparent 30%),
+    linear-gradient(180deg, var(--perfil-bg-start) 0%, var(--perfil-bg-end) 100%);
+}
+
+.perfil-page--funcionario {
+  --perfil-bg-accent: rgba(16, 185, 129, 0.18);
+  --perfil-bg-start: #f7fbf9;
+  --perfil-bg-end: #edf7f3;
+  --perfil-hero-start: rgba(6, 78, 59, 0.96);
+  --perfil-hero-end: rgba(17, 94, 89, 0.92);
+  --perfil-hero-text: #f0fdfa;
+  --perfil-hero-subtitle: rgba(204, 251, 241, 0.92);
+  --perfil-glow: rgba(45, 212, 191, 0.42);
+  --perfil-card-title: #052e2b;
+  --perfil-eyebrow: #64827a;
+  --perfil-copy: #3f5f58;
+  --perfil-metric-border: #cde8df;
+  --perfil-metric-bg: rgba(240, 253, 250, 0.92);
+  --perfil-metric-value: #052e2b;
+  --perfil-hint: #5f766f;
+  --perfil-accent-position: top left;
+}
+
+.perfil-hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 28px;
+  padding: 32px;
+  background:
+    linear-gradient(135deg, var(--perfil-hero-start), var(--perfil-hero-end)),
+    linear-gradient(135deg, #0f172a, #1e293b);
+  color: var(--perfil-hero-text);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+}
+
+.perfil-hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+}
+
+.perfil-badge {
+  margin-bottom: 14px;
+}
+
+.perfil-hero h1 {
+  margin: 0 0 10px;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.perfil-hero p {
+  margin: 0;
+  max-width: 58ch;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--perfil-hero-subtitle);
+}
+
+.perfil-hero__glow {
+  position: absolute;
+  top: -80px;
+  right: -40px;
+  width: 240px;
+  height: 240px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--perfil-glow), transparent 68%);
+}
+
+.perfil-page--funcionario .perfil-hero__glow {
+  top: auto;
+  right: -50px;
+  bottom: -60px;
+  width: 220px;
+  height: 220px;
+}
+
+.perfil-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.perfil-card {
+  padding: 24px;
+}
+
+.perfil-card--highlight {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98)),
+    #fff;
+}
+
+.perfil-page--funcionario .perfil-card--highlight {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(240, 253, 250, 0.98)),
+    #fff;
+}
+
+.perfil-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.perfil-card__header h2 {
+  margin: 4px 0 0;
+  color: var(--perfil-card-title);
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.perfil-eyebrow {
+  margin: 0;
+  color: var(--perfil-eyebrow);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.perfil-card__description,
+.perfil-note {
+  margin: 0;
+  color: var(--perfil-copy);
+  line-height: 1.7;
+}
+
+.perfil-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.metric {
+  border: 1px solid var(--perfil-metric-border);
+  border-radius: 18px;
+  padding: 16px;
+  background: var(--perfil-metric-bg);
+}
+
+.metric__label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--perfil-eyebrow);
+  font-size: 0.82rem;
+}
+
+.metric__value {
+  color: var(--perfil-metric-value);
+  font-size: 1rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.pw-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.perfil-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.perfil-actions__hint {
+  color: var(--perfil-hint);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 900px) {
+  .perfil-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .perfil-page {
+    padding: 16px;
+  }
+
+  .perfil-hero,
+  .perfil-card {
+    padding: 20px;
+  }
+
+  .perfil-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .perfil-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

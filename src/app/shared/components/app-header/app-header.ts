@@ -11,6 +11,7 @@ import { filter, fromEvent } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { Usuario } from '../../../core/auth/models/usuario.model';
 import { AuthService } from '../../../core/auth/services/auth.service';
+import { isFuncionarioRole, isAdminRole } from '../../../core/auth/utils/role.util';
 
 interface HeaderMenuItem {
   label: string;
@@ -91,15 +92,19 @@ export class AppHeaderComponent {
   readonly session = signal<Usuario | null>(this.authService.obtenerSesion());
   readonly mobileMenuOpen = signal(false);
   readonly openGroupKey = signal<string | null>(null);
+  readonly isFuncionarioSession = computed(() => isFuncionarioRole(this.session()?.rol));
+  readonly profileRoute = computed(() =>
+    this.isFuncionarioSession() ? '/funcionario/perfil' : '/admin/perfil'
+  );
 
   readonly menuGroups = computed(() => {
     const role = this.session()?.rol;
 
-    if (role === 'ADMIN') {
+    if (isAdminRole(role)) {
       return ADMIN_MENU_GROUPS;
     }
 
-    if (role === 'FUNCIONARIO') {
+    if (isFuncionarioRole(role)) {
       return FUNCIONARIO_MENU_GROUPS;
     }
 
@@ -109,7 +114,7 @@ export class AppHeaderComponent {
   readonly titleRouterLink = computed(() => {
     const role = this.session()?.rol;
 
-    if (role === 'FUNCIONARIO') {
+    if (isFuncionarioRole(role)) {
       return '/dashboard-funcionario';
     }
 

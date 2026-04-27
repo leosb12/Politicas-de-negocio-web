@@ -6,6 +6,7 @@ import {
   UrlTree,
 } from '@angular/router';
 import { AuthService } from '../auth/services/auth.service';
+import { isAdminRole } from '../auth/utils/role.util';
 
 function validateAdminAccess(): true | UrlTree {
   const authService = inject(AuthService);
@@ -16,7 +17,7 @@ function validateAdminAccess(): true | UrlTree {
     return router.createUrlTree(['/login']);
   }
 
-  if (session.rol !== 'ADMIN') {
+  if (!isAdminRole(session.rol)) {
     return router.createUrlTree(['/acceso-denegado']);
   }
 

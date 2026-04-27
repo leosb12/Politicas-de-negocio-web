@@ -7,6 +7,7 @@ export type AdministradorGuiaScreen =
   | 'ADMIN_ANALYTICS'
   | 'ADMIN_AI_SERVICES'
   | 'ADMIN_SIMULATIONS'
+  | 'PERFIL_USUARIO'
   | 'GENERAL_ADMIN';
 
 export type AdministradorGuiaSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';

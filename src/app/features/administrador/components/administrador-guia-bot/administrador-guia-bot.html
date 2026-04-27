@@ -189,6 +189,17 @@
         ></textarea>
 
         <div class="guide-composer-actions">
+          @if (voiceReadingSupported()) {
+            <button
+              type="button"
+              class="guide-voice"
+              (click)="toggleVoiceReading()"
+            >
+              <lucide-icon [name]="voiceReadingEnabled() ? 'volume-2' : 'volume-x'" [size]="16"></lucide-icon>
+              <span class="guide-action-label">{{ voiceReadingEnabled() ? 'Voz IA (Activa)' : 'Voz IA (Muda)' }}</span>
+            </button>
+          }
+
           @if (voiceSupported()) {
             <button
               type="button"

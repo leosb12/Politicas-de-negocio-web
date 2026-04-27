@@ -5,61 +5,48 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TimeoutError } from 'rxjs';
 import { AuthService } from '../../../../core/auth/services/auth.service';
-import { isAdminRole, isFuncionarioRole } from '../../../../core/auth/utils/role.util';
 import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 
 @Component({
-  selector: 'app-login',
+  selector: 'app-forgot-password',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterLink],
-  templateUrl: './login.html',
-  styleUrl: './login.css'
+  templateUrl: './forgot-password.html',
+  styleUrl: './forgot-password.css'
 })
-export class LoginComponent {
+export class ForgotPasswordComponent {
   private readonly formBuilder = new FormBuilder();
 
-  readonly loginForm = this.formBuilder.nonNullable.group({
-    correo: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
+  readonly emailForm = this.formBuilder.nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
   });
 
   readonly cargando = signal(false);
   readonly error = signal('');
+  readonly exito = signal(false);
 
   constructor(
     private authService: AuthService,
     private router: Router
   ) {}
 
-  iniciarSesion(): void {
-    if (this.loginForm.invalid) {
-      this.loginForm.markAllAsTouched();
+  solicitarRecuperacion(): void {
+    if (this.emailForm.invalid) {
+      this.emailForm.markAllAsTouched();
       return;
     }
 
     this.error.set('');
     this.cargando.set(true);
-    const formValue = this.loginForm.getRawValue();
+    const formValue = this.emailForm.getRawValue();
 
-    this.authService.loginWeb(formValue.correo, formValue.password).subscribe({
-      next: (usuario) => {
+    this.authService.solicitarRecuperacionContrasena(formValue.email).subscribe({
+      next: () => {
         this.cargando.set(false);
-
-        if (isAdminRole(usuario.rol)) {
-          this.router.navigate(['/dashboard-admin']);
-        } else if (isFuncionarioRole(usuario.rol)) {
-          this.router.navigate(['/dashboard-funcionario']);
-        } else {
-          this.error.set('Acceso denegado: tu rol no tiene acceso web administrativo.');
-        }
+        this.exito.set(true);
       },
       error: (error: unknown) => {
         this.cargando.set(false);
-
-        if (error instanceof HttpErrorResponse && error.status === 401) {
-          this.error.set('Credenciales incorrectas.');
-          return;
-        }
 
         if (error instanceof TimeoutError) {
           this.error.set(
@@ -71,10 +58,14 @@ export class LoginComponent {
         this.error.set(
           getApiErrorMessage(
             error,
-            'No se pudo iniciar sesion. Intenta nuevamente.'
+            'No pudimos procesar tu solicitud. Intenta nuevamente.'
           )
         );
       }
     });
+  }
+
+  volver(): void {
+    this.router.navigate(['/login']);
   }
 }

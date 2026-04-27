@@ -76,6 +76,13 @@ export const ADMINISTRADOR_ROUTES: Routes = [
           ),
       },
       {
+        path: 'perfil',
+        loadComponent: () =>
+          import('../../shared/pages/usuario-perfil/usuario-perfil').then(
+            (module) => module.UsuarioPerfilPageComponent
+          ),
+      },
+      {
         path: 'simulations/:simulationId',
         loadComponent: () =>
           import('../simulaciones/pages/simulacion-detalle/simulacion-detalle').then(
