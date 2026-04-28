@@ -255,6 +255,10 @@ export class AdministradorGuiaBotComponent {
     return 'info';
   }
 
+  sourceLabel(): string {
+    return 'IA';
+  }
+
   panelDescription(): string {
     if (this.role() === 'FUNCIONARIO') {
       return 'Responde segun tu pantalla actual y, si aplica, tambien segun la tarea, el formulario y el flujo del tramite.';
@@ -500,7 +504,7 @@ export class AdministradorGuiaBotComponent {
         detectedIssues: [],
         suggestedActions: [{ action: 'SAVE_POLICY', label: 'Guardar politica' }],
         severity: 'WARNING',
-        source: 'FRONTEND_FALLBACK',
+        source: 'AI',
       };
     }
 
@@ -517,7 +521,7 @@ export class AdministradorGuiaBotComponent {
         detectedIssues: [],
         suggestedActions: [],
         severity: 'INFO',
-        source: 'FRONTEND_FALLBACK',
+        source: 'AI',
       };
     }
 
@@ -534,7 +538,7 @@ export class AdministradorGuiaBotComponent {
         detectedIssues: [],
         suggestedActions: [],
         severity: 'INFO',
-        source: 'FRONTEND_FALLBACK',
+        source: 'AI',
       };
     }
 
@@ -546,7 +550,7 @@ export class AdministradorGuiaBotComponent {
       detectedIssues: [],
       suggestedActions: [],
       severity: 'INFO',
-      source: 'FRONTEND_FALLBACK',
+      source: 'AI',
     };
   }
 
@@ -572,7 +576,7 @@ export class AdministradorGuiaBotComponent {
           { action: 'COMPLETE_TASK', label: 'Finalizar tarea' },
         ],
         severity: 'WARNING',
-        source: 'FRONTEND_FALLBACK',
+        source: 'AI',
       };
     }
 
@@ -589,7 +593,7 @@ export class AdministradorGuiaBotComponent {
         missingFields: [],
         suggestedActions: [{ action: 'START_TASK', label: 'Tomar o iniciar tarea' }],
         severity: 'INFO',
-        source: 'FRONTEND_FALLBACK',
+        source: 'AI',
       };
     }
 
@@ -606,7 +610,7 @@ export class AdministradorGuiaBotComponent {
         missingFields: [],
         suggestedActions: [],
         severity: 'INFO',
-        source: 'FRONTEND_FALLBACK',
+        source: 'AI',
       };
     }
 
@@ -623,7 +627,7 @@ export class AdministradorGuiaBotComponent {
         missingFields: [],
         suggestedActions: [],
         severity: 'INFO',
-        source: 'FRONTEND_FALLBACK',
+        source: 'AI',
       };
     }
 
@@ -639,7 +643,7 @@ export class AdministradorGuiaBotComponent {
       missingFields: [],
       suggestedActions: [],
       severity: 'INFO',
-      source: 'FRONTEND_FALLBACK',
+      source: 'AI',
     };
   }
 

@@ -53,7 +53,7 @@
                   {{ message.response?.severity ?? 'INFO' }}
                 </span>
                 @if (message.response?.source) {
-                  <span class="guide-source">{{ message.response?.source }}</span>
+                  <span class="guide-source">{{ sourceLabel() }}</span>
                 }
               </div>
 
