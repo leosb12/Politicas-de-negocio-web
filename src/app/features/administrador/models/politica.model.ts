@@ -20,6 +20,13 @@ export type ResponsableTipo = 'DEPARTAMENTO' | 'USUARIO';
 export interface CampoFormulario {
   campo: string;
   tipo: TipoCampo;
+  etiqueta?: string | null;
+  requerido?: boolean | null;
+  placeholder?: string | null;
+  ayuda?: string | null;
+  orden?: number | null;
+  opciones?: string[] | null;
+  validaciones?: Record<string, unknown> | null;
 }
 
 export type OperadorLogicoDecision = 'AND' | 'OR';

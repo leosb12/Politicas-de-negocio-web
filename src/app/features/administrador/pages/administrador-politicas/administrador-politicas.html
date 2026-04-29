@@ -54,6 +54,59 @@
     </div>
   </div>
 
+  <div class="filters-bar" aria-label="Filtros de politicas">
+    <label class="filter-control" for="select-filtro-estado">
+      <span>Estado</span>
+      <select
+        id="select-filtro-estado"
+        class="filter-select"
+        [ngModel]="estadoFilter()"
+        (ngModelChange)="estadoFilter.set($event)"
+      >
+        <option value="TODAS">Todas</option>
+        <option value="ACTIVA">Activas</option>
+        <option value="BORRADOR">Borradores</option>
+        <option value="PAUSADA">Pausadas</option>
+        <option value="DESHABILITADA">Deshabilitadas</option>
+      </select>
+    </label>
+
+    <label class="filter-control" for="select-filtro-tipo">
+      <span>Tipo</span>
+      <select
+        id="select-filtro-tipo"
+        class="filter-select"
+        [ngModel]="tipoFilter()"
+        (ngModelChange)="tipoFilter.set($event)"
+      >
+        <option value="TODAS">Todas</option>
+        <option value="EXTERNA">Externas</option>
+        <option value="INTERNA">Internas</option>
+        <option value="AMBAS">Ambas</option>
+      </select>
+    </label>
+
+    <label class="filter-control" for="select-filtro-pago">
+      <span>Pago</span>
+      <select
+        id="select-filtro-pago"
+        class="filter-select"
+        [ngModel]="pagoFilter()"
+        (ngModelChange)="pagoFilter.set($event)"
+      >
+        <option value="TODAS">Todas</option>
+        <option value="GRATIS">Gratis</option>
+        <option value="DE_PAGO">De pago</option>
+      </select>
+    </label>
+
+    @if (hasActiveFilters()) {
+      <button type="button" class="filter-clear" (click)="clearFilters()">
+        Limpiar filtros
+      </button>
+    }
+  </div>
+
   @if (loading()) {
     <div class="loading-state">
       <div class="spinner"></div>
@@ -66,9 +119,15 @@
       <div class="empty-icon text-indigo-300 flex justify-center mb-4">
         <lucide-icon name="clipboard-list" [size]="48"></lucide-icon>
       </div>
-      <h3>No hay politicas aun</h3>
-      <p>Crea tu primera politica de negocio para empezar a diseñar flujos</p>
-      <button class="btn-primary" (click)="openModal()">Crear primera politica</button>
+      @if (politicas().length === 0) {
+        <h3>No hay politicas aun</h3>
+        <p>Crea tu primera politica de negocio para empezar a diseñar flujos</p>
+        <button class="btn-primary" (click)="openModal()">Crear primera politica</button>
+      } @else {
+        <h3>No hay politicas con esos filtros</h3>
+        <p>Ajusta la busqueda o cambia los filtros para ver otros resultados</p>
+        <button class="btn-ghost" (click)="clearFilters()">Limpiar filtros</button>
+      }
     </div>
   }
 

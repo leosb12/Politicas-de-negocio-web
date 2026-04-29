@@ -53,6 +53,7 @@ import { IaEdicionFlujoComponent } from '../../components/ia-edicion-flujo/ia-ed
 import { AdministradorGuiaContextService } from '../../services/administrador-guia-context.service';
 import { IaFlujoMapperService } from '../../services/ia-flujo-mapper.service';
 import { IaFlujoResponse } from '../../models/ia-flujo.model';
+import { IaWorkflowEditApplyResponse } from '../../models/ia-edicion-flujo.model';
 
 // ── Drag state ───────────────────────────────────────────────────
 interface DragState {
@@ -2232,8 +2233,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     void this.applyIaFlujo(event);
   }
 
-  onIaWorkflowApplied(): void {
-    void this.refreshCanvasAfterIaWorkflowEdit();
+  onIaWorkflowApplied(response?: IaWorkflowEditApplyResponse): void {
+    void this.refreshCanvasAfterIaWorkflowEdit(response?.workflow ?? null);
   }
 
   private async applyIaFlujo(event: {
@@ -2301,7 +2302,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async refreshCanvasAfterIaWorkflowEdit(): Promise<void> {
+  private async refreshCanvasAfterIaWorkflowEdit(workflowFromApply: PoliticaNegocio | null = null): Promise<void> {
     const currentPolicy = this.politica();
     if (!currentPolicy?.id) {
       return;
@@ -2309,7 +2310,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     this.saving.set(true);
     try {
-      const updatedPolicy = await firstValueFrom(this.svc.getById(currentPolicy.id));
+      const updatedPolicy = workflowFromApply ?? await firstValueFrom(this.svc.getById(currentPolicy.id));
       this.setPoliticaState(updatedPolicy);
       this.hydrateCanvas(updatedPolicy);
       this.broadcastCurrentFlowToCollaborators();

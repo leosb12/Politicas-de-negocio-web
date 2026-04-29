@@ -42,7 +42,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
 }
 
@@ -114,6 +114,73 @@
 
 .search-input::placeholder {
   color: #64748b;
+}
+
+.filters-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.filter-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 150px;
+}
+
+.filter-control span {
+  color: #a5b4fc;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.filter-select {
+  min-height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f8fafc;
+  padding: 0.62rem 0.85rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-select:focus {
+  border-color: rgba(129, 140, 248, 0.75);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.filter-select option {
+  background: #1e1b4b;
+  color: #f8fafc;
+}
+
+.filter-clear {
+  min-height: 42px;
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #c7d2fe;
+  padding: 0.62rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-clear:hover {
+  background: rgba(99, 102, 241, 0.22);
+  color: #fff;
+  border-color: rgba(129, 140, 248, 0.6);
 }
 
 /* ─── Buttons ───────────────────────────────────────────────────── */

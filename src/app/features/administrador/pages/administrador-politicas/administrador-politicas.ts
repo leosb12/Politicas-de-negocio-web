@@ -30,6 +30,9 @@ import { LucideAngularModule } from 'lucide-angular';
 
 type PoliticaConfirmActionType = 'DELETE' | 'DISABLE';
 type PoliticaModalMode = 'CREATE' | 'EDIT';
+type EstadoPoliticaFilter = EstadoPolitica | 'TODAS';
+type TipoPoliticaFilter = TipoPolitica | 'TODAS';
+type PagoPoliticaFilter = 'TODAS' | 'GRATIS' | 'DE_PAGO';
 
 interface PoliticaConfirmAction {
   type: PoliticaConfirmActionType;
@@ -69,6 +72,9 @@ export class AdministradorPoliticasPageComponent implements OnInit {
   generatingIa = signal(false);
   saving = signal(false);
   search = signal('');
+  estadoFilter = signal<EstadoPoliticaFilter>('TODAS');
+  tipoFilter = signal<TipoPoliticaFilter>('TODAS');
+  pagoFilter = signal<PagoPoliticaFilter>('TODAS');
   actionPending = signal(false);
   confirmAction = signal<PoliticaConfirmAction | null>(null);
   modalMode = signal<PoliticaModalMode>('CREATE');
@@ -102,13 +108,34 @@ export class AdministradorPoliticasPageComponent implements OnInit {
   activeDepartments = computed(() => this.departments().filter((department) => department.activo));
 
   filteredPoliticas = computed(() => {
-    const q = this.search().toLowerCase();
-    return this.politicas().filter(
-      (p) =>
+    const q = this.search().trim().toLowerCase();
+    const estado = this.estadoFilter();
+    const tipo = this.tipoFilter();
+    const pago = this.pagoFilter();
+
+    return this.politicas().filter((p) => {
+      const matchesSearch =
+        !q ||
         p.nombre.toLowerCase().includes(q) ||
-        p.descripcion?.toLowerCase().includes(q)
-    );
+        (p.descripcion ?? '').toLowerCase().includes(q);
+      const matchesEstado = estado === 'TODAS' || p.estado === estado;
+      const matchesTipo = tipo === 'TODAS' || (p.tipoPolitica ?? 'EXTERNA') === tipo;
+      const matchesPago =
+        pago === 'TODAS' ||
+        (pago === 'GRATIS' && !this.policyRequiresPayment(p)) ||
+        (pago === 'DE_PAGO' && this.policyRequiresPayment(p));
+
+      return matchesSearch && matchesEstado && matchesTipo && matchesPago;
+    });
   });
+
+  hasActiveFilters = computed(
+    () =>
+      this.search().trim().length > 0 ||
+      this.estadoFilter() !== 'TODAS' ||
+      this.tipoFilter() !== 'TODAS' ||
+      this.pagoFilter() !== 'TODAS'
+  );
 
   confirmTitle = computed(() => {
     const action = this.confirmAction();
@@ -137,6 +164,13 @@ export class AdministradorPoliticasPageComponent implements OnInit {
 
   countEstado(estado: EstadoPolitica): number {
     return this.politicas().filter((p) => p.estado === estado).length;
+  }
+
+  clearFilters(): void {
+    this.search.set('');
+    this.estadoFilter.set('TODAS');
+    this.tipoFilter.set('TODAS');
+    this.pagoFilter.set('TODAS');
   }
 
   ngOnInit(): void {

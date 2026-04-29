@@ -84,6 +84,14 @@
             </div>
           }
 
+          @if (preview.warnings.length) {
+            <div class="ia-inline-list warnings">
+              @for (warning of preview.warnings; track warning) {
+                <p>{{ warning }}</p>
+              }
+            </div>
+          }
+
           @if (applyError()) {
             <app-alert
               variant="danger"

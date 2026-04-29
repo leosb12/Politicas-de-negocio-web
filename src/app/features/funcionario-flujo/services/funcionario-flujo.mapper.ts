@@ -175,7 +175,7 @@ function mapFormularioField(
     clave: key,
     etiqueta: label,
     tipo,
-    requerido: true,
+    requerido: field.requerido ?? field.required ?? true,
     placeholder: trimToNull(field.placeholder),
     ayuda: trimToNull(field.ayuda),
     orden: typeof field.orden === 'number' ? field.orden : index,

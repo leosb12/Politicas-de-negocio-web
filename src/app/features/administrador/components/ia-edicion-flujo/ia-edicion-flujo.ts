@@ -141,16 +141,18 @@ export class IaEdicionFlujoComponent {
       next: (response) => {
         const message = response.message?.trim() || 'Cambios aplicados y guardados en la politica.';
         const operations = response.operations ?? [];
+        const warnings = response.warnings ?? [];
+        const errors = response.errors ?? [];
         this.previewResponse.set({
           policyId: response.policyId ?? policyId,
           policyName: response.policyName ?? this.policyName() ?? '',
           success: response.success ?? true,
-          valid: true,
+          valid: (response.success ?? true) && errors.length === 0,
           intent: 'UPDATE_WORKFLOW',
           summary: message,
           operations,
-          warnings: [],
-          errors: [],
+          warnings,
+          errors,
           requiresConfirmation: false,
           generatedAt: response.appliedAt ?? new Date().toISOString(),
         });
@@ -259,13 +261,43 @@ export class IaEdicionFlujoComponent {
   private buildOperationFallbackSummary(operation: IaWorkflowEditOperation): string | null {
     switch (operation.type) {
       case 'ADD_NODE':
-        return operation.nodeName ? `Nuevo nodo: ${operation.nodeName}` : null;
+        return operation.nodeName
+          ? `Nuevo nodo: ${operation.nodeName}${operation.nodeType ? ` (${operation.nodeType})` : ''}`
+          : null;
       case 'DELETE_NODE':
         return operation.nodeName ? `Eliminar nodo: ${operation.nodeName}` : null;
       case 'RENAME_NODE':
-        return operation.nodeName && operation['newName']
-          ? `Renombrar ${operation.nodeName} a ${operation['newName']}`
+        return operation.nodeName && operation.newName
+          ? `Renombrar ${operation.nodeName} a ${operation.newName}`
           : operation.nodeName ?? null;
+      case 'MOVE_NODE':
+        return operation.nodeName && operation.referenceNodeName
+          ? `Mover ${operation.nodeName} ${operation.position === 'before' ? 'antes de' : 'despues de'} ${operation.referenceNodeName}`
+          : operation.nodeName ?? null;
+      case 'ASSIGN_RESPONSIBLE':
+        return operation.nodeName
+          ? `Cambiar responsable de ${operation.nodeName}${operation.responsibleRoleName ? ` a ${operation.responsibleRoleName}` : ''}`
+          : operation.responsibleRoleName ?? null;
+      case 'REMOVE_RESPONSIBLE':
+        return operation.nodeName ? `Quitar responsable de ${operation.nodeName}` : null;
+      case 'ADD_FORM_FIELD':
+        return operation.nodeName && operation.fieldLabel
+          ? `Agregar campo ${operation.fieldLabel}${operation.fieldType ? ` (${operation.fieldType})` : ''} en ${operation.nodeName}`
+          : operation.fieldLabel ?? operation.nodeName ?? null;
+      case 'DELETE_FORM_FIELD':
+        return operation.nodeName && operation.fieldLabel
+          ? `Eliminar campo ${operation.fieldLabel} de ${operation.nodeName}`
+          : operation.fieldLabel ?? operation.nodeName ?? null;
+      case 'UPDATE_FORM':
+        return operation.nodeName && operation.fieldLabel
+          ? `Modificar campo ${operation.fieldLabel} en ${operation.nodeName}`
+          : operation.fieldLabel ?? operation.nodeName ?? null;
+      case 'REORDER_FLOW': {
+        const nodeNames = operation.payload?.['nodeNames'];
+        return Array.isArray(nodeNames)
+          ? `Reordenar flujo: ${nodeNames.join(' -> ')}`
+          : operation.nodeName ?? null;
+      }
       case 'DELETE_TRANSITION':
         return operation.fromNodeName && operation.toNodeName
           ? `Eliminar transicion: ${operation.fromNodeName} -> ${operation.toNodeName}`
@@ -290,6 +322,7 @@ export class IaEdicionFlujoComponent {
       response.message?.trim() || 'La aplicacion de cambios quedo lista para futuras iteraciones.';
     this.applyResultMessage.set(message);
     this.toast.success('Edicion IA', message);
+    this.workflowApplied.emit(response);
   }
 
   private handleApplyError(error: unknown): void {
