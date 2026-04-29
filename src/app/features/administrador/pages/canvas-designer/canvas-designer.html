@@ -845,13 +845,71 @@
           <!-- Existing fields -->
           @for (campo of sidebarNode()!.formulario; track $index) {
             <div class="campo-row">
-              <span class="campo-name">{{ campo.campo }}</span>
-              <span class="campo-tipo">{{ campo.tipo }}</span>
-              <button class="btn-remove" (click)="removeCampo(sidebarNode()!.id, $index)"
-                      [disabled]="isCanvasReadOnly()"
-                      [id]="'btn-remove-campo-' + $index">
-                <lucide-icon name="x" [size]="12"></lucide-icon>
-              </button>
+              @if (editingCampoNodeId() === sidebarNode()!.id && editingCampoIndex() === $index) {
+                <input
+                  class="prop-input campo-edit-input"
+                  type="text"
+                  [value]="editingCampoName()"
+                  (input)="editingCampoName.set(($any($event.target).value))"
+                  (keydown)="onEditCampoKeyDown($event, sidebarNode()!.id, $index)"
+                  [disabled]="isCanvasReadOnly()"
+                />
+
+                <select
+                  class="prop-select campo-edit-select"
+                  [value]="editingCampoType()"
+                  (change)="editingCampoType.set($any($event.target).value)"
+                  (keydown)="onEditCampoKeyDown($event, sidebarNode()!.id, $index)"
+                  [disabled]="isCanvasReadOnly()"
+                >
+                  @for (t of tipoCampoOptions; track t) {
+                    <option [value]="t" [title]="t">{{ t }}</option>
+                  }
+                </select>
+
+                <button
+                  class="btn-save-campo"
+                  type="button"
+                  (click)="saveEditCampo(sidebarNode()!.id, $index, $event)"
+                  [disabled]="isCanvasReadOnly()"
+                  title="Guardar con Enter"
+                >
+                  Enter
+                </button>
+
+                <button
+                  class="btn-cancel-campo"
+                  type="button"
+                  (click)="cancelEditCampo($event)"
+                  [disabled]="isCanvasReadOnly()"
+                  title="Cancelar edición"
+                >
+                  <lucide-icon name="x" [size]="12"></lucide-icon>
+                </button>
+              } @else {
+                <span class="campo-name">{{ campo.campo }}</span>
+                <span class="campo-tipo">{{ campo.tipo }}</span>
+
+                <button
+                  class="btn-edit-campo"
+                  type="button"
+                  (click)="startEditCampo($event, sidebarNode()!.id, $index)"
+                  [disabled]="isCanvasReadOnly()"
+                  [id]="'btn-edit-campo-' + $index"
+                  title="Editar campo"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+
+                <button class="btn-remove" (click)="removeCampo(sidebarNode()!.id, $index)"
+                        [disabled]="isCanvasReadOnly()"
+                        [id]="'btn-remove-campo-' + $index">
+                  <lucide-icon name="x" [size]="12"></lucide-icon>
+                </button>
+              }
             </div>
           }
 
@@ -949,6 +1007,19 @@
                       {{ isDecisionConditionPreviewOpen(sidebarNode()!.id, $index) ? 'Ocultar reglas' : 'Ver reglas' }}
                     </button>
                   }
+
+                  <button
+                    type="button"
+                    class="btn-edit-cond"
+                    (click)="editDecisionCondition(sidebarNode()!.id, $index)"
+                    [disabled]="isCanvasReadOnly()"
+                    title="Editar condición"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
 
                   <button class="btn-remove"
                           (click)="removeCondicion(sidebarNode()!.id, $index)"

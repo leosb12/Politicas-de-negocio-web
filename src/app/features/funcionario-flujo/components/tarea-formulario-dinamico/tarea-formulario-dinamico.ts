@@ -72,11 +72,13 @@ export class TareaFormularioDinamicoComponent {
   readonly submitLabel = input('Completar tarea');
 
   readonly submitted = output<CompletarTareaPayload>();
+  readonly fieldEdited = output<{ campo: FlujoFormularioCampo; valor: unknown }>();
 
   readonly formulario = new FormRecord<FormControl<DynamicControlValue>>({});
   readonly observacionesControl = new FormControl('', { nonNullable: true });
   readonly intentoEnvio = signal(false);
   readonly iaUpdatedFieldKeys = signal<string[]>([]);
+  readonly editingFieldKey = signal<string | null>(null);
   private formBindingTaskId: string | null = null;
   private formBindingSignature: string | null = null;
   private hasLocalChanges = false;
@@ -283,6 +285,28 @@ export class TareaFormularioDinamicoComponent {
 
   isUpdatedByIa(campo: FlujoFormularioCampo): boolean {
     return this.iaUpdatedFieldKeys().includes(campo.clave);
+  }
+
+  toggleEditField(campo: FlujoFormularioCampo): void {
+    const current = this.editingFieldKey();
+    this.editingFieldKey.set(current === campo.clave ? null : campo.clave);
+  }
+
+  saveFieldEdit(campo: FlujoFormularioCampo): void {
+    const control = this.control(campo);
+    const value = this.toPayloadValue(campo, control.value);
+    this.fieldEdited.emit({ campo, valor: value });
+    this.editingFieldKey.set(null);
+  }
+
+  onFieldKeyDown(event: KeyboardEvent, campo: FlujoFormularioCampo): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.saveFieldEdit(campo);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.editingFieldKey.set(null);
+    }
   }
 
   private rebuildForm(

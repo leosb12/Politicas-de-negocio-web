@@ -234,6 +234,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   showSidebar = signal(false);
   showIaFlujoModal = signal(false);
   isApplyingIaFlujo = signal(false);
+  decisionConditionEditIndex = signal<number | null>(null);
   private iaFlowJustAppliedAt: number | null = null;
   sidebarNode = computed(() =>
     this.nodos().find((n) => n.id === this.selectedNodeId()) ?? null
@@ -409,6 +410,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private pendingNodeNameSyncTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private pendingNodeNameGuards = new Map<string, PendingNodeNameGuard>();
   private nodeNameDrafts = signal<Record<string, string>>({});
+  readonly editingCampoNodeId = signal<string | null>(null);
+  readonly editingCampoIndex = signal<number | null>(null);
+  readonly editingCampoName = signal('');
+  readonly editingCampoType = signal<TipoCampo>('TEXTO');
   private pendingLaneConfigGuard: PendingLaneConfigGuard | null = null;
   private readonly nodeNameSyncDebounceMs = 280;
   private readonly nodeNameGuardTtlMs = 1200;
@@ -969,6 +974,23 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   getNodeNameDraft(nodeId: string, fallbackName: string): string {
     const draft = this.nodeNameDrafts()[nodeId];
     return draft ?? fallbackName;
+  }
+
+  getTipoCampoAbreviado(tipo: TipoCampo): string {
+    switch (tipo) {
+      case 'TEXTO':
+        return 'T';
+      case 'NUMERO':
+        return 'N';
+      case 'BOOLEANO':
+        return 'B';
+      case 'ARCHIVO':
+        return 'A';
+      case 'FECHA':
+        return 'F';
+      default:
+        return tipo;
+    }
   }
 
   setNodeNameDraft(nodeId: string, name: string): void {
@@ -4987,6 +5009,85 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.newCampo = { campo: '', tipo: 'TEXTO' };
   }
 
+  startEditCampo(event: Event, nodeId: string, idx: number): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    event.stopPropagation();
+
+    const node = this.nodos().find((item) => item.id === nodeId);
+    const campo = node?.formulario?.[idx];
+    if (!campo) {
+      return;
+    }
+
+    this.editingCampoNodeId.set(nodeId);
+    this.editingCampoIndex.set(idx);
+    this.editingCampoName.set(campo.campo);
+    this.editingCampoType.set(campo.tipo);
+  }
+
+  cancelEditCampo(event?: Event): void {
+    event?.stopPropagation();
+    this.editingCampoNodeId.set(null);
+    this.editingCampoIndex.set(null);
+    this.editingCampoName.set('');
+    this.editingCampoType.set('TEXTO');
+  }
+
+  saveEditCampo(nodeId: string, idx: number, event?: Event): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    event?.stopPropagation();
+
+    const campo = this.editingCampoName().trim();
+    if (!campo) {
+      return;
+    }
+
+    const tipo = this.editingCampoType();
+
+    this.nodos.update((ns) =>
+      ns.map((n) => {
+        if (n.id !== nodeId) {
+          return n;
+        }
+
+        return {
+          ...n,
+          formulario: n.formulario.map((item, itemIndex) =>
+            itemIndex === idx ? { ...item, campo, tipo } : item
+          ),
+        };
+      })
+    );
+
+    const updatedNode = this.nodos().find((node) => node.id === nodeId);
+    this.collabFacade.emitUpdateNode(
+      nodeId,
+      { formulario: updatedNode?.formulario ?? [] },
+      updatedNode?.version
+    );
+    this.scheduleAutoSave();
+    this.cancelEditCampo();
+  }
+
+  onEditCampoKeyDown(event: KeyboardEvent, nodeId: string, idx: number): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.saveEditCampo(nodeId, idx, event);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelEditCampo(event);
+    }
+  }
+
   removeCampo(nodeId: string, idx: number): void {
     if (this.isCanvasEditBlocked(true)) {
       return;
@@ -6068,6 +6169,33 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     );
     this.scheduleAutoSave();
     this.newCondicion = { resultado: '', siguiente: '' };
+  }
+
+  editDecisionCondition(nodeId: string, idx: number): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    const node = this.sidebarNode();
+    if (!node || node.tipo !== 'DECISION') {
+      return;
+    }
+
+    const condicion = node.condiciones[idx];
+    if (!condicion) {
+      return;
+    }
+
+    // Abre el constructor de condiciones cargando los datos existentes
+    this.openDecisionConditionBuilder(nodeId);
+    
+    // Pre-cargar la condición en el estado del constructor
+    if (this.decisionBuilderState && condicion.origenActividadId) {
+      this.decisionBuilderState.sourceActivityId = condicion.origenActividadId;
+    }
+    
+    // Marcar para edición
+    this.decisionConditionEditIndex.set(idx);
   }
 
   removeCondicion(nodeId: string, idx: number): void {
