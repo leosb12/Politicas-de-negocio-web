@@ -179,6 +179,7 @@ function mapFormularioField(
     placeholder: trimToNull(field.placeholder),
     ayuda: trimToNull(field.ayuda),
     orden: typeof field.orden === 'number' ? field.orden : index,
+    opciones: field.opciones ?? field.options ?? null,
   };
 }
 

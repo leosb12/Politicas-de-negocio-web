@@ -844,48 +844,121 @@
 
           <!-- Existing fields -->
           @for (campo of sidebarNode()!.formulario; track $index) {
-            <div class="campo-row">
+            <div class="campo-row" [style.display]="(editingCampoNodeId() === sidebarNode()!.id && editingCampoIndex() === $index) ? 'block' : 'flex'">
               @if (editingCampoNodeId() === sidebarNode()!.id && editingCampoIndex() === $index) {
-                <input
-                  class="prop-input campo-edit-input"
-                  type="text"
-                  [value]="editingCampoName()"
-                  (input)="editingCampoName.set(($any($event.target).value))"
-                  (keydown)="onEditCampoKeyDown($event, sidebarNode()!.id, $index)"
-                  [disabled]="isCanvasReadOnly()"
-                />
+                <div class="flex flex-col gap-2 w-full p-1">
+                  <div class="flex gap-2">
+                    <input
+                      class="prop-input campo-edit-input"
+                      type="text"
+                      placeholder="Nombre (Clave)"
+                      [value]="editingCampoName()"
+                      (input)="editingCampoName.set(($any($event.target).value))"
+                      [disabled]="isCanvasReadOnly()"
+                    />
 
-                <select
-                  class="prop-select campo-edit-select"
-                  [value]="editingCampoType()"
-                  (change)="editingCampoType.set($any($event.target).value)"
-                  (keydown)="onEditCampoKeyDown($event, sidebarNode()!.id, $index)"
-                  [disabled]="isCanvasReadOnly()"
-                >
-                  @for (t of tipoCampoOptions; track t) {
-                    <option [value]="t" [title]="t">{{ t }}</option>
-                  }
-                </select>
+                    <select
+                      class="prop-select"
+                      style="width: auto; max-width: none; flex: 1;"
+                      [value]="editingCampoType()"
+                      (change)="editingCampoType.set($any($event.target).value)"
+                      [disabled]="isCanvasReadOnly()"
+                    >
+                      @for (t of tipoCampoOptions; track t) {
+                        <option [value]="t" [title]="t">{{ t }}</option>
+                      }
+                    </select>
+                  </div>
 
-                <button
-                  class="btn-save-campo"
-                  type="button"
-                  (click)="saveEditCampo(sidebarNode()!.id, $index, $event)"
-                  [disabled]="isCanvasReadOnly()"
-                  title="Guardar con Enter"
-                >
-                  Enter
-                </button>
+                  <div class="flex flex-col gap-1.5">
+                    <input
+                      class="prop-input"
+                      type="text"
+                      placeholder="Etiqueta (Título visible)"
+                      [value]="editingCampoEtiqueta()"
+                      (input)="editingCampoEtiqueta.set(($any($event.target).value))"
+                      [disabled]="isCanvasReadOnly()"
+                    />
 
-                <button
-                  class="btn-cancel-campo"
-                  type="button"
-                  (click)="cancelEditCampo($event)"
-                  [disabled]="isCanvasReadOnly()"
-                  title="Cancelar edición"
-                >
-                  <lucide-icon name="x" [size]="12"></lucide-icon>
-                </button>
+                    <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        [checked]="editingCampoRequerido()"
+                        (change)="editingCampoRequerido.set($any($event.target).checked)"
+                        [disabled]="isCanvasReadOnly() || editingCampoType() === 'LABEL'"
+                      />
+                      <span>Requerido</span>
+                    </label>
+
+                    @if (editingCampoType() !== 'LABEL' && editingCampoType() !== 'GRID' && editingCampoType() !== 'CHECKBOX') {
+                      <input
+                        class="prop-input"
+                        type="text"
+                        placeholder="Texto de marcador (Placeholder)"
+                        [value]="editingCampoPlaceholder()"
+                        (input)="editingCampoPlaceholder.set(($any($event.target).value))"
+                        [disabled]="isCanvasReadOnly()"
+                      />
+                    }
+
+                    @if (editingCampoType() === 'GRID') {
+                      <div class="flex flex-col gap-1">
+                        <input
+                          class="prop-input"
+                          type="number"
+                          min="1"
+                          placeholder="Número de filas (Ej: 3)"
+                          [value]="editingCampoPlaceholder()"
+                          (input)="editingCampoPlaceholder.set(($any($event.target).value))"
+                          [disabled]="isCanvasReadOnly()"
+                        />
+                      </div>
+                    }
+
+                    <input
+                      class="prop-input"
+                      type="text"
+                      placeholder="Texto de ayuda"
+                      [value]="editingCampoAyuda()"
+                      (input)="editingCampoAyuda.set(($any($event.target).value))"
+                      [disabled]="isCanvasReadOnly()"
+                    />
+
+                    @if (editingCampoType() === 'CHECKBOX' || editingCampoType() === 'SELECCION' || editingCampoType() === 'GRID') {
+                      <div class="flex flex-col gap-0.5">
+                        <input
+                          class="prop-input"
+                          type="text"
+                          [placeholder]="editingCampoType() === 'GRID' ? 'Columnas (Ej: Nombre, Edad, Rol)' : 'Opciones (Ej: Opción 1, Opción 2)'"
+                          [value]="editingCampoOpciones()"
+                          (input)="editingCampoOpciones.set(($any($event.target).value))"
+                          [disabled]="isCanvasReadOnly()"
+                        />
+                        <span class="text-[10px] text-slate-400">Separadas por comas</span>
+                      </div>
+                    }
+                  </div>
+
+                  <div class="flex justify-end gap-1.5 mt-1 border-t border-white/10 pt-2">
+                    <button
+                      class="px-3 py-1 bg-green-700/20 text-green-400 border border-green-700/40 rounded text-xs font-semibold hover:bg-green-700/30"
+                      type="button"
+                      (click)="saveEditCampo(sidebarNode()!.id, $index, $event)"
+                      [disabled]="isCanvasReadOnly()"
+                    >
+                      Guardar
+                    </button>
+
+                    <button
+                      class="px-2 py-1 bg-rose-700/20 text-rose-400 border border-rose-700/40 rounded text-xs font-semibold hover:bg-rose-700/30 flex items-center justify-center"
+                      type="button"
+                      (click)="cancelEditCampo($event)"
+                      [disabled]="isCanvasReadOnly()"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
               } @else {
                 <span class="campo-name">{{ campo.campo }}</span>
                 <span class="campo-tipo">{{ campo.tipo }}</span>

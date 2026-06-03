@@ -309,7 +309,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     { tipo: 'FIN', label: 'Fin', icon: 'stop-circle', color: '#f43f5e', description: 'Punto de cierre del flujo' },
   ];
 
-  tipoCampoOptions: TipoCampo[] = ['TEXTO', 'NUMERO', 'BOOLEANO', 'ARCHIVO', 'FECHA'];
+  tipoCampoOptions: TipoCampo[] = ['TEXTO', 'NUMERO', 'BOOLEANO', 'ARCHIVO', 'FECHA', 'CHECKBOX', 'SELECCION', 'GRID', 'LABEL'];
 
   readonly decisionLogicalOperatorOptions: Array<{
     value: OperadorLogicoDecision;
@@ -361,6 +361,25 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       { value: 'NO_ESTA_VACIO', label: 'Tiene archivo adjunto', requiresValue: false },
       { value: 'CONTIENE', label: 'Nombre contiene', requiresValue: true },
       { value: 'NO_CONTIENE', label: 'Nombre no contiene', requiresValue: true },
+    ],
+    CHECKBOX: [
+      { value: 'CONTIENE', label: 'Contiene opcion', requiresValue: true },
+      { value: 'NO_CONTIENE', label: 'No contiene opcion', requiresValue: true },
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'No esta vacio', requiresValue: false },
+    ],
+    SELECCION: [
+      { value: 'IGUAL', label: 'Es igual a', requiresValue: true },
+      { value: 'DISTINTO', label: 'Es distinto de', requiresValue: true },
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'No esta vacio', requiresValue: false },
+    ],
+    GRID: [
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'No esta vacio', requiresValue: false },
+    ],
+    LABEL: [
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
     ],
   };
 
@@ -414,6 +433,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   readonly editingCampoIndex = signal<number | null>(null);
   readonly editingCampoName = signal('');
   readonly editingCampoType = signal<TipoCampo>('TEXTO');
+  readonly editingCampoEtiqueta = signal('');
+  readonly editingCampoRequerido = signal(false);
+  readonly editingCampoPlaceholder = signal('');
+  readonly editingCampoAyuda = signal('');
+  readonly editingCampoOpciones = signal('');
   private pendingLaneConfigGuard: PendingLaneConfigGuard | null = null;
   private readonly nodeNameSyncDebounceMs = 280;
   private readonly nodeNameGuardTtlMs = 1200;
@@ -988,6 +1012,14 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         return 'A';
       case 'FECHA':
         return 'F';
+      case 'CHECKBOX':
+        return 'C';
+      case 'SELECCION':
+        return 'S';
+      case 'GRID':
+        return 'G';
+      case 'LABEL':
+        return 'L';
       default:
         return tipo;
     }
@@ -5026,6 +5058,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.editingCampoIndex.set(idx);
     this.editingCampoName.set(campo.campo);
     this.editingCampoType.set(campo.tipo);
+    this.editingCampoEtiqueta.set(campo.etiqueta ?? '');
+    this.editingCampoRequerido.set(campo.requerido ?? false);
+    this.editingCampoPlaceholder.set(campo.placeholder ?? '');
+    this.editingCampoAyuda.set(campo.ayuda ?? '');
+    this.editingCampoOpciones.set((campo.opciones ?? []).join(', '));
   }
 
   cancelEditCampo(event?: Event): void {
@@ -5034,6 +5071,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.editingCampoIndex.set(null);
     this.editingCampoName.set('');
     this.editingCampoType.set('TEXTO');
+    this.editingCampoEtiqueta.set('');
+    this.editingCampoRequerido.set(false);
+    this.editingCampoPlaceholder.set('');
+    this.editingCampoAyuda.set('');
+    this.editingCampoOpciones.set('');
   }
 
   saveEditCampo(nodeId: string, idx: number, event?: Event): void {
@@ -5043,12 +5085,21 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
     event?.stopPropagation();
 
-    const campo = this.editingCampoName().trim();
-    if (!campo) {
+    const campoName = this.editingCampoName().trim();
+    if (!campoName) {
       return;
     }
 
     const tipo = this.editingCampoType();
+    const etiqueta = this.editingCampoEtiqueta().trim() || null;
+    const requerido = this.editingCampoRequerido();
+    const placeholder = this.editingCampoPlaceholder().trim() || null;
+    const ayuda = this.editingCampoAyuda().trim() || null;
+
+    const opcionesRaw = this.editingCampoOpciones().trim();
+    const opciones = opcionesRaw
+      ? opcionesRaw.split(',').map((s) => s.trim()).filter(Boolean)
+      : null;
 
     this.nodos.update((ns) =>
       ns.map((n) => {
@@ -5059,7 +5110,18 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         return {
           ...n,
           formulario: n.formulario.map((item, itemIndex) =>
-            itemIndex === idx ? { ...item, campo, tipo } : item
+            itemIndex === idx
+              ? {
+                  ...item,
+                  campo: campoName,
+                  tipo,
+                  etiqueta,
+                  requerido,
+                  placeholder,
+                  ayuda,
+                  opciones,
+                }
+              : item
           ),
         };
       })

@@ -28,119 +28,67 @@
     @for (campo of campos(); track campo.clave) {
       <div
         class="space-y-2 rounded-2xl transition-all duration-200"
-        [class.md:col-span-2]="campo.tipo === 'TEXTO'"
+        [class.md:col-span-2]="campo.tipo === 'TEXTO' || campo.tipo === 'GRID' || campo.tipo === 'LABEL' || campo.tipo === 'CHECKBOX'"
         [class.ia-updated-field]="isUpdatedByIa(campo)"
       >
         @switch (campo.tipo) {
           @case ('TEXTO') {
             <div class="space-y-2">
-              <div class="flex items-center gap-2">
-                <app-input
-                  [label]="campo.etiqueta"
-                  [required]="campo.requerido"
-                  [placeholder]="campo.placeholder ?? ''"
-                  [hint]="campo.ayuda"
-                  [error]="fieldError(campo)"
-                  [formControl]="control(campo)"
-                  (keydown)="onFieldKeyDown($event, campo)"
-                />
-                <button
-                  type="button"
-                  class="mt-6 rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-slate-600 hover:bg-slate-100 focus:outline-none"
-                  (click)="toggleEditField(campo)"
-                  title="Editar campo"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                </button>
-              </div>
+              <app-input
+                [label]="campo.etiqueta"
+                [required]="campo.requerido"
+                [placeholder]="campo.placeholder ?? ''"
+                [hint]="campo.ayuda"
+                [error]="fieldError(campo)"
+                [formControl]="control(campo)"
+                (keydown)="onFieldKeyDown($event, campo)"
+              />
             </div>
           }
 
           @case ('NUMERO') {
             <div class="space-y-2">
-              <div class="flex items-center gap-2">
-                <app-input
-                  type="number"
-                  [label]="campo.etiqueta"
-                  [required]="campo.requerido"
-                  [placeholder]="campo.placeholder ?? ''"
-                  [hint]="campo.ayuda"
-                  [error]="fieldError(campo)"
-                  [formControl]="control(campo)"
-                  (keydown)="onFieldKeyDown($event, campo)"
-                />
-                <button
-                  type="button"
-                  class="mt-6 rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-slate-600 hover:bg-slate-100 focus:outline-none"
-                  (click)="toggleEditField(campo)"
-                  title="Editar campo"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                </button>
-              </div>
+              <app-input
+                type="number"
+                [label]="campo.etiqueta"
+                [required]="campo.requerido"
+                [placeholder]="campo.placeholder ?? ''"
+                [hint]="campo.ayuda"
+                [error]="fieldError(campo)"
+                [formControl]="control(campo)"
+                (keydown)="onFieldKeyDown($event, campo)"
+              />
             </div>
           }
 
           @case ('BOOLEANO') {
             <div class="space-y-2">
-              <div class="flex items-center gap-2">
-                <app-select
-                  [label]="campo.etiqueta"
-                  [required]="campo.requerido"
-                  placeholderOption="Selecciona una opcion"
-                  [hint]="campo.ayuda"
-                  [error]="fieldError(campo)"
-                  [formControl]="control(campo)"
-                  (keydown)="onFieldKeyDown($event, campo)"
-                >
-                  <option value="true">Si</option>
-                  <option value="false">No</option>
-                </app-select>
-                <button
-                  type="button"
-                  class="mt-6 rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-slate-600 hover:bg-slate-100 focus:outline-none"
-                  (click)="toggleEditField(campo)"
-                  title="Editar campo"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                </button>
-              </div>
+              <app-select
+                [label]="campo.etiqueta"
+                [required]="campo.requerido"
+                placeholderOption="Selecciona una opcion"
+                [hint]="campo.ayuda"
+                [error]="fieldError(campo)"
+                [formControl]="control(campo)"
+                (keydown)="onFieldKeyDown($event, campo)"
+              >
+                <option value="true">Si</option>
+                <option value="false">No</option>
+              </app-select>
             </div>
           }
 
           @case ('FECHA') {
             <div class="space-y-2">
-              <div class="flex items-center gap-2">
-                <app-input
-                  type="date"
-                  [label]="campo.etiqueta"
-                  [required]="campo.requerido"
-                  [hint]="campo.ayuda"
-                  [error]="fieldError(campo)"
-                  [formControl]="control(campo)"
-                  (keydown)="onFieldKeyDown($event, campo)"
-                />
-                <button
-                  type="button"
-                  class="mt-6 rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-slate-600 hover:bg-slate-100 focus:outline-none"
-                  (click)="toggleEditField(campo)"
-                  title="Editar campo"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                </button>
-              </div>
+              <app-input
+                type="date"
+                [label]="campo.etiqueta"
+                [required]="campo.requerido"
+                [hint]="campo.ayuda"
+                [error]="fieldError(campo)"
+                [formControl]="control(campo)"
+                (keydown)="onFieldKeyDown($event, campo)"
+              />
             </div>
           }
 
@@ -153,17 +101,6 @@
                     <span class="text-red-600">*</span>
                   }
                 </label>
-                <button
-                  type="button"
-                  class="rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-slate-600 hover:bg-slate-100 focus:outline-none"
-                  (click)="toggleEditField(campo)"
-                  title="Editar campo"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
-                </button>
               </div>
 
               <input
@@ -194,6 +131,130 @@
                   </button>
                 </div>
               }
+
+              @if (campo.ayuda) {
+                <p class="mt-1 text-xs text-slate-500">{{ campo.ayuda }}</p>
+              }
+
+              @if (fieldError(campo)) {
+                <p class="mt-1 text-xs text-red-600">{{ fieldError(campo) }}</p>
+              }
+            </div>
+          }
+
+          @case ('CHECKBOX') {
+            <div class="space-y-2 w-full">
+              <div class="mb-1 flex items-center justify-between">
+                <label class="block text-sm font-medium text-slate-700">
+                  {{ campo.etiqueta }}
+                  @if (campo.requerido) {
+                    <span class="text-red-600">*</span>
+                  }
+                </label>
+              </div>
+
+              <div class="flex flex-col gap-2 p-3 border border-slate-200 rounded-xl bg-white">
+                @for (option of campo.opciones ?? []; track option) {
+                  <label class="flex items-center gap-2 cursor-pointer text-slate-700 text-sm">
+                    <input
+                      type="checkbox"
+                      [checked]="isOptionChecked(campo, option)"
+                      [disabled]="disabled() || pending()"
+                      (change)="toggleOption(campo, option, $any($event.target).checked)"
+                      class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>{{ option }}</span>
+                  </label>
+                }
+                @if (!campo.opciones?.length) {
+                  <span class="text-xs text-slate-400">Sin opciones configuradas</span>
+                }
+              </div>
+
+              @if (campo.ayuda) {
+                <p class="mt-1 text-xs text-slate-500">{{ campo.ayuda }}</p>
+              }
+
+              @if (fieldError(campo)) {
+                <p class="mt-1 text-xs text-red-600">{{ fieldError(campo) }}</p>
+              }
+            </div>
+          }
+
+          @case ('SELECCION') {
+            <div class="space-y-2 w-full">
+              <app-select
+                [label]="campo.etiqueta"
+                [required]="campo.requerido"
+                placeholderOption="Selecciona una opcion"
+                [hint]="campo.ayuda"
+                [error]="fieldError(campo)"
+                [formControl]="control(campo)"
+                (keydown)="onFieldKeyDown($event, campo)"
+                class="w-full"
+              >
+                @for (option of campo.opciones ?? []; track option) {
+                  <option [value]="option">{{ option }}</option>
+                }
+              </app-select>
+            </div>
+          }
+
+          @case ('LABEL') {
+            <div class="space-y-1 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 w-full">
+              <div class="flex justify-between items-start">
+                <span class="text-sm font-medium text-slate-900">{{ campo.etiqueta }}</span>
+              </div>
+              @if (campo.ayuda) {
+                <p class="text-xs text-slate-500">{{ campo.ayuda }}</p>
+              }
+            </div>
+          }
+
+          @case ('GRID') {
+            <div class="space-y-2 w-full">
+              <div class="mb-1 flex items-center justify-between">
+                <label class="block text-sm font-medium text-slate-700">
+                  {{ campo.etiqueta }}
+                  @if (campo.requerido) {
+                    <span class="text-red-600">*</span>
+                  }
+                </label>
+              </div>
+
+              <div class="overflow-x-auto border border-slate-200 rounded-xl p-3 bg-white space-y-3">
+                <table class="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+                  @if (campo.opciones && campo.opciones.length) {
+                    <thead class="bg-slate-50">
+                      <tr class="divide-x divide-slate-100 border-b border-slate-200">
+                        @for (colName of campo.opciones; track colName) {
+                          <th class="px-3 py-2 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider bg-slate-50">
+                            {{ colName }}
+                          </th>
+                        }
+                      </tr>
+                    </thead>
+                  }
+                  <tbody class="bg-white divide-y divide-slate-200">
+                    @for (row of getGridValue(campo); track rIdx; let rIdx = $index) {
+                      <tr class="divide-x divide-slate-100">
+                        @for (cell of row; track cIdx; let cIdx = $index) {
+                          <td class="p-1 min-w-[100px]">
+                            <input
+                              type="text"
+                              [value]="cell"
+                              [disabled]="disabled() || pending()"
+                              (input)="updateGridCell(campo, rIdx, cIdx, $any($event.target).value)"
+                              class="w-full text-sm border border-slate-200 focus:ring-2 focus:ring-blue-200 rounded px-2 py-1 text-slate-800"
+                              placeholder="Celda..."
+                            />
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
 
               @if (campo.ayuda) {
                 <p class="mt-1 text-xs text-slate-500">{{ campo.ayuda }}</p>

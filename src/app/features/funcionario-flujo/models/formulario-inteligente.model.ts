@@ -5,7 +5,9 @@ export type FormularioInteligenteFieldType =
   | 'date'
   | 'boolean'
   | 'file'
-  | 'select';
+  | 'select'
+  | 'checkbox'
+  | 'grid';
 
 export interface FormularioInteligenteFieldSchema {
   id: string;

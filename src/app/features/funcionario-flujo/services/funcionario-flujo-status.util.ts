@@ -91,6 +91,10 @@ export function isFormularioTipoSoportado(
     normalized === 'NUMERO' ||
     normalized === 'BOOLEANO' ||
     normalized === 'ARCHIVO' ||
-    normalized === 'FECHA'
+    normalized === 'FECHA' ||
+    normalized === 'CHECKBOX' ||
+    normalized === 'SELECCION' ||
+    normalized === 'GRID' ||
+    normalized === 'LABEL'
   );
 }

@@ -37,7 +37,7 @@ import {
   FormularioInteligenteResult,
 } from '../../models/formulario-inteligente.model';
 
-type DynamicControlValue = string | FlujoArchivoMetadata | File | null;
+type DynamicControlValue = string | FlujoArchivoMetadata | File | string[] | string[][] | null;
 
 @Component({
   selector: 'app-tarea-formulario-dinamico',
@@ -90,6 +90,7 @@ export class TareaFormularioDinamicoComponent {
       label: campo.etiqueta,
       type: this.mapFieldTypeForIa(campo),
       required: campo.requerido,
+      options: campo.opciones ?? undefined,
     }))
   );
   readonly intelligentCurrentValues = computed<Record<string, unknown>>(() =>
@@ -345,7 +346,9 @@ export class TareaFormularioDinamicoComponent {
   private getValidators(campo: FlujoFormularioCampo): ValidatorFn[] {
     const validators: ValidatorFn[] = [];
 
-    validators.push(Validators.required);
+    if (campo.tipo !== 'LABEL') {
+      validators.push(Validators.required);
+    }
 
     if (campo.tipo === 'NUMERO') {
       validators.push(numberValidator());
@@ -459,6 +462,53 @@ export class TareaFormularioDinamicoComponent {
       return '';
     }
 
+    if (campo.tipo === 'CHECKBOX') {
+      if (Array.isArray(rawValue)) {
+        return rawValue as string[];
+      }
+      if (typeof rawValue === 'string') {
+        try {
+          const parsed = JSON.parse(rawValue);
+          if (Array.isArray(parsed)) {
+            return parsed as string[];
+          }
+        } catch {
+          return rawValue.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+      return [];
+    }
+
+    if (campo.tipo === 'SELECCION') {
+      return typeof rawValue === 'string' ? rawValue : '';
+    }
+
+    if (campo.tipo === 'GRID') {
+      if (Array.isArray(rawValue) && rawValue.every(Array.isArray)) {
+        return rawValue as string[][];
+      }
+      if (typeof rawValue === 'string') {
+        try {
+          const parsed = JSON.parse(rawValue);
+          if (Array.isArray(parsed) && parsed.every(Array.isArray)) {
+            return parsed as string[][];
+          }
+        } catch {
+          // ignore
+        }
+      }
+      // default 3x3 grid
+      return [
+        ['', '', ''],
+        ['', '', ''],
+        ['', '', '']
+      ];
+    }
+
+    if (campo.tipo === 'LABEL') {
+      return '';
+    }
+
     if (typeof rawValue === 'string') {
       return rawValue;
     }
@@ -508,6 +558,22 @@ export class TareaFormularioDinamicoComponent {
       return normalized;
     }
 
+    if (campo.tipo === 'CHECKBOX') {
+      return Array.isArray(rawValue) ? rawValue : [];
+    }
+
+    if (campo.tipo === 'SELECCION') {
+      return typeof rawValue === 'string' ? this.normalizeText(rawValue) : null;
+    }
+
+    if (campo.tipo === 'GRID') {
+      return Array.isArray(rawValue) ? rawValue : [];
+    }
+
+    if (campo.tipo === 'LABEL') {
+      return null;
+    }
+
     if (typeof rawValue !== 'string') {
       return null;
     }
@@ -537,6 +603,18 @@ export class TareaFormularioDinamicoComponent {
 
     if (campo.tipo === 'FECHA') {
       return 'date';
+    }
+
+    if (campo.tipo === 'SELECCION') {
+      return 'select';
+    }
+
+    if (campo.tipo === 'CHECKBOX') {
+      return 'checkbox';
+    }
+
+    if (campo.tipo === 'GRID') {
+      return 'grid';
     }
 
     return 'file';
@@ -584,6 +662,99 @@ export class TareaFormularioDinamicoComponent {
       typeof candidate.sizeBytes === 'number' &&
       typeof candidate.fechaCarga === 'string'
     );
+  }
+
+  isOptionChecked(campo: FlujoFormularioCampo, option: string): boolean {
+    const val = this.control(campo).value;
+    if (Array.isArray(val)) {
+      return (val as string[]).includes(option);
+    }
+    return false;
+  }
+
+  getGridValue(campo: FlujoFormularioCampo): string[][] {
+    const val = this.control(campo).value;
+    if (Array.isArray(val)) {
+      return val as string[][];
+    }
+    return [];
+  }
+
+  toggleOption(campo: FlujoFormularioCampo, option: string, checked: boolean): void {
+    const ctrl = this.control(campo);
+    const currentVal = (ctrl.value as string[]) || [];
+    let newVal: string[];
+    if (checked) {
+      newVal = [...currentVal, option];
+    } else {
+      newVal = currentVal.filter(o => o !== option);
+    }
+    ctrl.setValue(newVal);
+    ctrl.markAsDirty();
+    ctrl.markAsTouched();
+    this.hasLocalChanges = true;
+  }
+
+  addRow(campo: FlujoFormularioCampo): void {
+    const ctrl = this.control(campo);
+    const matrix = (ctrl.value as string[][]) || [['', '', '']];
+    const numCols = matrix[0]?.length || 3;
+    const newRow = Array(numCols).fill('');
+    const updated = [...matrix, newRow];
+    ctrl.setValue(updated);
+    ctrl.markAsDirty();
+    ctrl.markAsTouched();
+    this.hasLocalChanges = true;
+  }
+
+  removeRow(campo: FlujoFormularioCampo, rowIndex: number): void {
+    const ctrl = this.control(campo);
+    const matrix = (ctrl.value as string[][]) || [];
+    if (matrix.length <= 1) {
+      return; // Keep at least one row
+    }
+    const updated = matrix.filter((_, idx) => idx !== rowIndex);
+    ctrl.setValue(updated);
+    ctrl.markAsDirty();
+    ctrl.markAsTouched();
+    this.hasLocalChanges = true;
+  }
+
+  addColumn(campo: FlujoFormularioCampo): void {
+    const ctrl = this.control(campo);
+    const matrix = (ctrl.value as string[][]) || [['']];
+    const updated = matrix.map(row => [...row, '']);
+    ctrl.setValue(updated);
+    ctrl.markAsDirty();
+    ctrl.markAsTouched();
+    this.hasLocalChanges = true;
+  }
+
+  removeColumn(campo: FlujoFormularioCampo, colIndex: number): void {
+    const ctrl = this.control(campo);
+    const matrix = (ctrl.value as string[][]) || [];
+    const numCols = matrix[0]?.length || 0;
+    if (numCols <= 1) {
+      return; // Keep at least one column
+    }
+    const updated = matrix.map(row => row.filter((_, idx) => idx !== colIndex));
+    ctrl.setValue(updated);
+    ctrl.markAsDirty();
+    ctrl.markAsTouched();
+    this.hasLocalChanges = true;
+  }
+
+  updateGridCell(campo: FlujoFormularioCampo, rowIndex: number, colIndex: number, val: string): void {
+    const ctrl = this.control(campo);
+    const matrix = (ctrl.value as string[][]) || [];
+    const updated = matrix.map((row, rIdx) => {
+      if (rIdx !== rowIndex) return row;
+      return row.map((cell, cIdx) => cIdx === colIndex ? val : cell);
+    });
+    ctrl.setValue(updated);
+    ctrl.markAsDirty();
+    ctrl.markAsTouched();
+    this.hasLocalChanges = true;
   }
 }
 

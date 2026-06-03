@@ -3,7 +3,11 @@ export type FlujoFormularioCampoTipo =
   | 'NUMERO'
   | 'BOOLEANO'
   | 'ARCHIVO'
-  | 'FECHA';
+  | 'FECHA'
+  | 'CHECKBOX'
+  | 'SELECCION'
+  | 'GRID'
+  | 'LABEL';
 
 export interface FlujoArchivoMetadata {
   archivoId: string | null;
@@ -26,6 +30,7 @@ export interface FlujoFormularioCampo {
   placeholder: string | null;
   ayuda: string | null;
   orden: number;
+  opciones?: string[] | null;
 }
 
 export interface FlujoFormularioDefinicion {

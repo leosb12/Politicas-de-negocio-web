@@ -3,7 +3,11 @@ export type FlujoFormularioCampoTipoDto =
   | 'NUMERO'
   | 'BOOLEANO'
   | 'ARCHIVO'
-  | 'FECHA';
+  | 'FECHA'
+  | 'CHECKBOX'
+  | 'SELECCION'
+  | 'GRID'
+  | 'LABEL';
 
 export interface FlujoFormularioCampoDefinicionDto {
   campo?: string | null;
@@ -17,6 +21,8 @@ export interface FlujoFormularioCampoDefinicionDto {
   placeholder?: string | null;
   ayuda?: string | null;
   orden?: number | null;
+  opciones?: string[] | null;
+  options?: string[] | null;
 }
 
 export interface FlujoFormularioDefinicionObjetoDto {
