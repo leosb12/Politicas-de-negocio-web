@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, throwError } from 'rxjs';
-import { API_ENDPOINTS } from '../../../core/config/api.config';
+import { API_ENDPOINTS, API_BASE_URL } from '../../../core/config/api.config';
 import {
   ArchivoMetadataResponseDto,
   CompletarTareaRequestDto,
@@ -47,16 +47,32 @@ export class FuncionarioFlujoApiService {
   }
 
   subirArchivo(request: SubirArchivoRequestDto): Observable<ArchivoMetadataResponseDto> {
+    if (!request.instanciaId) {
+      return throwError(() => new Error(
+        'No se puede subir un archivo sin instanciaId. El trámite debe estar asociado.'
+      ));
+    }
+
     const formData = new FormData();
-    formData.append('archivo', request.archivo);
+    formData.append('file', request.archivo);
+    formData.append('origenCarga', 'WEB');
 
-    this.appendFormDataText(formData, 'instanciaId', request.instanciaId);
-    this.appendFormDataText(formData, 'actividadId', request.actividadId);
-    this.appendFormDataText(formData, 'tareaId', request.tareaId);
-    this.appendFormDataText(formData, 'usuarioId', request.usuarioId);
-    this.appendFormDataText(formData, 'descripcion', request.descripcion);
-
-    return this.http.post<ArchivoMetadataResponseDto>(API_ENDPOINTS.archivos, formData);
+    const url = `${API_BASE_URL}/api/documentos/tramites/${request.instanciaId}/archivos`;
+    return this.http.post<any>(url, formData).pipe(
+      map((res) => ({
+        id: res.archivoId || res.id,
+        nombreOriginal: res.nombreArchivoOriginal || res.nombreOriginal,
+        nombreGuardado: res.nombreArchivoSanitizado || res.nombreGuardado,
+        contentType: res.tipoArchivo || res.contentType,
+        tamanoBytes: res.tamanoBytes,
+        fechaSubida: res.fechaSubida,
+        rutaOKey: res.s3Key || res.rutaOKey,
+        storageType: 's3',
+        urlAcceso: res.s3Url || res.urlAcceso,
+        bucket: res.s3Bucket || res.bucket,
+        clienteId: res.clienteId,
+      } as ArchivoMetadataResponseDto))
+    );
   }
 
   getTareasPorInstancia(instanciaId: string): Observable<TareaMiaResponseDto[]> {

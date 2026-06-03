@@ -12,6 +12,7 @@ import {
   of,
   switchMap,
   tap,
+  throwError,
   timer,
 } from 'rxjs';
 import { AuthService } from '../../../core/auth/services/auth.service';
@@ -304,37 +305,55 @@ export class FuncionarioFlujoFacadeService {
     const detalleActual = this.tareaDetalle();
     const contexto =
       detalleActual && detalleActual.id === tareaId ? detalleActual : null;
-    const actorId = this.auth.obtenerSesion()?.id ?? null;
 
-    const uploads = archivosPorSubir.map(([campoClave, archivo]) => {
-      const request: SubirArchivoRequestDto = {
-        archivo,
-        tareaId,
-        instanciaId: contexto?.instanciaId ?? null,
-        actividadId: contexto?.actividad.nodoId ?? null,
-        usuarioId: actorId,
-        descripcion: `Adjunto del campo ${campoClave} para tarea ${tareaId}`,
-      };
+    // Resolve instanciaId: first from in-memory, then by fetching from API
+    const instanciaId$ = contexto?.instanciaId
+      ? of(contexto.instanciaId)
+      : this.api.getTareaDetalle(tareaId).pipe(
+          map((dto) => dto.instancia?.id ?? null)
+        );
 
-      return this.api.subirArchivo(request).pipe(
-        map((metadata) =>
-          [campoClave, this.toFlujoArchivoMetadata(metadata)] as const
-        )
-      );
-    });
-
-    return forkJoin(uploads).pipe(
-      map((metadatas) => {
-        const formularioRespuesta = { ...payload.formularioRespuesta };
-
-        for (const [campoClave, metadata] of metadatas) {
-          formularioRespuesta[campoClave] = metadata;
+    return instanciaId$.pipe(
+      switchMap((instanciaId) => {
+        if (!instanciaId) {
+          return throwError(() => new Error(
+            'No se pudo determinar el trámite (instanciaId) para subir archivos.'
+          ));
         }
 
-        return {
-          ...payload,
-          formularioRespuesta,
-        };
+        const actorId = this.auth.obtenerSesion()?.id ?? null;
+
+        const uploads = archivosPorSubir.map(([campoClave, archivo]) => {
+          const request: SubirArchivoRequestDto = {
+            archivo,
+            tareaId,
+            instanciaId,
+            actividadId: contexto?.actividad.nodoId ?? null,
+            usuarioId: actorId,
+            descripcion: `Adjunto del campo ${campoClave} para tarea ${tareaId}`,
+          };
+
+          return this.api.subirArchivo(request).pipe(
+            map((metadata) =>
+              [campoClave, this.toFlujoArchivoMetadata(metadata)] as const
+            )
+          );
+        });
+
+        return forkJoin(uploads).pipe(
+          map((metadatas) => {
+            const formularioRespuesta = { ...payload.formularioRespuesta };
+
+            for (const [campoClave, metadata] of metadatas) {
+              formularioRespuesta[campoClave] = metadata;
+            }
+
+            return {
+              ...payload,
+              formularioRespuesta,
+            };
+          })
+        );
       })
     );
   }
@@ -353,6 +372,7 @@ export class FuncionarioFlujoFacadeService {
       storageType: metadata.storageType ?? null,
       urlAcceso: metadata.urlAcceso ?? null,
       bucket: metadata.bucket ?? null,
+      clienteId: metadata.clienteId ?? null,
     };
   }
 

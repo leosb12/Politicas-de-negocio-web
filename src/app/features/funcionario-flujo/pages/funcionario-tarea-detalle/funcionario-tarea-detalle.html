@@ -43,9 +43,16 @@
       <div class="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
         <p><span class="font-semibold">Creacion:</span> {{ tareaDetalleVisible()!.fechaCreacion | date : 'medium' }}</p>
         <p><span class="font-semibold">Inicio:</span> {{ tareaDetalleVisible()!.fechaInicio ? (tareaDetalleVisible()!.fechaInicio | date : 'medium') : '-' }}</p>
-        <p><span class="font-semibold">Asignado a:</span> {{ tareaDetalleVisible()!.asignadoANombre ?? '-' }}</p>
+        <p><span class="font-semibold">Tomada por:</span> {{ tareaDetalleVisible()!.asignadoANombre ?? '-' }}</p>
         <p><span class="font-semibold">Ultima sync:</span> {{ facade.detalleLastRefreshAt() ? (facade.detalleLastRefreshAt() | date : 'mediumTime') : '-' }}</p>
       </div>
+
+      @if (tareaDetalleVisible()!.participantesNombres && tareaDetalleVisible()!.participantesNombres.length > 0) {
+        <div class="mt-3 text-sm text-slate-700 border-t border-slate-100 pt-3">
+          <span class="font-semibold">Participantes colaboradores:</span>
+          <span class="ml-1 text-slate-600">{{ tareaDetalleVisible()!.participantesNombres.join(', ') }}</span>
+        </div>
+      }
 
       <div class="mt-5 flex flex-wrap gap-2">
         <app-button variant="secondary" (click)="abrirFlujoModal()">
@@ -64,7 +71,19 @@
           </app-button>
         }
 
-        @if (!puedeTomar() && !puedeCompletar()) {
+        @if (puedeTrabajar()) {
+          <app-button
+            variant="workflow-in-progress"
+            [pending]="facade.detalleAction() === 'tomar'"
+            pendingLabel="Uniendo..."
+            [disabled]="facade.detalleAction() !== null"
+            (click)="tomarTarea()"
+          >
+            Trabajar tarea
+          </app-button>
+        }
+
+        @if (!puedeTomar() && !puedeTrabajar() && !puedeCompletar()) {
           <app-button variant="secondary" [disabled]="true">
             Sin acciones disponibles
           </app-button>
@@ -100,7 +119,7 @@
       <app-alert
         variant="warning"
         title="Toma requerida"
-        message="Primero debe tomar la tarea antes de completar los campos."
+        [message]="puedeTrabajar() ? 'Primero debe abrir o trabajar sobre la tarea antes de completar los campos.' : 'Primero debe tomar la tarea antes de completar los campos.'"
       />
     }
 

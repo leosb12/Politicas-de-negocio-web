@@ -20,6 +20,7 @@ export interface FlujoArchivoMetadata {
   storageType: string | null;
   urlAcceso: string | null;
   bucket: string | null;
+  clienteId?: string | null;
 }
 
 export interface FlujoFormularioCampo {
@@ -112,6 +113,8 @@ export interface TareaDetalle {
   fechaFin: string | null;
   asignadoA: string | null;
   asignadoANombre?: string | null;
+  participantesIds: string[];
+  participantesNombres: string[];
   observaciones: string | null;
   actividad: TareaActividadDetalle;
   formularioRespuesta: Record<string, unknown>;

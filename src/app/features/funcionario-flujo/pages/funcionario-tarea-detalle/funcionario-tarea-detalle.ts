@@ -20,6 +20,7 @@ import { FuncionarioGuiaContextService } from '../../services/funcionario-guia-c
 import { FuncionarioFlujoApiService } from '../../services/funcionario-flujo-api.service';
 import { mapTareaDetalleDto, mapTareaMiaDto } from '../../services/funcionario-flujo.mapper';
 import { FuncionarioFlujoFacadeService } from '../../services/funcionario-flujo-facade.service';
+import { AuthService } from '../../../../core/auth/services/auth.service';
 import {
   getEstadoBadgeVariant,
   isTareaCompletable,
@@ -65,6 +66,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
   private readonly router = inject(Router);
   private readonly api = inject(FuncionarioFlujoApiService);
   private readonly guideContext = inject(FuncionarioGuiaContextService);
+  private readonly auth = inject(AuthService);
 
   readonly facade = inject(FuncionarioFlujoFacadeService);
 
@@ -91,9 +93,28 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     return task;
   });
 
+  readonly esParticipante = computed(() => {
+    const task = this.tareaDetalleVisible();
+    const session = this.auth.obtenerSesion();
+    if (!task || !session) {
+      return false;
+    }
+    const esAsignado = task.asignadoA === session.id;
+    const estaEnLista = task.participantesIds?.includes(session.id) ?? false;
+    return esAsignado || estaEnLista;
+  });
+
   readonly puedeTomar = computed(() => {
     const task = this.tareaDetalleVisible();
     return Boolean(task && isTareaTomable(task.estadoTarea));
+  });
+
+  readonly puedeTrabajar = computed(() => {
+    const task = this.tareaDetalleVisible();
+    if (!task) {
+      return false;
+    }
+    return task.estadoTarea === 'EN_PROCESO' && !this.esParticipante();
   });
 
   readonly puedeCompletar = computed(() => {
@@ -117,7 +138,8 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
 
   readonly debeTomarAntesDeCompletar = computed(() => {
     const task = this.tareaDetalleVisible();
-    return Boolean(task && isTareaTomable(task.estadoTarea));
+    if (!task) return false;
+    return isTareaTomable(task.estadoTarea) || (task.estadoTarea === 'EN_PROCESO' && !this.esParticipante());
   });
 
   readonly tieneResumenEnviado = computed(() => {

@@ -109,6 +109,8 @@ export interface TareaDetalleResponseDto {
   fechaFin: string | null;
   asignadoA: string | null;
   asignadoANombre?: string | null;
+  participantesIds?: string[] | null;
+  participantesNombres?: string[] | null;
   observaciones: string | null;
   actividad: TareaActividadDetalleDto;
   formularioRespuesta: Record<string, unknown> | null;
@@ -145,6 +147,7 @@ export interface ArchivoMetadataResponseDto {
   descripcion: string | null;
   urlAcceso: string | null;
   bucket: string | null;
+  clienteId?: string | null;
 }
 
 export interface CompletarTareaRequestDto {

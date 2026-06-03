@@ -48,6 +48,8 @@ export function mapTareaDetalleDto(dto: TareaDetalleResponseDto): TareaDetalle {
     fechaFin: dto.fechaFin,
     asignadoA: dto.asignadoA,
     asignadoANombre: dto.asignadoANombre ?? null,
+    participantesIds: dto.participantesIds ?? [],
+    participantesNombres: dto.participantesNombres ?? [],
     observaciones: dto.observaciones,
     actividad: {
       nodoId: dto.actividad.nodoId,
