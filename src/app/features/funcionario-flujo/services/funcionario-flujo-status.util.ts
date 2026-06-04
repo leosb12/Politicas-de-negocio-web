@@ -95,6 +95,7 @@ export function isFormularioTipoSoportado(
     normalized === 'CHECKBOX' ||
     normalized === 'SELECCION' ||
     normalized === 'GRID' ||
-    normalized === 'LABEL'
+    normalized === 'LABEL' ||
+    normalized === 'DOCUMENTO_COLABORATIVO'
   );
 }

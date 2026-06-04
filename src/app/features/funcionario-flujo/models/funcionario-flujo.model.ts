@@ -7,7 +7,8 @@ export type FlujoFormularioCampoTipo =
   | 'CHECKBOX'
   | 'SELECCION'
   | 'GRID'
-  | 'LABEL';
+  | 'LABEL'
+  | 'DOCUMENTO_COLABORATIVO';
 
 export interface FlujoArchivoMetadata {
   archivoId: string | null;
@@ -32,6 +33,26 @@ export interface FlujoFormularioCampo {
   ayuda: string | null;
   orden: number;
   opciones?: string[] | null;
+  configuracionDocumento?: {
+    tipoDocumento: 'WORD' | 'EXCEL' | 'POWERPOINT';
+    modoColaboracion: 'DEPARTAMENTO' | 'USUARIOS_ESPECIFICOS' | 'ROLES' | 'FUNCIONARIO_RESPONSABLE' | 'ADMIN_JEFE' | 'PERSONALIZADO';
+    permisosEdicion: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+    };
+    permisosLectura: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+      incluirClienteIniciador: boolean;
+    };
+    permisosDescarga: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+    };
+  } | null;
 }
 
 export interface FlujoFormularioDefinicion {

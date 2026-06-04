@@ -509,6 +509,16 @@ export class TareaFormularioDinamicoComponent {
       return '';
     }
 
+    if (campo.tipo === 'DOCUMENTO_COLABORATIVO') {
+      if (typeof rawValue === 'string') {
+        return rawValue;
+      }
+      if (rawValue && typeof rawValue === 'object') {
+        return JSON.stringify(rawValue);
+      }
+      return '';
+    }
+
     if (typeof rawValue === 'string') {
       return rawValue;
     }
@@ -572,6 +582,17 @@ export class TareaFormularioDinamicoComponent {
 
     if (campo.tipo === 'LABEL') {
       return null;
+    }
+
+    if (campo.tipo === 'DOCUMENTO_COLABORATIVO') {
+      if (typeof rawValue === 'string' && rawValue.trim()) {
+        try {
+          return JSON.parse(rawValue);
+        } catch {
+          return rawValue;
+        }
+      }
+      return rawValue;
     }
 
     if (typeof rawValue !== 'string') {
@@ -755,6 +776,100 @@ export class TareaFormularioDinamicoComponent {
     ctrl.markAsDirty();
     ctrl.markAsTouched();
     this.hasLocalChanges = true;
+  }
+
+  // ── Collaborative Document Signals & Simulation Methods ───────
+  readonly activeCollabField = signal<FlujoFormularioCampo | null>(null);
+  readonly collabEditorTitle = signal('');
+  readonly collabEditorContent = signal('');
+  readonly collabUsersMock = signal<Array<{ name: string; color: string; initial: string }>>([
+    { name: 'Sofía Castro', color: '#10b981', initial: 'SC' },
+    { name: 'Andrés López', color: '#3b82f6', initial: 'AL' },
+    { name: 'Vos (Editor)', color: '#6366f1', initial: 'VE' }
+  ]);
+
+  getCollabDocTitle(campo: FlujoFormularioCampo): string | null {
+    const ctrl = this.control(campo);
+    if (!ctrl || !ctrl.value) {
+      return null;
+    }
+    const val = ctrl.value;
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return parsed.titulo || parsed.title || 'Documento colaborativo';
+      } catch {
+        return val.length > 25 ? val.slice(0, 25) + '...' : val;
+      }
+    }
+    if (typeof val === 'object') {
+      const obj = val as any;
+      return obj.titulo || obj.title || 'Documento colaborativo';
+    }
+    return null;
+  }
+
+  openCollabEditor(campo: FlujoFormularioCampo): void {
+    this.activeCollabField.set(campo);
+    const ctrl = this.control(campo);
+    let title = campo.etiqueta;
+    let content = '';
+    
+    if (ctrl && ctrl.value) {
+      const val = ctrl.value;
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          title = parsed.titulo || title;
+          content = parsed.contenido || '';
+        } catch {
+          content = val;
+        }
+      } else if (typeof val === 'object') {
+        const obj = val as any;
+        title = obj.titulo || title;
+        content = obj.contenido || '';
+      }
+    }
+    this.collabEditorTitle.set(title);
+    this.collabEditorContent.set(content);
+  }
+
+  saveCollabEditorChanges(): void {
+    const campo = this.activeCollabField();
+    if (!campo) return;
+    
+    const newValue = {
+      titulo: this.collabEditorTitle().trim() || campo.etiqueta,
+      contenido: this.collabEditorContent(),
+      guardadoEnS3: false,
+      editadoPor: 'VE',
+      ultimaEdicion: new Date().toISOString()
+    };
+    
+    const ctrl = this.control(campo);
+    if (ctrl) {
+      ctrl.setValue(JSON.stringify(newValue));
+      ctrl.markAsDirty();
+      ctrl.markAsTouched();
+      this.fieldEdited.emit({ campo, valor: newValue });
+    }
+    
+    this.activeCollabField.set(null);
+  }
+
+  closeCollabEditor(): void {
+    this.activeCollabField.set(null);
+  }
+
+  onCollabTitleChange(event: Event): void {
+    const el = event.target as HTMLInputElement;
+    this.collabEditorTitle.set(el.value);
+  }
+
+  onCollabContentChange(event: Event): void {
+    const el = event.target as HTMLTextAreaElement;
+    this.collabEditorContent.set(el.value);
   }
 }
 

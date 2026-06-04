@@ -330,6 +330,11 @@ export class FuncionarioFlujoFacadeService {
             instanciaId,
             actividadId: contexto?.actividad.nodoId ?? null,
             usuarioId: actorId,
+            campoId: campoClave,
+            tramiteId: instanciaId,
+            clienteId: contexto?.instancia?.creadaPor ?? null,
+            politicaId: contexto?.politica?.id ?? null,
+            nodoId: contexto?.actividad.nodoId ?? null,
             descripcion: `Adjunto del campo ${campoClave} para tarea ${tareaId}`,
           };
 

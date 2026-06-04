@@ -1286,6 +1286,336 @@
 </div>
 
 <!-- ═══ DEPT SELECTION MODAL ═════════════════════════════════════ -->
+@if (showDocumentPermissionModal() && documentPermissionModal; as docModal) {
+  <div class="modal-overlay document-permission-overlay" (click)="closeDocumentPermissionModal()">
+    <div class="document-permission-modal" (click)="$event.stopPropagation()" id="modal-document-permissions">
+      <div class="document-permission-head">
+        <div>
+          <h3>Configuracion de permisos documentales</h3>
+          <span>{{ docModal.mode === 'create' ? 'Nuevo campo ARCHIVO' : 'Editar campo ARCHIVO' }}</span>
+        </div>
+        <button class="modal-close" type="button" (click)="closeDocumentPermissionModal()" [disabled]="savingDocumentPermissionConfig()" title="Cerrar">
+          <lucide-icon name="x" [size]="16"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="document-permission-body">
+        <section class="document-permission-section">
+          <div class="document-section-title"><lucide-icon name="file-text" [size]="15"></lucide-icon><span>Datos del documento</span></div>
+          <div class="document-grid">
+            <label class="document-field"><span>Nombre visible del campo</span><input class="prop-input" type="text" [(ngModel)]="docModal.campoNombre" [disabled]="savingDocumentPermissionConfig()" /></label>
+            <label class="document-field"><span>Identificador del campo</span><input class="prop-input" type="text" [(ngModel)]="docModal.campoId" [disabled]="savingDocumentPermissionConfig() || docModal.mode === 'edit'" /></label>
+            <label class="document-field document-field-wide"><span>Descripcion o instruccion</span><textarea class="prop-input document-textarea" [(ngModel)]="docModal.descripcion" [disabled]="savingDocumentPermissionConfig()"></textarea></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.obligatorio" [disabled]="savingDocumentPermissionConfig()" /><span>Documento obligatorio</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.permiteMultiplesArchivos" [disabled]="savingDocumentPermissionConfig()" /><span>Permitir multiples archivos</span></label>
+            <label class="document-field"><span>Tamano maximo permitido (MB)</span><input class="prop-input" type="number" min="1" [(ngModel)]="docModal.tamanoMaximoMb" [disabled]="savingDocumentPermissionConfig()" /></label>
+          </div>
+        </section>
+
+        <section class="document-permission-section">
+          <div class="document-section-title"><lucide-icon name="paperclip" [size]="15"></lucide-icon><span>Tipos de archivo permitidos</span></div>
+          <div class="document-chip-grid">
+            @for (type of documentFileTypeOptions; track type.value) {
+              <label class="document-chip">
+                <input type="checkbox" [checked]="docModal.tiposArchivoPermitidos.includes(type.value)" (change)="toggleDocumentFileType(type.value, $any($event.target).checked)" [disabled]="savingDocumentPermissionConfig()" />
+                <span>{{ type.label }}</span>
+              </label>
+            }
+          </div>
+        </section>
+
+        <section class="document-permission-section">
+          <div class="document-section-title"><lucide-icon name="shield" [size]="15"></lucide-icon><span>Confidencialidad</span></div>
+          <div class="document-grid">
+            <label class="document-field">
+              <span>Categoria documental</span>
+              <select class="prop-select" [(ngModel)]="docModal.categoriaDocumental" [disabled]="savingDocumentPermissionConfig()">
+                @for (category of documentCategoryOptions; track category.value) { <option [value]="category.value">{{ category.label }}</option> }
+              </select>
+            </label>
+            <label class="document-field">
+              <span>Nivel de confidencialidad</span>
+              <select class="prop-select" [(ngModel)]="docModal.nivelConfidencialidad" [disabled]="savingDocumentPermissionConfig()">
+                @for (level of documentConfidentialityOptions; track level.value) { <option [value]="level.value">{{ level.label }}</option> }
+              </select>
+            </label>
+            <label class="document-field"><span>Cliente</span><input class="prop-input" type="text" [(ngModel)]="docModal.clienteId" placeholder="Opcional" [disabled]="savingDocumentPermissionConfig()" /></label>
+            <label class="document-field"><span>Tramite</span><input class="prop-input" type="text" [(ngModel)]="docModal.tramiteId" placeholder="Opcional" [disabled]="savingDocumentPermissionConfig()" /></label>
+            <label class="document-field">
+              <span>Departamento</span>
+              <select class="prop-select" [(ngModel)]="docModal.departamentoId" [disabled]="savingDocumentPermissionConfig()">
+                <option value="">Sin alcance especifico</option>
+                @for (d of departamentos(); track d.id) { <option [value]="d.id">{{ d.nombre }}</option> }
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="document-permission-section">
+          <div class="document-section-title document-section-title-row">
+            <span class="flex items-center gap-2"><lucide-icon name="users" [size]="15"></lucide-icon>Reglas de permisos</span>
+            <button class="document-secondary-btn" type="button" (click)="addDocumentPermissionRule()" [disabled]="savingDocumentPermissionConfig()">+ Agregar regla de permiso</button>
+          </div>
+          <div class="document-rules-table-wrap">
+            <table class="document-rules-table">
+              <thead>
+                <tr>
+                  <th style="width: 110px;">Tipo sujeto</th><th style="width: 260px;">Sujeto</th><th>Leer</th><th>Subir</th><th>Descargar</th><th>Editar</th><th>Reemplazar</th><th>Eliminar</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (rule of docModal.reglasPermiso; track $index) {
+                  <tr>
+                    <td>
+                      <select
+                        class="document-table-select"
+                        [ngModel]="rule.tipoSujeto"
+                        (ngModelChange)="rule.tipoSujeto = $event; onDocumentRuleSubjectTypeChange(rule)"
+                        [disabled]="savingDocumentPermissionConfig()"
+                      >
+                        @for (type of documentSubjectTypeOptions; track type.value) { <option [value]="type.value">{{ type.label }}</option> }
+                      </select>
+                    </td>
+                    <td>
+                      @if (rule.tipoSujeto === 'CLIENTE') {
+                        <div class="document-auto-subject">Cliente que inicio el tramite</div>
+                      } @else {
+                        <select
+                          class="document-table-select document-subject-select"
+                          [ngModel]="rule.sujetoId"
+                          (ngModelChange)="rule.sujetoId = $event; onDocumentRuleSubjectChange(rule)"
+                          [disabled]="savingDocumentPermissionConfig() || isLoadingDocumentSubjectOptions(rule.tipoSujeto) || documentSubjectOptionsForRule(rule).length === 0"
+                        >
+                          <option value="" disabled>{{ documentSubjectPlaceholder(rule) }}</option>
+                          @for (option of documentSubjectOptionsForRule(rule); track option.id) {
+                            <option [value]="option.id">{{ option.nombre }}{{ option.detalle ? ' - ' + option.detalle : '' }}</option>
+                          }
+                        </select>
+                      }
+                    </td>
+                    <td><input type="checkbox" [(ngModel)]="rule.permisos.leer" [disabled]="savingDocumentPermissionConfig()" /></td>
+                    <td><input type="checkbox" [(ngModel)]="rule.permisos.subir" [disabled]="savingDocumentPermissionConfig()" /></td>
+                    <td><input type="checkbox" [(ngModel)]="rule.permisos.descargar" [disabled]="savingDocumentPermissionConfig()" /></td>
+                    <td><input type="checkbox" [(ngModel)]="rule.permisos.editar" [disabled]="savingDocumentPermissionConfig()" /></td>
+                    <td><input type="checkbox" [(ngModel)]="rule.permisos.reemplazar" [disabled]="savingDocumentPermissionConfig()" /></td>
+                    <td><input type="checkbox" [(ngModel)]="rule.permisos.eliminar" [disabled]="savingDocumentPermissionConfig()" /></td>
+                    <td><button class="btn-remove" type="button" (click)="removeDocumentPermissionRule($index)" [disabled]="savingDocumentPermissionConfig()"><lucide-icon name="x" [size]="12"></lucide-icon></button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="document-permission-section">
+          <div class="document-section-title"><lucide-icon name="history" [size]="15"></lucide-icon><span>Auditoria</span></div>
+          <div class="document-audit-grid">
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.auditarVisualizacion" [disabled]="savingDocumentPermissionConfig()" /><span>Visualizacion</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.auditarDescarga" [disabled]="savingDocumentPermissionConfig()" /><span>Descarga</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.auditarSubida" [disabled]="savingDocumentPermissionConfig()" /><span>Subida</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.auditarEdicion" [disabled]="savingDocumentPermissionConfig()" /><span>Edicion</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.auditarEliminacion" [disabled]="savingDocumentPermissionConfig()" /><span>Eliminacion</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.auditarCambioPermisos" [disabled]="savingDocumentPermissionConfig()" /><span>Cambio de permisos</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.guardarIpDispositivo" [disabled]="savingDocumentPermissionConfig()" /><span>Guardar IP</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.guardarUserAgent" [disabled]="savingDocumentPermissionConfig()" /><span>Guardar User Agent</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.guardarFechaHora" [disabled]="savingDocumentPermissionConfig()" /><span>Guardar fecha/hora</span></label>
+            <label class="document-check"><input type="checkbox" [(ngModel)]="docModal.auditoria.guardarUsuarioActor" [disabled]="savingDocumentPermissionConfig()" /><span>Guardar usuario actor</span></label>
+          </div>
+        </section>
+      </div>
+
+      <div class="document-permission-actions">
+        <button class="document-cancel-btn" type="button" (click)="closeDocumentPermissionModal()" [disabled]="savingDocumentPermissionConfig()">Cancelar</button>
+        <button class="btn-add-campo document-save-btn" type="button" (click)="saveDocumentPermissionConfig()" [disabled]="savingDocumentPermissionConfig()">
+          @if (savingDocumentPermissionConfig()) { <span class="mini-spin"></span> }
+          Guardar configuracion
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showCollabDocumentModal() && collabDocumentModal; as collabModal) {
+  <div class="modal-overlay document-permission-overlay" (click)="closeCollabDocumentModal()">
+    <div class="document-permission-modal" (click)="$event.stopPropagation()" id="modal-collab-document" style="max-width: 900px; width: 90%;">
+      <div class="document-permission-head" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white;">
+        <div>
+          <h3 style="color: white; margin: 0; font-weight: 600;">Configuracion de Documento Colaborativo</h3>
+          <span style="opacity: 0.85; font-size: 0.875rem;">{{ collabModal.mode === 'create' ? 'Nuevo campo DOCUMENTO COLABORATIVO' : 'Editar campo DOCUMENTO COLABORATIVO' }}</span>
+        </div>
+        <button class="modal-close" type="button" (click)="closeCollabDocumentModal()" title="Cerrar" style="color: white; opacity: 0.8;">
+          <lucide-icon name="x" [size]="16"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="document-permission-body" style="max-height: 70vh; overflow-y: auto; padding: 1.5rem;">
+        <!-- Seccion 1: Datos basicos -->
+        <section class="document-permission-section">
+          <div class="document-section-title" style="color: #4f46e5;"><lucide-icon name="file-text" [size]="15"></lucide-icon><span>Datos basicos del documento</span></div>
+          <div class="document-grid">
+            <label class="document-field">
+              <span>Nombre visible del campo *</span>
+              <input class="prop-input" type="text" [(ngModel)]="collabModal.campoNombre" placeholder="Ej: Contrato de servicios" />
+            </label>
+            <label class="document-field">
+              <span>Tipo de documento colaborativo *</span>
+              <select class="prop-select" [(ngModel)]="collabModal.tipoDocumento">
+                @for (type of collabDocumentTypeOptions; track type.value) {
+                  <option [value]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="document-field document-field-wide">
+              <span>Descripcion o instruccion de llenado</span>
+              <textarea class="prop-input document-textarea" [(ngModel)]="collabModal.descripcion" placeholder="Explique a los usuarios que deben redactar en este documento..."></textarea>
+            </label>
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.obligatorio" />
+              <span>Campo obligatorio (El tramite no puede finalizar sin este documento)</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Seccion 2: Permisos de edición -->
+        <section class="document-permission-section">
+          <div class="document-section-title" style="color: #4f46e5;"><lucide-icon name="users" [size]="15"></lucide-icon><span>Permisos de edición (Colaboradores)</span></div>
+          
+          <div class="collab-permisos-grid">
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Edicion: Departamentos</span>
+              <div class="scroll-select-box">
+                @for (d of departamentos(); track d.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosEdicion.departamentos.includes(d.id)" (change)="toggleCollabEdicionDept(d.id, $any($event.target).checked)" />
+                    <span>{{ d.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Edicion: Roles</span>
+              <div class="scroll-select-box">
+                @for (r of roles(); track r.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosEdicion.roles.includes(r.nombre)" (change)="toggleCollabEdicionRole(r.nombre, $any($event.target).checked)" />
+                    <span>{{ r.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Edicion: Usuarios especificos</span>
+              <div class="scroll-select-box">
+                @for (u of usuarios(); track u.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosEdicion.usuarios.includes(u.id)" (change)="toggleCollabEdicionUser(u.id, $any($event.target).checked)" />
+                    <span>{{ u.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Seccion 3: Permisos de lectura -->
+        <section class="document-permission-section">
+          <div class="document-section-title" style="color: #4f46e5;"><lucide-icon name="eye" [size]="15"></lucide-icon><span>Permisos de lectura (Solo ver / comentar)</span></div>
+          <div style="margin-bottom: 1rem;">
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.permisosLectura.incluirClienteIniciador" />
+              <span>Incluir al cliente iniciador del tramite (Permitir ver el avance de su documento)</span>
+            </label>
+          </div>
+          
+          <div class="collab-permisos-grid">
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Lectura: Departamentos</span>
+              <div class="scroll-select-box">
+                @for (d of departamentos(); track d.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosLectura.departamentos.includes(d.id)" (change)="toggleCollabLecturaDept(d.id, $any($event.target).checked)" />
+                    <span>{{ d.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Lectura: Roles</span>
+              <div class="scroll-select-box">
+                @for (r of roles(); track r.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosLectura.roles.includes(r.nombre)" (change)="toggleCollabLecturaRole(r.nombre, $any($event.target).checked)" />
+                    <span>{{ r.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Lectura: Usuarios especificos</span>
+              <div class="scroll-select-box">
+                @for (u of usuarios(); track u.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosLectura.usuarios.includes(u.id)" (change)="toggleCollabLecturaUser(u.id, $any($event.target).checked)" />
+                    <span>{{ u.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Seccion 4: Permisos de descarga -->
+        <section class="document-permission-section">
+          <div class="document-section-title" style="color: #4f46e5;"><lucide-icon name="download" [size]="15"></lucide-icon><span>Permisos de descarga</span></div>
+          
+          <div class="collab-permisos-grid">
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Descarga: Departamentos</span>
+              <div class="scroll-select-box">
+                @for (d of departamentos(); track d.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosDescarga.departamentos.includes(d.id)" (change)="toggleCollabDescargaDept(d.id, $any($event.target).checked)" />
+                    <span>{{ d.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Descarga: Roles</span>
+              <div class="scroll-select-box">
+                @for (r of roles(); track r.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosDescarga.roles.includes(r.nombre)" (change)="toggleCollabDescargaRole(r.nombre, $any($event.target).checked)" />
+                    <span>{{ r.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Descarga: Usuarios especificos</span>
+              <div class="scroll-select-box">
+                @for (u of usuarios(); track u.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosDescarga.usuarios.includes(u.id)" (change)="toggleCollabDescargaUser(u.id, $any($event.target).checked)" />
+                    <span>{{ u.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="document-permission-actions" style="padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 1rem;">
+        <button class="document-cancel-btn" type="button" (click)="closeCollabDocumentModal()" style="border: 1px solid #cbd5e1; padding: 0.5rem 1rem; border-radius: 6px; background: white; cursor: pointer;">Cancelar</button>
+        <button class="btn-add-campo document-save-btn" type="button" (click)="saveCollabDocumentConfig()" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; border: none; padding: 0.5rem 1.25rem; border-radius: 6px; cursor: pointer; font-weight: 500;">
+          Guardar configuracion
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 @if (showDeptModal()) {
   <div class="modal-overlay" (click)="!savingDept() && closeDeptModal()">
     <div class="modal-sm" (click)="$event.stopPropagation()" id="modal-seleccionar-dept">

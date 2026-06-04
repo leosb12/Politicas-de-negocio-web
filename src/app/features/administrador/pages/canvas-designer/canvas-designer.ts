@@ -19,6 +19,7 @@ import { firstValueFrom } from 'rxjs';
 import { PoliticaService } from '../../services/politica.service';
 import { AdministradorDepartamentosService } from '../../services/administrador-departamentos.service';
 import { AdministradorUsuariosService } from '../../services/administrador-usuarios.service';
+import { AdministradorRolesService } from '../../services/administrador-roles.service';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { AuthService } from '../../../../core/auth/services/auth.service';
 import {
@@ -46,14 +47,28 @@ import {
 } from '../../models/politica-colaboracion.model';
 import { AdministradorDepartamento } from '../../models/administrador-departamento.model';
 import { AdministradorUsuario } from '../../models/administrador-usuario.model';
+import { AdministradorRol } from '../../models/administrador-rol.model';
 import { FindNodePipe } from '../../pipes/find-node.pipe';
 import { PoliticaColaboracionFacadeService } from '../../services/politica-colaboracion-facade.service';
 import { IaGeneradorFlujoComponent } from '../../components/ia-generador-flujo/ia-generador-flujo';
 import { IaEdicionFlujoComponent } from '../../components/ia-edicion-flujo/ia-edicion-flujo';
 import { AdministradorGuiaContextService } from '../../services/administrador-guia-context.service';
 import { IaFlujoMapperService } from '../../services/ia-flujo-mapper.service';
+import { DocumentPermissionService } from '../../services/document-permission.service';
 import { IaFlujoResponse } from '../../models/ia-flujo.model';
 import { IaWorkflowEditApplyResponse } from '../../models/ia-edicion-flujo.model';
+import {
+  DocumentAuditConfig,
+  DocumentCategory,
+  DocumentConfidentialityLevel,
+  DocumentFileType,
+  DocumentPermissionConfigRequest,
+  DocumentPermissionConfigResponse,
+  DocumentPermissionRule,
+  DocumentPermissionSet,
+  DocumentSubjectOptionResponse,
+  DocumentSubjectType,
+} from '../../models/document-permission.model';
 
 // ── Drag state ───────────────────────────────────────────────────
 interface DragState {
@@ -126,6 +141,73 @@ interface PendingLaneConfigGuard {
   expiresAt: number;
 }
 
+type DocumentPermissionModalMode = 'create' | 'edit';
+const CLIENTE_INICIADOR_SUJETO_ID = '__CLIENTE_INICIADOR_TRAMITE__';
+
+interface DocumentPermissionModalState {
+  mode: DocumentPermissionModalMode;
+  nodeId: string;
+  fieldIndex?: number;
+  originalCampoId: string;
+  campoId: string;
+  campoNombre: string;
+  descripcion: string;
+  obligatorio: boolean;
+  permiteMultiplesArchivos: boolean;
+  tiposArchivoPermitidos: DocumentFileType[];
+  tamanoMaximoMb: number;
+  categoriaDocumental: DocumentCategory;
+  nivelConfidencialidad: DocumentConfidentialityLevel;
+  clienteId: string;
+  tramiteId: string;
+  departamentoId: string;
+  reglasPermiso: DocumentPermissionRule[];
+  auditoria: DocumentAuditConfig;
+}
+
+interface CollabDocumentModalState {
+  mode: 'create' | 'edit';
+  nodeId: string;
+  fieldIndex?: number;
+  originalCampoId: string;
+  campoId: string;
+  campoNombre: string;
+  descripcion: string;
+  obligatorio: boolean;
+  tipoDocumento: 'WORD' | 'EXCEL' | 'POWERPOINT';
+  modoColaboracion: 'DEPARTAMENTO' | 'USUARIOS_ESPECIFICOS' | 'ROLES' | 'FUNCIONARIO_RESPONSABLE' | 'ADMIN_JEFE' | 'PERSONALIZADO';
+  permisosEdicion: {
+    departamentos: string[];
+    roles: string[];
+    usuarios: string[];
+  };
+  permisosLectura: {
+    departamentos: string[];
+    roles: string[];
+    usuarios: string[];
+    incluirClienteIniciador: boolean;
+  };
+  permisosDescarga: {
+    departamentos: string[];
+    roles: string[];
+    usuarios: string[];
+  };
+}
+
+interface DocumentFieldValidationConfig {
+  documentPermissionConfig?: boolean;
+  permiteMultiplesArchivos?: boolean;
+  tiposArchivoPermitidos?: DocumentFileType[];
+  tamanoMaximoMb?: number;
+  categoriaDocumental?: DocumentCategory;
+  nivelConfidencialidad?: DocumentConfidentialityLevel;
+  clienteId?: string | null;
+  tramiteId?: string | null;
+  departamentoId?: string | null;
+  reglasPermiso?: DocumentPermissionRule[];
+  auditoria?: DocumentAuditConfig;
+}
+
 // ── Node palette item ─────────────────────────────────────────────
 interface PaletteItem {
   tipo: TipoNodo;
@@ -192,11 +274,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly svc = inject(PoliticaService);
   private readonly deptSvc = inject(AdministradorDepartamentosService);
   private readonly userSvc = inject(AdministradorUsuariosService);
+  private readonly roleSvc = inject(AdministradorRolesService);
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
   private readonly collabFacade = inject(PoliticaColaboracionFacadeService);
   private readonly guideContext = inject(AdministradorGuiaContextService);
   private readonly iaMapperService = inject(IaFlujoMapperService);
+  private readonly documentPermissionService = inject(DocumentPermissionService);
 
   // ── State ─────────────────────────────────────────────────────
   politica = signal<PoliticaNegocio | null>(null);
@@ -204,6 +288,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   saving = signal(false);
   departamentos = signal<AdministradorDepartamento[]>([]);
   usuarios = signal<AdministradorUsuario[]>([]);
+  roles = signal<AdministradorRol[]>([]);
   connectedUsers = signal<ColaboracionUsuarioPresente[]>([]);
   nodeSoftLocks = signal<ColaboracionNodosBloqueadosState>({});
   collaborationConnectionState = signal<SocketConnectionState>('DISCONNECTED');
@@ -309,7 +394,24 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     { tipo: 'FIN', label: 'Fin', icon: 'stop-circle', color: '#f43f5e', description: 'Punto de cierre del flujo' },
   ];
 
-  tipoCampoOptions: TipoCampo[] = ['TEXTO', 'NUMERO', 'BOOLEANO', 'ARCHIVO', 'FECHA', 'CHECKBOX', 'SELECCION', 'GRID', 'LABEL'];
+  tipoCampoOptions: TipoCampo[] = ['TEXTO', 'NUMERO', 'BOOLEANO', 'ARCHIVO', 'FECHA', 'CHECKBOX', 'SELECCION', 'GRID', 'LABEL', 'DOCUMENTO_COLABORATIVO'];
+
+  // ── Collaborative Document Signals & Options ──────────────────
+  readonly showCollabDocumentModal = signal(false);
+  collabDocumentModal: CollabDocumentModalState | null = null;
+  readonly collabDocumentTypeOptions = [
+    { value: 'WORD', label: 'Word (.docx)' },
+    { value: 'EXCEL', label: 'Excel (.xlsx)' },
+    { value: 'POWERPOINT', label: 'PowerPoint (.pptx)' },
+  ];
+  readonly collabCollaborationModeOptions = [
+    { value: 'DEPARTAMENTO', label: 'Todo el departamento asignado al trámite' },
+    { value: 'USUARIOS_ESPECIFICOS', label: 'Usuarios específicos' },
+    { value: 'ROLES', label: 'Roles específicos' },
+    { value: 'FUNCIONARIO_RESPONSABLE', label: 'Solo el funcionario responsable' },
+    { value: 'ADMIN_JEFE', label: 'Administrador y jefe de proceso' },
+    { value: 'PERSONALIZADO', label: 'Personalizado' },
+  ];
 
   readonly decisionLogicalOperatorOptions: Array<{
     value: OperadorLogicoDecision;
@@ -381,6 +483,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     LABEL: [
       { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
     ],
+    DOCUMENTO_COLABORATIVO: [
+      { value: 'ESTA_VACIO', label: 'No se creó el documento', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'Documento creado', requiresValue: false },
+    ],
+
+
+
   };
 
   decisionBuilderVisible = false;
@@ -392,6 +501,41 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   // ── New campo form ────────────────────────────────────────────
   newCampo = { campo: '', tipo: 'TEXTO' as TipoCampo };
   newCondicion = { resultado: '', siguiente: '' };
+  readonly showDocumentPermissionModal = signal(false);
+  readonly savingDocumentPermissionConfig = signal(false);
+  readonly loadingDocumentSubjectOptions = signal<Partial<Record<DocumentSubjectType, boolean>>>({});
+  readonly documentSubjectOptions = signal<Partial<Record<DocumentSubjectType, DocumentSubjectOptionResponse[]>>>({});
+  documentPermissionModal: DocumentPermissionModalState | null = null;
+  readonly documentFileTypeOptions: Array<{ value: DocumentFileType; label: string }> = [
+    { value: 'PDF', label: 'PDF' },
+    { value: 'WORD', label: 'Word' },
+    { value: 'EXCEL', label: 'Excel' },
+    { value: 'POWERPOINT', label: 'PowerPoint' },
+    { value: 'IMAGEN', label: 'Imagenes' },
+    { value: 'VIDEO', label: 'Videos' },
+    { value: 'OTRO', label: 'Otros' },
+  ];
+  readonly documentCategoryOptions: Array<{ value: DocumentCategory; label: string }> = [
+    { value: 'DOCUMENTO_CLIENTE', label: 'Documento del cliente' },
+    { value: 'DOCUMENTO_INTERNO', label: 'Documento interno' },
+    { value: 'EVIDENCIA', label: 'Evidencia' },
+    { value: 'CONTRATO', label: 'Contrato' },
+    { value: 'FORMULARIO', label: 'Formulario' },
+    { value: 'RESPALDO', label: 'Respaldo' },
+    { value: 'OTRO', label: 'Otro' },
+  ];
+  readonly documentConfidentialityOptions: Array<{ value: DocumentConfidentialityLevel; label: string }> = [
+    { value: 'PUBLICO_TRAMITE', label: 'Publico del tramite' },
+    { value: 'INTERNO', label: 'Interno' },
+    { value: 'CONFIDENCIAL', label: 'Confidencial' },
+    { value: 'RESTRINGIDO', label: 'Restringido' },
+  ];
+  readonly documentSubjectTypeOptions: Array<{ value: DocumentSubjectType; label: string }> = [
+    { value: 'ROL', label: 'Rol' },
+    { value: 'USUARIO', label: 'Usuario especifico' },
+    { value: 'DEPARTAMENTO', label: 'Departamento' },
+    { value: 'CLIENTE', label: 'Cliente' },
+  ];
 
   // ── Swimlane / Dept control ────────────────────────────────────
   showDeptModal = signal(false);
@@ -507,15 +651,37 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       window.addEventListener('storage', this.storageSyncHandler);
     }
 
+    this.setDocumentSubjectLoading(['ROL', 'USUARIO', 'DEPARTAMENTO', 'CLIENTE'], true);
+
     // Load departments
     this.deptSvc.getDepartments().subscribe({
       next: (d) => {
         this.departamentos.set(d);
+        this.setDocumentSubjectOptions('DEPARTAMENTO', this.departmentOptionsFromMongo(d));
+        this.setDocumentSubjectLoading(['DEPARTAMENTO'], false);
         this.enforceActivitiesAssignedToLane(true);
       },
+      error: () => this.setDocumentSubjectLoading(['DEPARTAMENTO'], false),
+    });
+    // Load roles
+    this.roleSvc.getRoles().subscribe({
+      next: (roles) => {
+        this.roles.set(roles);
+        this.setDocumentSubjectOptions('ROL', this.roleOptionsFromMongo(roles));
+        this.setDocumentSubjectLoading(['ROL'], false);
+      },
+      error: () => this.setDocumentSubjectLoading(['ROL'], false),
     });
     // Load users
-    this.userSvc.getUsers().subscribe({ next: (u) => this.usuarios.set(u) });
+    this.userSvc.getUsers().subscribe({
+      next: (u) => {
+        this.usuarios.set(u);
+        this.setDocumentSubjectOptions('USUARIO', this.userOptionsFromMongo(u));
+        this.setDocumentSubjectOptions('CLIENTE', this.clientOptionsFromMongo(u));
+        this.setDocumentSubjectLoading(['USUARIO', 'CLIENTE'], false);
+      },
+      error: () => this.setDocumentSubjectLoading(['USUARIO', 'CLIENTE'], false),
+    });
 
     this.svc.getById(id).subscribe({
       next: (p) => {
@@ -5027,6 +5193,15 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     }
 
     if (!this.newCampo.campo.trim()) return;
+    if (this.newCampo.tipo === 'ARCHIVO') {
+      this.openDocumentPermissionModal('create', nodeId, undefined, this.newCampo.campo.trim());
+      return;
+    }
+    if (this.newCampo.tipo === 'DOCUMENTO_COLABORATIVO') {
+      this.openCollabDocumentModal('create', nodeId, undefined, this.newCampo.campo.trim());
+      return;
+    }
+
     const campo: CampoFormulario = { campo: this.newCampo.campo.trim(), tipo: this.newCampo.tipo };
     this.nodos.update((ns) =>
       ns.map((n) => (n.id === nodeId ? { ...n, formulario: [...(n.formulario ?? []), campo] } : n))
@@ -5041,6 +5216,969 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.newCampo = { campo: '', tipo: 'TEXTO' };
   }
 
+  toggleSelection(list: string[], item: string, checked: boolean): string[] {
+    if (checked) {
+      if (!list.includes(item)) {
+        return [...list, item];
+      }
+    } else {
+      return list.filter(x => x !== item);
+    }
+    return list;
+  }
+
+  toggleCollabEdicionDept(deptId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosEdicion.departamentos = this.toggleSelection(
+      this.collabDocumentModal.permisosEdicion.departamentos,
+      deptId,
+      checked
+    );
+  }
+
+  toggleCollabEdicionRole(roleName: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosEdicion.roles = this.toggleSelection(
+      this.collabDocumentModal.permisosEdicion.roles,
+      roleName,
+      checked
+    );
+  }
+
+  toggleCollabEdicionUser(userId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosEdicion.usuarios = this.toggleSelection(
+      this.collabDocumentModal.permisosEdicion.usuarios,
+      userId,
+      checked
+    );
+  }
+
+  toggleCollabLecturaDept(deptId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosLectura.departamentos = this.toggleSelection(
+      this.collabDocumentModal.permisosLectura.departamentos,
+      deptId,
+      checked
+    );
+  }
+
+  toggleCollabLecturaRole(roleName: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosLectura.roles = this.toggleSelection(
+      this.collabDocumentModal.permisosLectura.roles,
+      roleName,
+      checked
+    );
+  }
+
+  toggleCollabLecturaUser(userId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosLectura.usuarios = this.toggleSelection(
+      this.collabDocumentModal.permisosLectura.usuarios,
+      userId,
+      checked
+    );
+  }
+
+  toggleCollabDescargaDept(deptId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosDescarga.departamentos = this.toggleSelection(
+      this.collabDocumentModal.permisosDescarga.departamentos,
+      deptId,
+      checked
+    );
+  }
+
+  toggleCollabDescargaRole(roleName: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosDescarga.roles = this.toggleSelection(
+      this.collabDocumentModal.permisosDescarga.roles,
+      roleName,
+      checked
+    );
+  }
+
+  toggleCollabDescargaUser(userId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosDescarga.usuarios = this.toggleSelection(
+      this.collabDocumentModal.permisosDescarga.usuarios,
+      userId,
+      checked
+    );
+  }
+
+  openCollabDocumentModal(
+    mode: 'create' | 'edit',
+    nodeId: string,
+    fieldIndex?: number,
+    fieldName?: string
+  ): void {
+    const node = this.nodos().find((item) => item.id === nodeId);
+    const currentField = fieldIndex !== undefined ? node?.formulario?.[fieldIndex] : null;
+    const campoNombre = (
+      fieldName ??
+      this.editingCampoEtiqueta() ??
+      currentField?.etiqueta ??
+      currentField?.campo ??
+      ''
+    ).trim();
+    const campoId = this.toDocumentCampoId(
+      mode === 'edit' ? this.editingCampoName().trim() || currentField?.campo || campoNombre : campoNombre
+    );
+
+    const defaultDepts: string[] = [];
+    if (node?.departamentoId) {
+      defaultDepts.push(node.departamentoId);
+    }
+    if (node?.responsableTipo === 'DEPARTAMENTO' && node.responsableId && !defaultDepts.includes(node.responsableId)) {
+      defaultDepts.push(node.responsableId);
+    }
+
+    const config = currentField?.configuracionDocumento;
+
+    const initialEdicionDepts = config?.permisosEdicion?.departamentos ? [...config.permisosEdicion.departamentos] : [];
+    const initialLecturaDepts = config?.permisosLectura?.departamentos ? [...config.permisosLectura.departamentos] : [];
+    const initialDescargaDepts = config?.permisosDescarga?.departamentos ? [...config.permisosDescarga.departamentos] : [];
+
+    defaultDepts.forEach(d => {
+      if (!initialEdicionDepts.includes(d)) initialEdicionDepts.push(d);
+      if (!initialLecturaDepts.includes(d)) initialLecturaDepts.push(d);
+      if (!initialDescargaDepts.includes(d)) initialDescargaDepts.push(d);
+    });
+
+    this.collabDocumentModal = {
+      mode,
+      nodeId,
+      fieldIndex,
+      originalCampoId: campoId,
+      campoId,
+      campoNombre,
+      descripcion: mode === 'edit' ? currentField?.ayuda ?? '' : '',
+      obligatorio: mode === 'edit' ? currentField?.requerido === true : false,
+      tipoDocumento: (config?.tipoDocumento as any) ?? 'WORD',
+      modoColaboracion: config?.modoColaboracion ?? 'PERSONALIZADO',
+      permisosEdicion: {
+        departamentos: initialEdicionDepts,
+        roles: config?.permisosEdicion?.roles ?? [],
+        usuarios: config?.permisosEdicion?.usuarios ?? [],
+      },
+      permisosLectura: {
+        departamentos: initialLecturaDepts,
+        roles: config?.permisosLectura?.roles ?? [],
+        usuarios: config?.permisosLectura?.usuarios ?? [],
+        incluirClienteIniciador: config?.permisosLectura?.incluirClienteIniciador ?? true,
+      },
+      permisosDescarga: {
+        departamentos: initialDescargaDepts,
+        roles: config?.permisosDescarga?.roles ?? [],
+        usuarios: config?.permisosDescarga?.usuarios ?? [],
+      }
+    };
+    this.showCollabDocumentModal.set(true);
+  }
+
+  closeCollabDocumentModal(): void {
+    this.showCollabDocumentModal.set(false);
+    this.collabDocumentModal = null;
+  }
+
+  validateCollabDocumentModal(modal: CollabDocumentModalState): string | null {
+    modal.campoId = modal.mode === 'edit'
+      ? modal.originalCampoId
+      : this.toDocumentCampoId(modal.campoId || modal.campoNombre);
+    modal.campoNombre = modal.campoNombre.trim();
+
+    if (!modal.campoNombre) {
+      return 'El nombre del campo es obligatorio.';
+    }
+    if (!modal.tipoDocumento) {
+      return 'El tipo de documento es obligatorio.';
+    }
+    if (!modal.permisosEdicion.departamentos.length && !modal.permisosEdicion.roles.length && !modal.permisosEdicion.usuarios.length) {
+      return 'Debes seleccionar al menos un departamento, rol o usuario con permisos de edición.';
+    }
+    return null;
+  }
+
+  async saveCollabDocumentConfig(): Promise<void> {
+    const modal = this.collabDocumentModal;
+    const policy = this.politica();
+    if (!modal || !policy) {
+      return;
+    }
+
+    const validationError = this.validateCollabDocumentModal(modal);
+    if (validationError) {
+      this.toast.error('Documento colaborativo', validationError);
+      return;
+    }
+
+    const previousNodes = this.nodos();
+    const campo: CampoFormulario = {
+      campo: modal.mode === 'edit' ? modal.originalCampoId : modal.campoId,
+      tipo: 'DOCUMENTO_COLABORATIVO',
+      etiqueta: modal.campoNombre,
+      requerido: modal.obligatorio,
+      ayuda: modal.descripcion || null,
+      configuracionDocumento: {
+        tipoDocumento: modal.tipoDocumento,
+        modoColaboracion: modal.modoColaboracion,
+        permisosEdicion: {
+          departamentos: modal.permisosEdicion.departamentos,
+          roles: modal.permisosEdicion.roles,
+          usuarios: modal.permisosEdicion.usuarios,
+        },
+        permisosLectura: {
+          departamentos: modal.permisosLectura.departamentos,
+          roles: modal.permisosLectura.roles,
+          usuarios: modal.permisosLectura.usuarios,
+          incluirClienteIniciador: modal.permisosLectura.incluirClienteIniciador,
+        },
+        permisosDescarga: {
+          departamentos: modal.permisosDescarga.departamentos,
+          roles: modal.permisosDescarga.roles,
+          usuarios: modal.permisosDescarga.usuarios,
+        }
+      }
+    };
+
+    try {
+      if (modal.mode === 'create') {
+        this.nodos.update((nodes) =>
+          nodes.map((node) =>
+            node.id === modal.nodeId
+              ? { ...node, formulario: [...(node.formulario ?? []), campo] }
+              : node
+          )
+        );
+      } else {
+        this.nodos.update((nodes) =>
+          nodes.map((node) => {
+            if (node.id !== modal.nodeId) {
+              return node;
+            }
+
+            return {
+              ...node,
+              formulario: (node.formulario ?? []).map((item, index) =>
+                index === modal.fieldIndex ? { ...item, ...campo } : item
+              ),
+            };
+          })
+        );
+      }
+
+      const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
+      this.collabFacade.emitUpdateNode(
+        modal.nodeId,
+        { formulario: updatedNode?.formulario ?? [] },
+        updatedNode?.version
+      );
+
+      await this.persistAndBroadcastCurrentFlow('No se pudo guardar el documento colaborativo');
+
+      this.newCampo = { campo: '', tipo: 'TEXTO' };
+      this.cancelEditCampo();
+      this.showCollabDocumentModal.set(false);
+      this.collabDocumentModal = null;
+      this.toast.success('Documento colaborativo', 'Configuracion guardada correctamente.');
+    } catch (error) {
+      this.nodos.set(previousNodes);
+      try {
+        await this.persistAndBroadcastCurrentFlow('No se pudo revertir el documento colaborativo');
+      } catch {
+        // ignore
+      }
+      const msg = (error as any)?.error?.message ?? (error as any)?.userMessage ?? 'No se pudo guardar la configuracion';
+      this.toast.error('Documento colaborativo', msg);
+    }
+  }
+
+  private openDocumentPermissionModal(
+    mode: DocumentPermissionModalMode,
+    nodeId: string,
+    fieldIndex?: number,
+    fieldName?: string
+  ): void {
+    const node = this.nodos().find((item) => item.id === nodeId);
+    const currentField = fieldIndex !== undefined ? node?.formulario?.[fieldIndex] : null;
+    const storedConfig = this.readDocumentFieldValidationConfig(currentField);
+    const campoNombre = (
+      fieldName ??
+      this.editingCampoEtiqueta() ??
+      currentField?.etiqueta ??
+      currentField?.campo ??
+      ''
+    ).trim();
+    const campoId = this.toDocumentCampoId(
+      mode === 'edit' ? this.editingCampoName().trim() || currentField?.campo || campoNombre : campoNombre
+    );
+    const isEditingExistingDocumentField = mode === 'edit' && currentField?.tipo === 'ARCHIVO';
+
+    this.documentPermissionModal = {
+      mode,
+      nodeId,
+      fieldIndex,
+      originalCampoId: campoId,
+      campoId,
+      campoNombre,
+      descripcion: mode === 'edit'
+        ? (isEditingExistingDocumentField ? currentField?.ayuda ?? '' : this.editingCampoAyuda())
+        : '',
+      obligatorio: mode === 'edit'
+        ? (isEditingExistingDocumentField ? currentField?.requerido === true : this.editingCampoRequerido())
+        : false,
+      permiteMultiplesArchivos: storedConfig?.permiteMultiplesArchivos ?? false,
+      tiposArchivoPermitidos: storedConfig?.tiposArchivoPermitidos ?? ['PDF', 'WORD', 'EXCEL', 'IMAGEN', 'VIDEO'],
+      tamanoMaximoMb: storedConfig?.tamanoMaximoMb ?? 25,
+      categoriaDocumental: storedConfig?.categoriaDocumental ?? 'RESPALDO',
+      nivelConfidencialidad: storedConfig?.nivelConfidencialidad ?? 'INTERNO',
+      clienteId: storedConfig?.clienteId ?? '',
+      tramiteId: storedConfig?.tramiteId ?? '',
+      departamentoId: storedConfig?.departamentoId ?? node?.departamentoId ?? '',
+      reglasPermiso: storedConfig?.reglasPermiso ?? this.defaultDocumentPermissionRules(),
+      auditoria: storedConfig?.auditoria ?? this.defaultDocumentAuditConfig(),
+    };
+    this.showDocumentPermissionModal.set(true);
+    this.ensureDocumentSubjectOptionsForModal();
+    if (mode === 'edit') {
+      this.loadPersistedDocumentPermissionConfig(campoId);
+    }
+  }
+
+  private loadPersistedDocumentPermissionConfig(campoId: string): void {
+    this.documentPermissionService.getByField(campoId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (config) => this.applyPersistedDocumentPermissionConfig(campoId, config),
+        error: (error) => {
+          if ((error as any)?.status !== 404) {
+            this.toast.error('Permisos documentales', 'No se pudo cargar la configuracion guardada del campo.');
+          }
+        },
+      });
+  }
+
+  private applyPersistedDocumentPermissionConfig(
+    campoId: string,
+    config: DocumentPermissionConfigResponse
+  ): void {
+    const modal = this.documentPermissionModal;
+    if (!modal || modal.mode !== 'edit' || modal.originalCampoId !== campoId) {
+      return;
+    }
+
+    const normalizedRules = this.readDocumentPermissionRules(config.reglasPermiso);
+    modal.campoId = modal.originalCampoId;
+    modal.campoNombre = config.campoNombre || modal.campoNombre;
+    modal.descripcion = config.descripcion ?? '';
+    modal.obligatorio = config.obligatorio === true;
+    modal.permiteMultiplesArchivos = config.permiteMultiplesArchivos === true;
+    modal.tiposArchivoPermitidos = this.readDocumentFileTypes(config.tiposArchivoPermitidos);
+    modal.tamanoMaximoMb = Number(config.tamanoMaximoMb) > 0 ? Number(config.tamanoMaximoMb) : modal.tamanoMaximoMb;
+    modal.categoriaDocumental = this.readDocumentCategory(config.categoriaDocumental) ?? modal.categoriaDocumental;
+    modal.nivelConfidencialidad = this.readDocumentConfidentiality(config.nivelConfidencialidad) ?? modal.nivelConfidencialidad;
+    modal.clienteId = config.alcance?.clienteId ?? '';
+    modal.tramiteId = config.alcance?.tramiteId ?? '';
+    modal.departamentoId = config.alcance?.departamentoId ?? modal.departamentoId;
+    modal.reglasPermiso = normalizedRules.length ? normalizedRules : modal.reglasPermiso;
+    modal.auditoria = this.readDocumentAuditConfig(config.auditoria) ?? modal.auditoria;
+    this.ensureDocumentSubjectOptionsForModal();
+  }
+
+  closeDocumentPermissionModal(): void {
+    if (this.savingDocumentPermissionConfig()) {
+      return;
+    }
+
+    this.showDocumentPermissionModal.set(false);
+    this.documentPermissionModal = null;
+  }
+
+  async saveDocumentPermissionConfig(): Promise<void> {
+    const modal = this.documentPermissionModal;
+    const policy = this.politica();
+    if (!modal || !policy) {
+      return;
+    }
+
+    const validationError = this.validateDocumentPermissionModal(modal);
+    if (validationError) {
+      this.toast.error('Permisos documentales', validationError);
+      return;
+    }
+
+    const previousNodes = this.nodos();
+    const campo = this.buildDocumentField(modal);
+    this.savingDocumentPermissionConfig.set(true);
+
+    try {
+      if (modal.mode === 'create') {
+        this.nodos.update((nodes) =>
+          nodes.map((node) =>
+            node.id === modal.nodeId
+              ? { ...node, formulario: [...(node.formulario ?? []), campo] }
+              : node
+          )
+        );
+      } else {
+        this.nodos.update((nodes) =>
+          nodes.map((node) => {
+            if (node.id !== modal.nodeId) {
+              return node;
+            }
+
+            return {
+              ...node,
+              formulario: (node.formulario ?? []).map((item, index) =>
+                index === modal.fieldIndex ? { ...item, ...campo } : item
+              ),
+            };
+          })
+        );
+      }
+
+      const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
+      this.collabFacade.emitUpdateNode(
+        modal.nodeId,
+        { formulario: updatedNode?.formulario ?? [] },
+        updatedNode?.version
+      );
+
+      await this.persistAndBroadcastCurrentFlow('No se pudo guardar el campo documental');
+      await this.saveDocumentPermissionConfigRequest(modal);
+
+      this.newCampo = { campo: '', tipo: 'TEXTO' };
+      this.cancelEditCampo();
+      this.showDocumentPermissionModal.set(false);
+      this.documentPermissionModal = null;
+      this.toast.success('Permisos documentales', 'Configuracion guardada correctamente.');
+    } catch (error) {
+      this.nodos.set(previousNodes);
+      try {
+        await this.persistAndBroadcastCurrentFlow('No se pudo revertir el campo documental');
+      } catch {
+        // El error principal se informa abajo.
+      }
+      const msg = (error as any)?.error?.message ?? (error as any)?.userMessage ?? 'No se pudo guardar la configuracion documental';
+      this.toast.error('Permisos documentales', msg);
+    } finally {
+      this.savingDocumentPermissionConfig.set(false);
+    }
+  }
+
+  toggleDocumentFileType(type: DocumentFileType, checked: boolean): void {
+    if (!this.documentPermissionModal) {
+      return;
+    }
+
+    const current = new Set(this.documentPermissionModal.tiposArchivoPermitidos);
+    if (checked) {
+      current.add(type);
+    } else {
+      current.delete(type);
+    }
+    this.documentPermissionModal.tiposArchivoPermitidos = [...current];
+  }
+
+  addDocumentPermissionRule(): void {
+    if (!this.documentPermissionModal) {
+      return;
+    }
+
+    this.documentPermissionModal.reglasPermiso = [
+      ...this.documentPermissionModal.reglasPermiso,
+      {
+        tipoSujeto: 'ROL',
+        sujetoId: '',
+        sujetoNombre: '',
+        permisos: this.basicDocumentPermissionSet(),
+        aplicaDesde: this.localIsoNow(),
+        aplicaHasta: null,
+        activo: true,
+      },
+    ];
+  }
+
+  removeDocumentPermissionRule(index: number): void {
+    if (!this.documentPermissionModal) {
+      return;
+    }
+
+    this.documentPermissionModal.reglasPermiso = this.documentPermissionModal.reglasPermiso.filter(
+      (_, itemIndex) => itemIndex !== index
+    );
+  }
+
+  onDocumentRuleSubjectTypeChange(rule: DocumentPermissionRule): void {
+    if (rule.tipoSujeto === 'CLIENTE') {
+      rule.sujetoId = CLIENTE_INICIADOR_SUJETO_ID;
+      rule.sujetoNombre = 'Cliente que inicio el tramite';
+      return;
+    }
+    rule.sujetoId = '';
+    rule.sujetoNombre = '';
+  }
+
+  onDocumentRuleSubjectChange(rule: DocumentPermissionRule): void {
+    const option = this.documentSubjectOptionsForRule(rule).find((item) => item.id === rule.sujetoId);
+    rule.sujetoNombre = option?.nombre ?? '';
+  }
+
+  documentSubjectOptionsForRule(rule: DocumentPermissionRule): DocumentSubjectOptionResponse[] {
+    if (rule.tipoSujeto === 'CLIENTE') {
+      return [{
+        tipoSujeto: 'CLIENTE',
+        id: CLIENTE_INICIADOR_SUJETO_ID,
+        nombre: 'Cliente que inicio el tramite',
+        detalle: 'Automatico',
+      }];
+    }
+    return this.documentSubjectOptions()[rule.tipoSujeto] ?? [];
+  }
+
+  isLoadingDocumentSubjectOptions(tipoSujeto: DocumentSubjectType): boolean {
+    return Boolean(this.loadingDocumentSubjectOptions()[tipoSujeto]);
+  }
+
+  documentSubjectPlaceholder(rule: DocumentPermissionRule): string {
+    if (this.isLoadingDocumentSubjectOptions(rule.tipoSujeto)) {
+      return 'Cargando sujetos...';
+    }
+    if (!this.documentSubjectOptionsForRule(rule).length) {
+      return 'Sin opciones disponibles';
+    }
+    return 'Selecciona un sujeto';
+  }
+
+  private buildDocumentField(modal: DocumentPermissionModalState): CampoFormulario {
+    return {
+      campo: modal.mode === 'edit' ? modal.originalCampoId : modal.campoId,
+      tipo: 'ARCHIVO',
+      etiqueta: modal.campoNombre,
+      requerido: modal.obligatorio,
+      ayuda: modal.descripcion || null,
+      validaciones: {
+        documentPermissionConfig: true,
+        permiteMultiplesArchivos: modal.permiteMultiplesArchivos,
+        tiposArchivoPermitidos: modal.tiposArchivoPermitidos,
+        tamanoMaximoMb: modal.tamanoMaximoMb,
+        categoriaDocumental: modal.categoriaDocumental,
+        nivelConfidencialidad: modal.nivelConfidencialidad,
+        clienteId: modal.clienteId.trim() || null,
+        tramiteId: modal.tramiteId.trim() || null,
+        departamentoId: modal.departamentoId.trim() || null,
+        reglasPermiso: modal.reglasPermiso.map((rule) => ({
+          ...rule,
+          permisos: { ...rule.permisos },
+        })),
+        auditoria: { ...modal.auditoria },
+      },
+    };
+  }
+
+  private readDocumentFieldValidationConfig(
+    field: CampoFormulario | null | undefined
+  ): DocumentFieldValidationConfig | null {
+    if (!field?.validaciones || field.tipo !== 'ARCHIVO') {
+      return null;
+    }
+
+    const raw = field.validaciones;
+    const fileTypes = this.readDocumentFileTypes(raw['tiposArchivoPermitidos']);
+    const category = this.readDocumentCategory(raw['categoriaDocumental']);
+    const confidentiality = this.readDocumentConfidentiality(raw['nivelConfidencialidad']);
+    const maxSize = Number(raw['tamanoMaximoMb']);
+    const rules = this.readDocumentPermissionRules(raw['reglasPermiso']);
+    const audit = this.readDocumentAuditConfig(raw['auditoria']);
+
+    return {
+      documentPermissionConfig: raw['documentPermissionConfig'] === true,
+      permiteMultiplesArchivos: raw['permiteMultiplesArchivos'] === true,
+      tiposArchivoPermitidos: fileTypes.length ? fileTypes : undefined,
+      tamanoMaximoMb: Number.isFinite(maxSize) && maxSize > 0 ? maxSize : undefined,
+      categoriaDocumental: category,
+      nivelConfidencialidad: confidentiality,
+      clienteId: this.readNullableString(raw['clienteId']),
+      tramiteId: this.readNullableString(raw['tramiteId']),
+      departamentoId: this.readNullableString(raw['departamentoId']),
+      reglasPermiso: rules.length ? rules : undefined,
+      auditoria: audit,
+    };
+  }
+
+  private readDocumentFileTypes(value: unknown): DocumentFileType[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const allowed = new Set(this.documentFileTypeOptions.map((option) => option.value));
+    return value.filter((item): item is DocumentFileType =>
+      typeof item === 'string' && allowed.has(item as DocumentFileType)
+    );
+  }
+
+  private readDocumentCategory(value: unknown): DocumentCategory | undefined {
+    return typeof value === 'string' && this.documentCategoryOptions.some((option) => option.value === value)
+      ? value as DocumentCategory
+      : undefined;
+  }
+
+  private readDocumentConfidentiality(value: unknown): DocumentConfidentialityLevel | undefined {
+    return typeof value === 'string' && this.documentConfidentialityOptions.some((option) => option.value === value)
+      ? value as DocumentConfidentialityLevel
+      : undefined;
+  }
+
+  private readNullableString(value: unknown): string | null | undefined {
+    if (value === null) {
+      return null;
+    }
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private readDocumentPermissionRules(value: unknown): DocumentPermissionRule[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const subjectTypes = new Set(this.documentSubjectTypeOptions.map((option) => option.value));
+    return value
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item): DocumentPermissionRule | null => {
+        const tipoSujeto = item['tipoSujeto'];
+        const permisos = this.readDocumentPermissionSet(item['permisos']);
+
+        if (typeof tipoSujeto !== 'string' || !subjectTypes.has(tipoSujeto as DocumentSubjectType) || !permisos) {
+          return null;
+        }
+
+        const subjectType = tipoSujeto as DocumentSubjectType;
+        const rawSujetoId = typeof item['sujetoId'] === 'string' ? item['sujetoId'] : '';
+        const rawSujetoNombre = typeof item['sujetoNombre'] === 'string' ? item['sujetoNombre'] : '';
+
+        return {
+          tipoSujeto: subjectType,
+          sujetoId: subjectType === 'CLIENTE' ? CLIENTE_INICIADOR_SUJETO_ID : rawSujetoId,
+          sujetoNombre: subjectType === 'CLIENTE' ? 'Cliente que inicio el tramite' : rawSujetoNombre,
+          permisos,
+          aplicaDesde: typeof item['aplicaDesde'] === 'string' ? item['aplicaDesde'] : this.localIsoNow(),
+          aplicaHasta: typeof item['aplicaHasta'] === 'string' ? item['aplicaHasta'] : null,
+          activo: item['activo'] !== false,
+        };
+      })
+      .filter((rule): rule is DocumentPermissionRule => rule !== null);
+  }
+
+  private readDocumentPermissionSet(value: unknown): DocumentPermissionSet | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const raw = value as Record<string, unknown>;
+    return {
+      leer: raw['leer'] === true,
+      subir: raw['subir'] === true,
+      descargar: raw['descargar'] === true,
+      editar: raw['editar'] === true,
+      reemplazar: raw['reemplazar'] === true,
+      eliminar: raw['eliminar'] === true,
+      administrarPermisos: raw['administrarPermisos'] === true,
+      colaborar: raw['colaborar'] === true,
+    };
+  }
+
+  private readDocumentAuditConfig(value: unknown): DocumentAuditConfig | undefined {
+    if (!value || typeof value !== 'object') {
+      return undefined;
+    }
+
+    const raw = value as Record<string, unknown>;
+    return {
+      auditarVisualizacion: raw['auditarVisualizacion'] === true,
+      auditarDescarga: raw['auditarDescarga'] === true,
+      auditarSubida: raw['auditarSubida'] === true,
+      auditarEdicion: raw['auditarEdicion'] === true,
+      auditarEliminacion: raw['auditarEliminacion'] === true,
+      auditarCambioPermisos: raw['auditarCambioPermisos'] === true,
+      guardarIpDispositivo: raw['guardarIpDispositivo'] === true,
+      guardarUserAgent: raw['guardarUserAgent'] === true,
+      guardarFechaHora: raw['guardarFechaHora'] === true,
+      guardarUsuarioActor: raw['guardarUsuarioActor'] === true,
+    };
+  }
+
+  private buildDocumentPermissionPayload(modal: DocumentPermissionModalState): DocumentPermissionConfigRequest {
+    const policy = this.politica();
+    const campoId = modal.mode === 'edit' ? modal.originalCampoId : modal.campoId;
+    return {
+      politicaId: policy?.id ?? null,
+      nodoId: modal.nodeId,
+      formularioId: modal.nodeId,
+      campoId,
+      campoNombre: modal.campoNombre,
+      descripcion: modal.descripcion || null,
+      obligatorio: modal.obligatorio,
+      permiteMultiplesArchivos: modal.permiteMultiplesArchivos,
+      tiposArchivoPermitidos: modal.tiposArchivoPermitidos,
+      tamanoMaximoMb: modal.tamanoMaximoMb,
+      categoriaDocumental: modal.categoriaDocumental,
+      nivelConfidencialidad: modal.nivelConfidencialidad,
+      alcance: {
+        clienteId: modal.clienteId.trim() || null,
+        tramiteId: modal.tramiteId.trim() || null,
+        departamentoId: modal.departamentoId.trim() || null,
+      },
+      reglasPermiso: modal.reglasPermiso.map((rule) => ({
+        ...rule,
+        sujetoId: this.normalizeDocumentRuleSubjectId(rule),
+        sujetoNombre: this.normalizeDocumentRuleSubjectName(rule),
+        aplicaHasta: rule.aplicaHasta || null,
+      })),
+      auditoria: modal.auditoria,
+      activo: true,
+    };
+  }
+
+  private async saveDocumentPermissionConfigRequest(modal: DocumentPermissionModalState): Promise<void> {
+    const payload = this.buildDocumentPermissionPayload(modal);
+    const lookupCampoId = modal.mode === 'edit' ? modal.originalCampoId : payload.campoId;
+    try {
+      const existing = await firstValueFrom(this.documentPermissionService.getByField(lookupCampoId));
+      await firstValueFrom(this.documentPermissionService.updateConfig(existing.id, payload));
+    } catch (error) {
+      if ((error as any)?.status === 404) {
+        await firstValueFrom(this.documentPermissionService.createConfig(payload));
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private normalizeDocumentRuleSubjectId(rule: DocumentPermissionRule): string {
+    if (rule.tipoSujeto === 'CLIENTE') {
+      return CLIENTE_INICIADOR_SUJETO_ID;
+    }
+    return rule.sujetoId.trim();
+  }
+
+  private normalizeDocumentRuleSubjectName(rule: DocumentPermissionRule): string {
+    if (rule.tipoSujeto === 'CLIENTE') {
+      return 'Cliente que inicio el tramite';
+    }
+    return rule.sujetoNombre.trim() || rule.sujetoId.trim();
+  }
+
+  private ensureDocumentSubjectOptionsForModal(): void {
+    const modal = this.documentPermissionModal;
+    if (!modal) {
+      return;
+    }
+    if (!modal.reglasPermiso.length && this.documentSubjectOptions()['ROL']?.length) {
+      modal.reglasPermiso = this.defaultDocumentPermissionRules();
+    }
+  }
+
+  private setDocumentSubjectOptions(
+    tipoSujeto: DocumentSubjectType,
+    options: DocumentSubjectOptionResponse[]
+  ): void {
+    this.documentSubjectOptions.update((state) => ({ ...state, [tipoSujeto]: options }));
+    if (tipoSujeto === 'ROL' && this.documentPermissionModal && !this.documentPermissionModal.reglasPermiso.length) {
+      this.documentPermissionModal.reglasPermiso = this.defaultDocumentPermissionRules();
+    }
+  }
+
+  private setDocumentSubjectLoading(types: DocumentSubjectType[], loading: boolean): void {
+    this.loadingDocumentSubjectOptions.update((state) => {
+      const next = { ...state };
+      types.forEach((type) => next[type] = loading);
+      return next;
+    });
+  }
+
+  private roleOptionsFromMongo(roles: AdministradorRol[]): DocumentSubjectOptionResponse[] {
+    return roles
+      .filter((role) => role.activo)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((role) => ({
+        tipoSujeto: 'ROL',
+        id: role.nombre,
+        nombre: role.nombre,
+        detalle: role.descripcion,
+      }));
+  }
+
+  private userOptionsFromMongo(users: AdministradorUsuario[]): DocumentSubjectOptionResponse[] {
+    return users
+      .filter((user) => user.activo)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((user) => ({
+        tipoSujeto: 'USUARIO',
+        id: user.id,
+        nombre: user.nombre,
+        detalle: user.correo,
+      }));
+  }
+
+  private clientOptionsFromMongo(users: AdministradorUsuario[]): DocumentSubjectOptionResponse[] {
+    return users
+      .filter((user) => user.activo && this.isClientRole(user.rol))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((user) => ({
+        tipoSujeto: 'CLIENTE',
+        id: user.id,
+        nombre: user.nombre,
+        detalle: user.correo,
+      }));
+  }
+
+  private departmentOptionsFromMongo(departments: AdministradorDepartamento[]): DocumentSubjectOptionResponse[] {
+    return departments
+      .filter((department) => department.activo)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre))
+      .map((department) => ({
+        tipoSujeto: 'DEPARTAMENTO',
+        id: department.id,
+        nombre: department.nombre,
+        detalle: department.descripcion,
+      }));
+  }
+
+  private isClientRole(role: string): boolean {
+    const normalized = role.trim().toUpperCase();
+    return normalized === 'USUARIO' || normalized === 'CLIENTE';
+  }
+
+  private validateDocumentPermissionModal(modal: DocumentPermissionModalState): string | null {
+    modal.campoId = modal.mode === 'edit'
+      ? modal.originalCampoId
+      : this.toDocumentCampoId(modal.campoId || modal.campoNombre);
+    modal.campoNombre = modal.campoNombre.trim();
+
+    if (!modal.campoNombre) {
+      return 'El nombre visible del campo es obligatorio.';
+    }
+    if (!modal.campoId) {
+      return 'El identificador del campo documental es obligatorio.';
+    }
+    if (!modal.tiposArchivoPermitidos.length) {
+      return 'Selecciona al menos un tipo de archivo permitido.';
+    }
+    if (!Number.isFinite(Number(modal.tamanoMaximoMb)) || Number(modal.tamanoMaximoMb) <= 0) {
+      return 'El tamano maximo debe ser mayor a 0 MB.';
+    }
+    if (!modal.reglasPermiso.length) {
+      return 'Agrega al menos una regla de permiso.';
+    }
+
+    modal.reglasPermiso
+      .filter((rule) => rule.tipoSujeto === 'CLIENTE')
+      .forEach((rule) => {
+        rule.sujetoId = CLIENTE_INICIADOR_SUJETO_ID;
+        rule.sujetoNombre = 'Cliente que inicio el tramite';
+      });
+
+    const invalidRule = modal.reglasPermiso.find(
+      (rule) => !rule.tipoSujeto || (rule.tipoSujeto !== 'CLIENTE' && !rule.sujetoId.trim())
+    );
+    if (invalidRule) {
+      return 'Cada regla debe tener tipo de sujeto y sujeto.';
+    }
+    return null;
+  }
+
+  private toDocumentCampoId(value: string): string {
+    const normalized = value
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase();
+
+    return normalized || 'documento';
+  }
+
+  private defaultDocumentPermissionRules(): DocumentPermissionRule[] {
+    const now = this.localIsoNow();
+    return (this.documentSubjectOptions()['ROL'] ?? [])
+      .map((role) => this.documentRoleRule(
+        role.id,
+        role.nombre,
+        this.isAdminRole(role.id) ? this.adminDocumentPermissionSet() : this.basicDocumentPermissionSet(),
+        now
+      ));
+  }
+
+  private documentRoleRule(
+    sujetoId: string,
+    sujetoNombre: string,
+    permisos: DocumentPermissionSet,
+    aplicaDesde: string
+  ): DocumentPermissionRule {
+    return {
+      tipoSujeto: 'ROL',
+      sujetoId,
+      sujetoNombre,
+      permisos,
+      aplicaDesde,
+      aplicaHasta: null,
+      activo: true,
+    };
+  }
+
+  private basicDocumentPermissionSet(): DocumentPermissionSet {
+    return {
+      leer: true,
+      subir: true,
+      descargar: true,
+      editar: false,
+      reemplazar: false,
+      eliminar: false,
+      administrarPermisos: false,
+      colaborar: false,
+    };
+  }
+
+  private adminDocumentPermissionSet(): DocumentPermissionSet {
+    return {
+      leer: true,
+      subir: true,
+      descargar: true,
+      editar: true,
+      reemplazar: true,
+      eliminar: true,
+      administrarPermisos: true,
+      colaborar: true,
+    };
+  }
+
+  private isAdminRole(role: string): boolean {
+    const normalized = role.trim().toUpperCase();
+    return normalized === 'ADMIN' || normalized === 'ADMINISTRADOR' || normalized === 'JEFE_PROCESO';
+  }
+
+  private defaultDocumentAuditConfig(): DocumentAuditConfig {
+    return {
+      auditarVisualizacion: true,
+      auditarDescarga: true,
+      auditarSubida: true,
+      auditarEdicion: true,
+      auditarEliminacion: true,
+      auditarCambioPermisos: true,
+      guardarIpDispositivo: true,
+      guardarUserAgent: true,
+      guardarFechaHora: true,
+      guardarUsuarioActor: true,
+    };
+  }
+
+  private localIsoNow(): string {
+    return new Date().toISOString().slice(0, 19);
+  }
+
   startEditCampo(event: Event, nodeId: string, idx: number): void {
     if (this.isCanvasEditBlocked(true)) {
       return;
@@ -5051,6 +6189,15 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const node = this.nodos().find((item) => item.id === nodeId);
     const campo = node?.formulario?.[idx];
     if (!campo) {
+      return;
+    }
+
+    if (campo.tipo === 'ARCHIVO') {
+      this.openDocumentPermissionModal('edit', nodeId, idx);
+      return;
+    }
+    if (campo.tipo === 'DOCUMENTO_COLABORATIVO') {
+      this.openCollabDocumentModal('edit', nodeId, idx);
       return;
     }
 
@@ -5100,6 +6247,13 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const opciones = opcionesRaw
       ? opcionesRaw.split(',').map((s) => s.trim()).filter(Boolean)
       : null;
+
+    const currentNode = this.nodos().find((item) => item.id === nodeId);
+    const currentField = currentNode?.formulario?.[idx];
+    if (tipo === 'ARCHIVO') {
+      this.openDocumentPermissionModal('edit', nodeId, idx, campoName);
+      return;
+    }
 
     this.nodos.update((ns) =>
       ns.map((n) => {

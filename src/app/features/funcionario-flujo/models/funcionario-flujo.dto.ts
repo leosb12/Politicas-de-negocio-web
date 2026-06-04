@@ -7,7 +7,8 @@ export type FlujoFormularioCampoTipoDto =
   | 'CHECKBOX'
   | 'SELECCION'
   | 'GRID'
-  | 'LABEL';
+  | 'LABEL'
+  | 'DOCUMENTO_COLABORATIVO';
 
 export interface FlujoFormularioCampoDefinicionDto {
   campo?: string | null;
@@ -125,6 +126,11 @@ export interface SubirArchivoRequestDto {
   actividadId?: string | null;
   tareaId?: string | null;
   usuarioId?: string | null;
+  campoId?: string | null;
+  tramiteId?: string | null;
+  clienteId?: string | null;
+  politicaId?: string | null;
+  nodoId?: string | null;
   descripcion?: string | null;
 }
 
@@ -139,6 +145,7 @@ export interface ArchivoMetadataResponseDto {
   tamanoBytes: number;
   fechaSubida: string;
   subidoPor: string;
+  subidoPorNombre?: string | null;
   instanciaId: string | null;
   actividadId: string | null;
   tareaId: string | null;
@@ -148,6 +155,11 @@ export interface ArchivoMetadataResponseDto {
   urlAcceso: string | null;
   bucket: string | null;
   clienteId?: string | null;
+  puedeVer?: boolean | null;
+  puedeDescargar?: boolean | null;
+  puedeEditar?: boolean | null;
+  puedeReemplazar?: boolean | null;
+  puedeEliminar?: boolean | null;
 }
 
 export interface CompletarTareaRequestDto {

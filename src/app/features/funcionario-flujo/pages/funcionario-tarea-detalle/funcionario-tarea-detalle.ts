@@ -16,6 +16,7 @@ import {
   TareaDetalle,
   TareaResumen,
 } from '../../models/funcionario-flujo.model';
+import { ArchivoMetadataResponseDto } from '../../models/funcionario-flujo.dto';
 import { FuncionarioGuiaContextService } from '../../services/funcionario-guia-context.service';
 import { FuncionarioFlujoApiService } from '../../services/funcionario-flujo-api.service';
 import { mapTareaDetalleDto, mapTareaMiaDto } from '../../services/funcionario-flujo.mapper';
@@ -43,6 +44,7 @@ interface FlujoTraceStep {
   fechaFin: string | null;
   observaciones: string | null;
   camposFormulario: FlujoTraceField[];
+  documentos: ArchivoMetadataResponseDto[];
 }
 
 @Component({
@@ -294,9 +296,11 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     instanciaId: string,
     tareaActualId: string
   ): Observable<FlujoTraceStep[]> {
-    return this.api.getTareasPorInstancia(instanciaId).pipe(
-      map((items) => items.map(mapTareaMiaDto)),
-      switchMap((tasks) => {
+    return forkJoin({
+      tasks: this.api.getTareasPorInstancia(instanciaId).pipe(map((items) => items.map(mapTareaMiaDto))),
+      documentos: this.api.getArchivosPorInstancia(instanciaId).pipe(catchError(() => of([] as ArchivoMetadataResponseDto[]))),
+    }).pipe(
+      switchMap(({ tasks, documentos }) => {
         const byId = new Map<string, TareaResumen>();
         for (const task of tasks) {
           byId.set(task.id, task);
@@ -339,7 +343,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
         );
 
         return forkJoin(detailRequests).pipe(
-          map((items) => this.buildTraceSteps(items))
+          map((items) => this.buildTraceSteps(items, documentos))
         );
       }),
       catchError(() => {
@@ -356,7 +360,8 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     items: Array<{
       summary: TareaResumen;
       detail: TareaDetalle | null;
-    }>
+    }>,
+    documentos: ArchivoMetadataResponseDto[]
   ): FlujoTraceStep[] {
     return items
       .map(({ summary, detail }) => ({
@@ -369,6 +374,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
         fechaFin: detail?.fechaFin ?? null,
         observaciones: detail?.observaciones ?? null,
         camposFormulario: this.formatFormularioFields(detail),
+        documentos: this.documentosPorTarea(documentos, summary.id),
       }))
       .filter((step) => this.isFlujoStepVisible(step))
       .sort((left, right) => this.stepSortWeight(left) - this.stepSortWeight(right));
@@ -387,8 +393,132 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
       Boolean(step.fechaInicio) ||
       Boolean(step.fechaFin) ||
       Boolean(step.observaciones?.trim()) ||
-      step.camposFormulario.length > 0
+      step.camposFormulario.length > 0 ||
+      step.documentos.length > 0
     );
+  }
+
+  descargarDocumento(documento: ArchivoMetadataResponseDto): void {
+    if (!documento.puedeDescargar) {
+      return;
+    }
+    this.api.descargarArchivo(documento.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = documento.nombreOriginal || 'documento';
+        anchor.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => this.workflowModalError.set('No se pudo descargar el documento.'),
+    });
+  }
+
+  verDocumento(documento: ArchivoMetadataResponseDto): void {
+    if (!documento.puedeVer) {
+      return;
+    }
+    this.api.verArchivo(documento.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      },
+      error: () => this.workflowModalError.set('No se pudo visualizar el documento.'),
+    });
+  }
+
+  editarDocumento(documento: ArchivoMetadataResponseDto): void {
+    if (!documento.puedeEditar) {
+      return;
+    }
+    const nombreOriginal = window.prompt('Nombre del archivo', documento.nombreOriginal ?? '');
+    if (nombreOriginal === null) {
+      return;
+    }
+    const descripcion = window.prompt('Descripcion', documento.descripcion ?? '');
+    if (descripcion === null) {
+      return;
+    }
+    this.api.editarArchivo(documento.id, {
+      nombreOriginal: nombreOriginal.trim() || documento.nombreOriginal,
+      descripcion: descripcion.trim() || null,
+    }).subscribe({
+      next: (updated) => this.reemplazarDocumentoEnTrazabilidad(documento.id, {
+        ...documento,
+        ...updated,
+        puedeVer: documento.puedeVer,
+        puedeDescargar: documento.puedeDescargar,
+        puedeEditar: documento.puedeEditar,
+        puedeReemplazar: documento.puedeReemplazar,
+        puedeEliminar: documento.puedeEliminar,
+      }),
+      error: () => this.workflowModalError.set('No se pudo editar el documento.'),
+    });
+  }
+
+  reemplazarDocumento(documento: ArchivoMetadataResponseDto): void {
+    if (!documento.puedeReemplazar) {
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) {
+        return;
+      }
+      this.api.reemplazarArchivo(documento.id, file).subscribe({
+        next: (updated) => this.reemplazarDocumentoEnTrazabilidad(documento.id, {
+          ...documento,
+          ...updated,
+          puedeVer: documento.puedeVer,
+          puedeDescargar: documento.puedeDescargar,
+          puedeEditar: documento.puedeEditar,
+          puedeReemplazar: documento.puedeReemplazar,
+          puedeEliminar: documento.puedeEliminar,
+        }),
+        error: () => this.workflowModalError.set('No se pudo reemplazar el documento.'),
+      });
+    };
+    input.click();
+  }
+
+  eliminarDocumento(documento: ArchivoMetadataResponseDto): void {
+    if (!documento.puedeEliminar) {
+      return;
+    }
+    this.api.eliminarArchivo(documento.id).subscribe({
+      next: () => {
+        this.workflowModalSteps.update((steps) =>
+          steps.map((step) => ({
+            ...step,
+            documentos: step.documentos.filter((item) => item.id !== documento.id),
+          }))
+        );
+      },
+      error: () => this.workflowModalError.set('No se pudo eliminar el documento.'),
+    });
+  }
+
+  private reemplazarDocumentoEnTrazabilidad(
+    documentoId: string,
+    updated: ArchivoMetadataResponseDto
+  ): void {
+    this.workflowModalSteps.update((steps) =>
+      steps.map((step) => ({
+        ...step,
+        documentos: step.documentos.map((item) => item.id === documentoId ? updated : item),
+      }))
+    );
+  }
+
+  private documentosPorTarea(
+    documentos: ArchivoMetadataResponseDto[],
+    tareaId: string
+  ): ArchivoMetadataResponseDto[] {
+    return documentos.filter((documento) => documento.tareaId === tareaId);
   }
 
   private stepSortWeight(step: FlujoTraceStep): number {

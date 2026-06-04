@@ -48,6 +48,7 @@ export const API_ENDPOINTS = {
   tareas: `${API_BASE_URL}/api/tareas`,
   instancias: `${API_BASE_URL}/api/instancias`,
   archivos: `${API_BASE_URL}/api/archivos`,
+  documentPermissions: `${API_BASE_URL}/api/document-permissions`,
   pushTokens: `${API_BASE_URL}/api/push/tokens`,
   ia: `${API_BASE_URL}/api/ia`,
 } as const;

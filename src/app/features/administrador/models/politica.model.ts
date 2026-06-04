@@ -5,7 +5,7 @@
 
 // ── Enums ────────────────────────────────────────
 export type TipoNodo = 'INICIO' | 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' | 'FIN';
-export type TipoCampo = 'TEXTO' | 'NUMERO' | 'BOOLEANO' | 'ARCHIVO' | 'FECHA' | 'CHECKBOX' | 'SELECCION' | 'GRID' | 'LABEL';
+export type TipoCampo = 'TEXTO' | 'NUMERO' | 'BOOLEANO' | 'ARCHIVO' | 'FECHA' | 'CHECKBOX' | 'SELECCION' | 'GRID' | 'LABEL' | 'DOCUMENTO_COLABORATIVO';
 export type EstadoPolitica = 'BORRADOR' | 'ACTIVA' | 'PAUSADA' | 'DESHABILITADA';
 export type TipoPolitica = 'INTERNA' | 'EXTERNA' | 'AMBAS';
 export type LaneOrientation = 'HORIZONTAL' | 'VERTICAL';
@@ -27,6 +27,26 @@ export interface CampoFormulario {
   orden?: number | null;
   opciones?: string[] | null;
   validaciones?: Record<string, unknown> | null;
+  configuracionDocumento?: {
+    tipoDocumento: 'WORD' | 'EXCEL' | 'POWERPOINT';
+    modoColaboracion: 'DEPARTAMENTO' | 'USUARIOS_ESPECIFICOS' | 'ROLES' | 'FUNCIONARIO_RESPONSABLE' | 'ADMIN_JEFE' | 'PERSONALIZADO';
+    permisosEdicion: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+    };
+    permisosLectura: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+      incluirClienteIniciador: boolean;
+    };
+    permisosDescarga: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+    };
+  } | null;
 }
 
 export type OperadorLogicoDecision = 'AND' | 'OR';

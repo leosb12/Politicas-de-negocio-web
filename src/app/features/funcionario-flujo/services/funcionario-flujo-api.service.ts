@@ -54,25 +54,19 @@ export class FuncionarioFlujoApiService {
     }
 
     const formData = new FormData();
-    formData.append('file', request.archivo);
-    formData.append('origenCarga', 'WEB');
+    formData.append('archivo', request.archivo);
+    this.appendFormDataText(formData, 'instanciaId', request.instanciaId);
+    this.appendFormDataText(formData, 'actividadId', request.actividadId);
+    this.appendFormDataText(formData, 'tareaId', request.tareaId);
+    this.appendFormDataText(formData, 'usuarioId', request.usuarioId);
+    this.appendFormDataText(formData, 'campoId', request.campoId);
+    this.appendFormDataText(formData, 'tramiteId', request.tramiteId ?? request.instanciaId);
+    this.appendFormDataText(formData, 'clienteId', request.clienteId);
+    this.appendFormDataText(formData, 'politicaId', request.politicaId);
+    this.appendFormDataText(formData, 'nodoId', request.nodoId ?? request.actividadId);
+    this.appendFormDataText(formData, 'descripcion', request.descripcion);
 
-    const url = `${API_BASE_URL}/api/documentos/tramites/${request.instanciaId}/archivos`;
-    return this.http.post<any>(url, formData).pipe(
-      map((res) => ({
-        id: res.archivoId || res.id,
-        nombreOriginal: res.nombreArchivoOriginal || res.nombreOriginal,
-        nombreGuardado: res.nombreArchivoSanitizado || res.nombreGuardado,
-        contentType: res.tipoArchivo || res.contentType,
-        tamanoBytes: res.tamanoBytes,
-        fechaSubida: res.fechaSubida,
-        rutaOKey: res.s3Key || res.rutaOKey,
-        storageType: 's3',
-        urlAcceso: res.s3Url || res.urlAcceso,
-        bucket: res.s3Bucket || res.bucket,
-        clienteId: res.clienteId,
-      } as ArchivoMetadataResponseDto))
-    );
+    return this.http.post<ArchivoMetadataResponseDto>(API_ENDPOINTS.archivos, formData);
   }
 
   getTareasPorInstancia(instanciaId: string): Observable<TareaMiaResponseDto[]> {
@@ -85,6 +79,47 @@ export class FuncionarioFlujoApiService {
     return this.http.get<InstanciaDetalleResponseDto>(
       `${this.instanciasApiUrl}/${instanciaId}`
     );
+  }
+
+  getArchivosPorInstancia(instanciaId: string): Observable<ArchivoMetadataResponseDto[]> {
+    return this.http.get<ArchivoMetadataResponseDto[]>(
+      `${API_ENDPOINTS.archivos}/by-instancia/${encodeURIComponent(instanciaId)}`
+    );
+  }
+
+  descargarArchivo(archivoId: string): Observable<Blob> {
+    return this.http.get(`${API_ENDPOINTS.archivos}/${encodeURIComponent(archivoId)}/download`, {
+      responseType: 'blob',
+    });
+  }
+
+  verArchivo(archivoId: string): Observable<Blob> {
+    return this.http.get(`${API_ENDPOINTS.archivos}/${encodeURIComponent(archivoId)}/view`, {
+      responseType: 'blob',
+    });
+  }
+
+  editarArchivo(
+    archivoId: string,
+    payload: { nombreOriginal?: string | null; descripcion?: string | null }
+  ): Observable<ArchivoMetadataResponseDto> {
+    return this.http.patch<ArchivoMetadataResponseDto>(
+      `${API_ENDPOINTS.archivos}/${encodeURIComponent(archivoId)}`,
+      payload
+    );
+  }
+
+  reemplazarArchivo(archivoId: string, archivo: File): Observable<ArchivoMetadataResponseDto> {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    return this.http.put<ArchivoMetadataResponseDto>(
+      `${API_ENDPOINTS.archivos}/${encodeURIComponent(archivoId)}/replace`,
+      formData
+    );
+  }
+
+  eliminarArchivo(archivoId: string): Observable<void> {
+    return this.http.delete<void>(`${API_ENDPOINTS.archivos}/${encodeURIComponent(archivoId)}`);
   }
 
   private appendFormDataText(

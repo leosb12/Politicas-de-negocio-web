@@ -264,6 +264,47 @@
                     </dl>
                   }
                 </div>
+
+                <div class="workflow-trace-step__section">
+                  <p class="workflow-trace-step__section-title">Documentos cargados</p>
+
+                  @if (step.documentos.length === 0) {
+                    <p class="workflow-trace-step__section-empty">Sin documentos visibles para tu usuario en este paso.</p>
+                  } @else {
+                    <div class="workflow-trace-documents">
+                      @for (documento of step.documentos; track documento.id) {
+                        <article class="workflow-trace-document">
+                          <div class="workflow-trace-document__main">
+                            <p class="workflow-trace-document__name">{{ documento.nombreOriginal }}</p>
+                            <p class="workflow-trace-document__meta">
+                              {{ documento.contentType || documento.extension || 'Archivo' }} ·
+                              {{ documento.fechaSubida | date : 'medium' }} ·
+                              {{ documento.subidoPorNombre || documento.subidoPor || 'Usuario no identificado' }}
+                            </p>
+                          </div>
+                          <app-badge variant="neutral">{{ documento.estado }}</app-badge>
+                          <div class="workflow-trace-document__actions">
+                            @if (documento.puedeVer) {
+                              <button type="button" class="workflow-trace-document__button" (click)="verDocumento(documento)">Ver</button>
+                            }
+                            @if (documento.puedeEditar) {
+                              <button type="button" class="workflow-trace-document__button" (click)="editarDocumento(documento)">Editar</button>
+                            }
+                            @if (documento.puedeReemplazar) {
+                              <button type="button" class="workflow-trace-document__button" (click)="reemplazarDocumento(documento)">Reemplazar</button>
+                            }
+                            @if (documento.puedeDescargar) {
+                              <button type="button" class="workflow-trace-document__button" (click)="descargarDocumento(documento)">Descargar</button>
+                            }
+                            @if (documento.puedeEliminar) {
+                              <button type="button" class="workflow-trace-document__button workflow-trace-document__button--danger" (click)="eliminarDocumento(documento)">Eliminar</button>
+                            }
+                          </div>
+                        </article>
+                      }
+                    </div>
+                  }
+                </div>
               </section>
             </article>
           }
