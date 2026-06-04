@@ -511,6 +511,7 @@
 .card-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 0.6rem;
   margin-top: 0.25rem;
 }
@@ -531,6 +532,16 @@
 .btn-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.btn-audit {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(129, 140, 248, 0.45);
+  color: #c7d2fe;
+}
+
+.btn-audit:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.3);
 }
 
 .btn-disable {

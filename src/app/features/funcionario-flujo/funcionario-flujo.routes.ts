@@ -43,6 +43,14 @@ export const FUNCIONARIO_FLUJO_ROUTES: Routes = [
             (module) => module.FuncionarioInstanciaDetallePageComponent
           ),
       },
+      {
+        path: 'documentos-colaborativos/:id/editar',
+        data: { layout: 'editor' },
+        loadComponent: () =>
+          import('./pages/documento-colaborativo-editor/documento-colaborativo-editor').then(
+            (module) => module.DocumentoColaborativoEditorPageComponent
+          ),
+      },
     ],
   },
 ];

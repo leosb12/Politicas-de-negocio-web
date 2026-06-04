@@ -20,6 +20,8 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
+import { Router } from '@angular/router';
+import { DocumentoColaborativoMetadata, DocumentoColaborativoService } from '../../services/documento-colaborativo.service';
 import { AppButtonComponent } from '../../../../shared/ui/button/button';
 import { AppInputComponent } from '../../../../shared/ui/input/input';
 import { AppSelectComponent } from '../../../../shared/ui/select/select';
@@ -56,6 +58,8 @@ type DynamicControlValue = string | FlujoArchivoMetadata | File | string[] | str
 })
 export class TareaFormularioDinamicoComponent {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly collabService = inject(DocumentoColaborativoService);
+  private readonly router = inject(Router);
 
   readonly tareaId = input<string | null>(null);
   readonly definicion = input<FlujoFormularioDefinicion | null>(null);
@@ -70,6 +74,7 @@ export class TareaFormularioDinamicoComponent {
   readonly disabled = input(false, { transform: booleanAttribute });
   readonly pending = input(false, { transform: booleanAttribute });
   readonly submitLabel = input('Completar tarea');
+  readonly documentosColaborativos = input<DocumentoColaborativoMetadata[]>([]);
 
   readonly submitted = output<CompletarTareaPayload>();
   readonly fieldEdited = output<{ campo: FlujoFormularioCampo; valor: unknown }>();
@@ -346,7 +351,11 @@ export class TareaFormularioDinamicoComponent {
   private getValidators(campo: FlujoFormularioCampo): ValidatorFn[] {
     const validators: ValidatorFn[] = [];
 
-    if (campo.tipo !== 'LABEL') {
+    if (
+      campo.requerido &&
+      campo.tipo !== 'LABEL' &&
+      campo.tipo !== 'DOCUMENTO_COLABORATIVO'
+    ) {
       validators.push(Validators.required);
     }
 
@@ -778,98 +787,155 @@ export class TareaFormularioDinamicoComponent {
     this.hasLocalChanges = true;
   }
 
-  // ── Collaborative Document Signals & Simulation Methods ───────
-  readonly activeCollabField = signal<FlujoFormularioCampo | null>(null);
-  readonly collabEditorTitle = signal('');
-  readonly collabEditorContent = signal('');
-  readonly collabUsersMock = signal<Array<{ name: string; color: string; initial: string }>>([
-    { name: 'Sofía Castro', color: '#10b981', initial: 'SC' },
-    { name: 'Andrés López', color: '#3b82f6', initial: 'AL' },
-    { name: 'Vos (Editor)', color: '#6366f1', initial: 'VE' }
-  ]);
+  obtenerMetadataDocumento(campo: FlujoFormularioCampo): DocumentoColaborativoMetadata | null {
+    const docs = this.documentosColaborativos();
+    const metadata = this.encontrarMetadataDocumento(campo, docs);
 
-  getCollabDocTitle(campo: FlujoFormularioCampo): string | null {
-    const ctrl = this.control(campo);
-    if (!ctrl || !ctrl.value) {
+    console.log('Campo DOCUMENTO_COLABORATIVO:', campo);
+    console.log('Documentos colaborativos recibidos:', docs);
+    console.log('Comparando campoFormularioId campo:', campo.id);
+    console.log('Comparando nombre campo:', campo.nombre || campo.clave);
+    console.log('Metadata encontrada:', metadata);
+
+    return metadata;
+  }
+
+  /*
+
+    // ── DEBUG TEMPORAL ──────────────────────────────────────────────
+    console.group(`[COLLAB DEBUG] Campo DOCUMENTO_COLABORATIVO: "${campo.etiqueta}"`);
+    console.log('  campo.clave     :', campo.clave);
+    console.log('  campo.etiqueta  :', campo.etiqueta);
+    console.log('  Total docs recibidos:', docs?.length ?? 0);
+    if (docs && docs.length > 0) {
+      docs.forEach((d, i) => {
+        console.log(`  Doc[${i}] documentoId=${d.documentoId} | campoFormularioId="${d.campoFormularioId}" | nombreDocumento="${d.nombreDocumento}" | estado="${d.estado}"`);
+      });
+    }
+    // ────────────────────────────────────────────────────────────────
+
+    if (!docs || docs.length === 0) {
+      console.log('  → Sin documentos colaborativos cargados → NO INICIALIZADO');
+      console.groupEnd();
       return null;
     }
-    const val = ctrl.value;
-    if (typeof val === 'string') {
-      try {
-        const parsed = JSON.parse(val);
-        return parsed.titulo || parsed.title || 'Documento colaborativo';
-      } catch {
-        return val.length > 25 ? val.slice(0, 25) + '...' : val;
-      }
+
+    const normalize = (s: string | null | undefined): string =>
+      (s ?? '').trim().toLowerCase().replace(/[\s\-]+/g, '_');
+
+    // Estrategia A: campoFormularioId === campo.clave (exacto)
+    let found = docs.find(d => d.campoFormularioId === campo.clave);
+
+    // Estrategia B: campoFormularioId === campo.etiqueta (exacto)
+    if (!found) {
+      found = docs.find(d => d.campoFormularioId === campo.etiqueta);
     }
-    if (typeof val === 'object') {
-      const obj = val as any;
-      return obj.titulo || obj.title || 'Documento colaborativo';
+
+    // Estrategia C: nombreDocumento === campo.etiqueta o campo.clave (exacto)
+    if (!found) {
+      found = docs.find(d => d.nombreDocumento === campo.etiqueta || d.nombreDocumento === campo.clave);
     }
-    return null;
+
+    // Estrategia D: normalizado — campoFormularioId vs clave/etiqueta
+    if (!found) {
+      const normClave = normalize(campo.clave);
+      const normEtiqueta = normalize(campo.etiqueta);
+      found = docs.find(d => {
+        const normCampoId = normalize(d.campoFormularioId);
+        const normNombre  = normalize(d.nombreDocumento);
+        return normCampoId === normClave
+          || normCampoId === normEtiqueta
+          || normNombre  === normClave
+          || normNombre  === normEtiqueta;
+      });
+    }
+
+    if (found) {
+      console.log('  → Match encontrado! documentoId:', found.documentoId, '| estado:', found.estado);
+    } else {
+      console.warn('  → Sin match → NO INICIALIZADO. Revisar campoFormularioId vs campo.clave');
+    }
+    console.groupEnd();
+
+    return found ?? null;
   }
 
-  openCollabEditor(campo: FlujoFormularioCampo): void {
-    this.activeCollabField.set(campo);
-    const ctrl = this.control(campo);
-    let title = campo.etiqueta;
-    let content = '';
-    
-    if (ctrl && ctrl.value) {
-      const val = ctrl.value;
-      if (typeof val === 'string') {
-        try {
-          const parsed = JSON.parse(val);
-          title = parsed.titulo || title;
-          content = parsed.contenido || '';
-        } catch {
-          content = val;
+  // ── Collaborative Document Methods ───────
+  */
+
+  private encontrarMetadataDocumento(
+    campo: FlujoFormularioCampo,
+    documentosColaborativos: DocumentoColaborativoMetadata[] | null | undefined
+  ): DocumentoColaborativoMetadata | null {
+    const docs = documentosColaborativos ?? [];
+    if (docs.length === 0) {
+      return null;
+    }
+
+    let metadata = docs.find((doc) => doc.campoFormularioId === campo.id);
+
+    if (!metadata) {
+      metadata = docs.find((doc) => doc.campoFormularioId === campo.clave);
+    }
+
+    if (!metadata) {
+      metadata = docs.find((doc) => doc.nombreDocumento === campo.nombre);
+    }
+
+    if (!metadata) {
+      metadata = docs.find((doc) => doc.nombreDocumento === campo.clave);
+    }
+
+    if (!metadata) {
+      const nombreCampoNormalizado = this.normalizarDocumentoTexto(campo.nombre);
+      const claveCampoNormalizada = this.normalizarDocumentoTexto(campo.clave);
+      metadata = docs.find((doc) => {
+        const nombreDocumentoNormalizado = this.normalizarDocumentoTexto(doc.nombreDocumento);
+        return nombreDocumentoNormalizado === nombreCampoNormalizado
+          || nombreDocumentoNormalizado === claveCampoNormalizada;
+      });
+    }
+
+    return metadata ?? null;
+  }
+
+  private normalizarDocumentoTexto(value: string | null | undefined): string {
+    return (value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[\s-]+/g, '_');
+  }
+
+  abrirDocumentoColaborativoEnOnlyOffice(campo: FlujoFormularioCampo): void {
+    const doc = this.obtenerMetadataDocumento(campo);
+    if (doc) {
+      if (doc.estado === 'CREADO' && doc.documentoId) {
+        void this.router.navigate(['/funcionario/documentos-colaborativos', doc.documentoId, 'editar']);
+      } else {
+        console.warn('El documento no está en estado CREADO:', doc.estado);
+      }
+    } else {
+      // Fallback to listing/fetching just in case
+      const instId = this.intelligentContext()?.['instanciaId'];
+      if (!instId || typeof instId !== 'string') {
+        console.error('No se pudo encontrar el ID de la instancia de trámite.');
+        return;
+      }
+      this.collabService.listarPorTramite(instId).subscribe({
+        next: (docs) => {
+          const fetchedDoc = this.encontrarMetadataDocumento(campo, docs);
+          if (fetchedDoc && fetchedDoc.estado === 'CREADO' && fetchedDoc.documentoId) {
+            void this.router.navigate(['/funcionario/documentos-colaborativos', fetchedDoc.documentoId, 'editar']);
+          } else {
+            console.error('No se encontró el documento colaborativo en estado CREADO para el campo: ' + campo.clave);
+          }
+        },
+        error: (err) => {
+          console.error('Error al listar documentos de la instancia:', err);
         }
-      } else if (typeof val === 'object') {
-        const obj = val as any;
-        title = obj.titulo || title;
-        content = obj.contenido || '';
-      }
+      });
     }
-    this.collabEditorTitle.set(title);
-    this.collabEditorContent.set(content);
-  }
-
-  saveCollabEditorChanges(): void {
-    const campo = this.activeCollabField();
-    if (!campo) return;
-    
-    const newValue = {
-      titulo: this.collabEditorTitle().trim() || campo.etiqueta,
-      contenido: this.collabEditorContent(),
-      guardadoEnS3: false,
-      editadoPor: 'VE',
-      ultimaEdicion: new Date().toISOString()
-    };
-    
-    const ctrl = this.control(campo);
-    if (ctrl) {
-      ctrl.setValue(JSON.stringify(newValue));
-      ctrl.markAsDirty();
-      ctrl.markAsTouched();
-      this.fieldEdited.emit({ campo, valor: newValue });
-    }
-    
-    this.activeCollabField.set(null);
-  }
-
-  closeCollabEditor(): void {
-    this.activeCollabField.set(null);
-  }
-
-  onCollabTitleChange(event: Event): void {
-    const el = event.target as HTMLInputElement;
-    this.collabEditorTitle.set(el.value);
-  }
-
-  onCollabContentChange(event: Event): void {
-    const el = event.target as HTMLTextAreaElement;
-    this.collabEditorContent.set(el.value);
   }
 }
 

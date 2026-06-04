@@ -204,6 +204,14 @@
           </div>
 
           <div class="card-actions" (click)="$event.stopPropagation()">
+            <button
+              type="button"
+              class="btn-action btn-audit"
+              (click)="openAuditoria(p.id, $event)"
+            >
+              Ver auditoria de politica
+            </button>
+
             @if (canDisablePolitica(p.estado)) {
               <button
                 type="button"

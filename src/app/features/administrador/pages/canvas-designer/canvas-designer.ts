@@ -192,6 +192,19 @@ interface CollabDocumentModalState {
     roles: string[];
     usuarios: string[];
   };
+  permisosImpresion: {
+    departamentos: string[];
+    roles: string[];
+    usuarios: string[];
+  };
+  permisosAdicionales: {
+    puedeDescargar: boolean;
+    puedeImprimir: boolean;
+    puedeComentar: boolean;
+    puedeReemplazar: boolean;
+    puedeEliminar: boolean;
+    puedeCompartirInternamente: boolean;
+  };
 }
 
 interface DocumentFieldValidationConfig {
@@ -399,6 +412,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   // ── Collaborative Document Signals & Options ──────────────────
   readonly showCollabDocumentModal = signal(false);
   collabDocumentModal: CollabDocumentModalState | null = null;
+  private readonly requireCollabEditPermission = false;
   readonly collabDocumentTypeOptions = [
     { value: 'WORD', label: 'Word (.docx)' },
     { value: 'EXCEL', label: 'Excel (.xlsx)' },
@@ -5308,6 +5322,33 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     );
   }
 
+  toggleCollabImpresionDept(deptId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosImpresion.departamentos = this.toggleSelection(
+      this.collabDocumentModal.permisosImpresion.departamentos,
+      deptId,
+      checked
+    );
+  }
+
+  toggleCollabImpresionRole(roleName: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosImpresion.roles = this.toggleSelection(
+      this.collabDocumentModal.permisosImpresion.roles,
+      roleName,
+      checked
+    );
+  }
+
+  toggleCollabImpresionUser(userId: string, checked: boolean): void {
+    if (!this.collabDocumentModal) return;
+    this.collabDocumentModal.permisosImpresion.usuarios = this.toggleSelection(
+      this.collabDocumentModal.permisosImpresion.usuarios,
+      userId,
+      checked
+    );
+  }
+
   openCollabDocumentModal(
     mode: 'create' | 'edit',
     nodeId: string,
@@ -5318,34 +5359,25 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const currentField = fieldIndex !== undefined ? node?.formulario?.[fieldIndex] : null;
     const campoNombre = (
       fieldName ??
-      this.editingCampoEtiqueta() ??
-      currentField?.etiqueta ??
-      currentField?.campo ??
+      (mode === 'edit' && currentField?.tipo === 'DOCUMENTO_COLABORATIVO'
+        ? currentField?.etiqueta ?? currentField?.campo ?? ''
+        : this.editingCampoEtiqueta()) ??
       ''
     ).trim();
     const campoId = this.toDocumentCampoId(
-      mode === 'edit' ? this.editingCampoName().trim() || currentField?.campo || campoNombre : campoNombre
+      mode === 'edit'
+        ? (currentField?.tipo === 'DOCUMENTO_COLABORATIVO'
+            ? currentField?.campo ?? campoNombre
+            : this.editingCampoName().trim() || campoNombre)
+        : campoNombre
     );
-
-    const defaultDepts: string[] = [];
-    if (node?.departamentoId) {
-      defaultDepts.push(node.departamentoId);
-    }
-    if (node?.responsableTipo === 'DEPARTAMENTO' && node.responsableId && !defaultDepts.includes(node.responsableId)) {
-      defaultDepts.push(node.responsableId);
-    }
 
     const config = currentField?.configuracionDocumento;
 
     const initialEdicionDepts = config?.permisosEdicion?.departamentos ? [...config.permisosEdicion.departamentos] : [];
     const initialLecturaDepts = config?.permisosLectura?.departamentos ? [...config.permisosLectura.departamentos] : [];
     const initialDescargaDepts = config?.permisosDescarga?.departamentos ? [...config.permisosDescarga.departamentos] : [];
-
-    defaultDepts.forEach(d => {
-      if (!initialEdicionDepts.includes(d)) initialEdicionDepts.push(d);
-      if (!initialLecturaDepts.includes(d)) initialLecturaDepts.push(d);
-      if (!initialDescargaDepts.includes(d)) initialDescargaDepts.push(d);
-    });
+    const initialImpresionDepts = config?.permisosImpresion?.departamentos ? [...config.permisosImpresion.departamentos] : [];
 
     this.collabDocumentModal = {
       mode,
@@ -5367,12 +5399,25 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         departamentos: initialLecturaDepts,
         roles: config?.permisosLectura?.roles ?? [],
         usuarios: config?.permisosLectura?.usuarios ?? [],
-        incluirClienteIniciador: config?.permisosLectura?.incluirClienteIniciador ?? true,
+        incluirClienteIniciador: config?.permisosLectura?.incluirClienteIniciador ?? false,
       },
       permisosDescarga: {
         departamentos: initialDescargaDepts,
         roles: config?.permisosDescarga?.roles ?? [],
         usuarios: config?.permisosDescarga?.usuarios ?? [],
+      },
+      permisosImpresion: {
+        departamentos: initialImpresionDepts,
+        roles: config?.permisosImpresion?.roles ?? [],
+        usuarios: config?.permisosImpresion?.usuarios ?? [],
+      },
+      permisosAdicionales: {
+        puedeDescargar: config?.permisosAdicionales?.puedeDescargar ?? false,
+        puedeImprimir: config?.permisosAdicionales?.puedeImprimir ?? false,
+        puedeComentar: config?.permisosAdicionales?.puedeComentar ?? false,
+        puedeReemplazar: config?.permisosAdicionales?.puedeReemplazar ?? false,
+        puedeEliminar: config?.permisosAdicionales?.puedeEliminar ?? false,
+        puedeCompartirInternamente: config?.permisosAdicionales?.puedeCompartirInternamente ?? false,
       }
     };
     this.showCollabDocumentModal.set(true);
@@ -5395,7 +5440,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     if (!modal.tipoDocumento) {
       return 'El tipo de documento es obligatorio.';
     }
-    if (!modal.permisosEdicion.departamentos.length && !modal.permisosEdicion.roles.length && !modal.permisosEdicion.usuarios.length) {
+    if (this.requireCollabEditPermission && !modal.permisosEdicion.departamentos.length && !modal.permisosEdicion.roles.length && !modal.permisosEdicion.usuarios.length) {
       return 'Debes seleccionar al menos un departamento, rol o usuario con permisos de edición.';
     }
     return null;
@@ -5439,6 +5484,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           departamentos: modal.permisosDescarga.departamentos,
           roles: modal.permisosDescarga.roles,
           usuarios: modal.permisosDescarga.usuarios,
+        },
+        permisosImpresion: {
+          departamentos: modal.permisosImpresion.departamentos,
+          roles: modal.permisosImpresion.roles,
+          usuarios: modal.permisosImpresion.usuarios,
+        },
+        permisosAdicionales: {
+          puedeDescargar: modal.permisosAdicionales.puedeDescargar,
+          puedeImprimir: modal.permisosAdicionales.puedeImprimir,
+          puedeComentar: modal.permisosAdicionales.puedeComentar,
+          puedeReemplazar: modal.permisosAdicionales.puedeReemplazar,
+          puedeEliminar: modal.permisosAdicionales.puedeEliminar,
+          puedeCompartirInternamente: modal.permisosAdicionales.puedeCompartirInternamente,
         }
       }
     };
@@ -6252,6 +6310,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     const currentField = currentNode?.formulario?.[idx];
     if (tipo === 'ARCHIVO') {
       this.openDocumentPermissionModal('edit', nodeId, idx, campoName);
+      return;
+    }
+    if (tipo === 'DOCUMENTO_COLABORATIVO') {
+      this.openCollabDocumentModal('edit', nodeId, idx, campoName);
       return;
     }
 

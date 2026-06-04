@@ -267,6 +267,7 @@
           }
 
           @case ('DOCUMENTO_COLABORATIVO') {
+            @let metadata = obtenerMetadataDocumento(campo);
             <div class="space-y-3 w-full">
               <div class="mb-1 flex items-center justify-between">
                 <label class="block text-sm font-medium text-slate-700">
@@ -277,42 +278,116 @@
                 </label>
               </div>
 
-              <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50 space-y-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="space-y-1">
-                  <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center justify-center p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+              <div class="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm space-y-4">
+                <!-- Header: type + mode + state badge -->
+                <div class="flex items-center flex-wrap gap-2">
+                  <span class="inline-flex items-center justify-center p-1.5 rounded-lg"
+                    [ngClass]="{
+                      'bg-indigo-50 text-indigo-600': metadata !== null,
+                      'bg-slate-100 text-slate-500': metadata === null
+                    }"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                  </span>
+
+                  @if (metadata) {
+                    <span class="text-sm font-bold text-slate-900">
+                      {{ metadata!.tipoDocumento }}
                     </span>
-                    <span class="text-sm font-semibold text-slate-900">{{ campo.configuracionDocumento?.tipoDocumento || 'WORD' }}</span>
-                    <span class="px-2 py-0.5 text-xs font-semibold rounded bg-indigo-100 text-indigo-800">
-                      Modo: {{ campo.configuracionDocumento?.modoColaboracion || 'DEPARTAMENTO' }}
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">
+                      {{ metadata!.permisosEdicion?.departamentos?.length ? 'DEPARTAMENTO' : (campo.configuracionDocumento?.modoColaboracion || 'DEPARTAMENTO') }}
                     </span>
-                  </div>
-                  @if (campo.ayuda) {
-                    <p class="text-xs text-slate-500">{{ campo.ayuda }}</p>
+                    <!-- Estado badge -->
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      [ngClass]="{
+                        'bg-emerald-100 text-emerald-700 border border-emerald-200': metadata!.estado === 'CREADO',
+                        'bg-amber-100 text-amber-700 border border-amber-200': metadata!.estado === 'PENDIENTE_CREACION',
+                        'bg-rose-100 text-rose-700 border border-rose-200': metadata!.estado === 'ERROR_CREACION_S3',
+                        'bg-slate-100 text-slate-700 border border-slate-200': metadata!.estado === 'TIPO_NO_SOPORTADO'
+                      }"
+                    >
+                      {{ metadata!.estado }}
+                    </span>
+                  } @else {
+                    <span class="text-sm font-bold text-slate-900">
+                      {{ campo.configuracionDocumento?.tipoDocumento || 'WORD' }}
+                    </span>
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">
+                      {{ campo.configuracionDocumento?.modoColaboracion || 'DEPARTAMENTO' }}
+                    </span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                      NO INICIALIZADO
+                    </span>
                   }
-                  
-                  <div class="text-xs text-slate-600 mt-1">
-                    @if (getCollabDocTitle(campo)) {
-                      <span class="font-medium text-emerald-600 flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle-2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                        Borrador guardado: {{ getCollabDocTitle(campo) }}
-                      </span>
-                    } @else {
-                      <span class="text-slate-400 italic">No se ha iniciado la edicion de este documento</span>
-                    }
-                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  class="self-start md:self-auto px-4 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl transition-all shadow-sm hover:shadow flex items-center gap-1.5"
-                  (click)="openCollabEditor(campo)"
-                  [disabled]="disabled() || pending()"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                  Editar Documento Colaborativo
-                </button>
+                @if (campo.ayuda) {
+                  <p class="text-xs text-slate-500">{{ campo.ayuda }}</p>
+                }
+
+                <!-- State message -->
+                <div class="text-xs">
+                  @if (metadata === null) {
+                    <span class="text-slate-500 font-medium">Documento colaborativo aún no inicializado en este trámite.</span>
+                  } @else if (metadata!.estado === 'CREADO') {
+                    <span class="font-medium text-emerald-600 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                      Documento creado en S3 — listo para edición colaborativa
+                    </span>
+                  } @else if (metadata!.estado === 'PENDIENTE_CREACION') {
+                    <span class="font-medium text-amber-600 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                      Archivo pendiente de creación en S3
+                    </span>
+                  } @else if (metadata!.estado === 'ERROR_CREACION_S3') {
+                    <span class="font-medium text-rose-600 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+                      No se pudo crear el archivo en S3
+                    </span>
+                  } @else {
+                    <span class="text-slate-500">Tipo de documento no soportado para edición colaborativa</span>
+                  }
+                </div>
+
+                <div class="grid gap-1 text-[10px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200/70 font-mono">
+                  <span class="truncate">debug campo.id: {{ campo.id || '-' }}</span>
+                  <span class="truncate">debug campo.clave: {{ campo.clave || '-' }}</span>
+                  <span class="truncate">debug campo.nombre: {{ campo.nombre || '-' }}</span>
+                  <span>debug documentos recibidos: {{ documentosColaborativos().length }}</span>
+                  <span class="truncate">debug documentoId encontrado: {{ metadata?.documentoId || '-' }}</span>
+                  <span class="truncate">debug metadata.campoFormularioId: {{ metadata?.campoFormularioId || '-' }}</span>
+                  <span class="truncate">debug metadata.nombreDocumento: {{ metadata?.nombreDocumento || '-' }}</span>
+                </div>
+
+                <!-- Debug info (shown when metadata exists) -->
+                @if (metadata) {
+                  <div class="flex flex-col gap-1 text-[10px] text-slate-400 bg-slate-50 p-2.5 rounded-lg border border-slate-200/70 font-mono">
+                    <span class="truncate">ID: {{ metadata!.documentoId }}</span>
+                    @if (metadata!.s3Key) {
+                      <span class="truncate">S3: {{ metadata!.s3Key }}</span>
+                    }
+                    <span>Creado: {{ metadata!.fechaCreacion | date:'medium' }}</span>
+                  </div>
+                }
+
+                <!-- Action button -->
+                <div class="flex justify-end">
+                  <button
+                    type="button"
+                    class="px-4 py-2 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+                    [class.bg-indigo-600]="metadata?.estado === 'CREADO'"
+                    [class.text-white]="metadata?.estado === 'CREADO'"
+                    [class.hover:bg-indigo-700]="metadata?.estado === 'CREADO'"
+                    [class.bg-slate-200]="metadata?.estado !== 'CREADO'"
+                    [class.text-slate-400]="metadata?.estado !== 'CREADO'"
+                    [class.cursor-not-allowed]="metadata?.estado !== 'CREADO' || disabled() || pending()"
+                    (click)="abrirDocumentoColaborativoEnOnlyOffice(campo)"
+                    [disabled]="disabled() || pending() || metadata?.estado !== 'CREADO'"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    Editar Documento Colaborativo
+                  </button>
+                </div>
               </div>
 
               @if (fieldError(campo)) {
@@ -344,113 +419,3 @@
     </app-button>
   </div>
 </form>
-
-<!-- Collaborative Document Editor Simulator Dialog -->
-@if (activeCollabField(); as docField) {
-  <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[3000] flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-      
-      <!-- Modal Header -->
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-        <div class="flex items-center gap-3">
-          <span class="p-2 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-          </span>
-          <div>
-            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
-              <input 
-                type="text" 
-                class="border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none bg-transparent font-bold text-slate-800 px-1 py-0.5 rounded transition-all" 
-                [value]="collabEditorTitle()"
-                (input)="onCollabTitleChange($event)"
-                placeholder="Nombre del documento" 
-              />
-            </h3>
-            <p class="text-xs text-slate-500 mt-0.5">Espacio de edicion colaborativo en tiempo real</p>
-          </div>
-        </div>
-        
-        <!-- Mock Active Users Icons -->
-        <div class="flex items-center gap-4">
-          <div class="flex -space-x-2">
-            @for (user of collabUsersMock(); track user.name) {
-              <div 
-                [style.backgroundColor]="user.color" 
-                class="w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center border-2 border-white ring-1 ring-slate-200"
-                [title]="user.name"
-              >
-                {{ user.initial }}
-              </div>
-            }
-          </div>
-          <button 
-            type="button"
-            class="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-lg transition-all"
-            (click)="closeCollabEditor()"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Editor Content Workspace Area -->
-      <div class="flex-1 p-6 overflow-y-auto bg-slate-50 flex flex-col gap-4">
-        
-        <!-- Collaboration Banner Info -->
-        <div class="bg-indigo-50 border border-indigo-100/50 rounded-xl p-3.5 flex gap-3 text-xs text-indigo-800">
-          <svg class="w-4.5 h-4.5 text-indigo-600 shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <span class="font-semibold">Simulacion de espacio colaborativo:</span> Los cambios se guardaran de forma local en la respuesta del formulario. Puedes invitar a otros departamentos y usuarios para editar este documento una vez el tramite avance.
-          </div>
-        </div>
-
-        <!-- Simulated Rich Editor Sheet -->
-        <div class="flex-1 min-h-[300px] bg-white border border-slate-200 rounded-xl shadow-inner p-8 flex flex-col gap-4">
-          <!-- Rich Editor mock toolbar -->
-          <div class="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 text-slate-500">
-            <button type="button" class="p-1 hover:bg-slate-100 rounded font-bold text-xs px-2 text-slate-700">B</button>
-            <button type="button" class="p-1 hover:bg-slate-100 rounded italic text-xs px-2 text-slate-700">I</button>
-            <button type="button" class="p-1 hover:bg-slate-100 rounded underline text-xs px-2 text-slate-700">U</button>
-            <div class="w-px h-4 bg-slate-200 mx-1"></div>
-            <button type="button" class="p-1 hover:bg-slate-100 rounded text-xs px-1.5 flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="3" y2="18"/></svg>
-            </button>
-            <button type="button" class="p-1 hover:bg-slate-100 rounded text-xs px-1.5 flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="10" x2="6" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="18" y1="18" x2="6" y2="18"/></svg>
-            </button>
-            <div class="w-px h-4 bg-slate-200 mx-1"></div>
-            <span class="text-xs text-slate-400 select-none ml-auto">Simulador de {{ docField.configuracionDocumento?.tipoDocumento || 'WORD' }}</span>
-          </div>
-
-          <!-- Document content area -->
-          <textarea
-            class="flex-1 w-full outline-none resize-none font-sans text-sm text-slate-800 placeholder-slate-400 min-h-[220px]"
-            [value]="collabEditorContent()"
-            (input)="onCollabContentChange($event)"
-            placeholder="Comienza a escribir el contenido del documento colaborativo aqui..."
-          ></textarea>
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
-        <button
-          type="button"
-          class="px-4 py-2 border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-xl text-xs font-semibold transition-all"
-          (click)="closeCollabEditor()"
-        >
-          Descartar
-        </button>
-        <button
-          type="button"
-          class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-semibold transition-all shadow-sm"
-          (click)="saveCollabEditorChanges()"
-        >
-          Guardar Cambios
-        </button>
-      </div>
-    </div>
-  </div>
-}

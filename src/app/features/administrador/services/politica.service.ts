@@ -10,10 +10,68 @@ import {
   EstadoPolitica,
 } from '../models/politica.model';
 
+export interface DocumentoAuditoriaResponse {
+  id: string;
+  tipoOrigen: 'ARCHIVO' | 'DOCUMENTO_COLABORATIVO' | string;
+  nombre: string;
+  campoId: string | null;
+  contentType: string | null;
+  extension: string | null;
+  tamanoBytes: number | null;
+  estado: string | null;
+  subidoOCreadoPor: string | null;
+  subidoOCreadoPorNombre: string | null;
+  fecha: string | null;
+}
+
+export interface TareaDocumentoAuditoriaResponse {
+  tareaId: string;
+  instanciaId: string;
+  nodoId: string | null;
+  nombreNodo: string | null;
+  estadoTarea: string;
+  fechaCreacion: string | null;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  asignadoA: string | null;
+  asignadoANombre: string | null;
+  totalDocumentos: number;
+  documentos: DocumentoAuditoriaResponse[];
+}
+
+export interface AuditoriaDocumentalPoliticaResponse {
+  politicaId: string;
+  totalTareas: number;
+  totalDocumentos: number;
+  tareas: TareaDocumentoAuditoriaResponse[];
+}
+
+export interface DocumentAuditEventResponse {
+  id: string;
+  documentoId: string | null;
+  campoId: string | null;
+  tramiteId: string | null;
+  clienteId: string | null;
+  politicaId: string | null;
+  nodoId: string | null;
+  accion: string;
+  usuarioId: string | null;
+  usuarioNombre: string | null;
+  rol: string | null;
+  departamentoId: string | null;
+  departamentoNombre: string | null;
+  fechaHora: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  detalle: string | null;
+  resultado: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PoliticaService {
   private readonly http = inject(HttpClient);
   private readonly url = API_ENDPOINTS.politicas;
+  private readonly documentPermissionsUrl = API_ENDPOINTS.documentPermissions;
 
   /** GET /api/politicas */
   getAll(): Observable<PoliticaNegocio[]> {
@@ -23,6 +81,25 @@ export class PoliticaService {
   /** GET /api/politicas/:id */
   getById(id: string): Observable<PoliticaNegocio> {
     return this.http.get<PoliticaNegocio>(`${this.url}/${id}`);
+  }
+
+  /** GET /api/politicas/:id/auditoria/documental */
+  getAuditoriaDocumental(id: string): Observable<AuditoriaDocumentalPoliticaResponse> {
+    return this.http.get<AuditoriaDocumentalPoliticaResponse>(`${this.url}/${id}/auditoria/documental`);
+  }
+
+  /** GET /api/document-permissions/audit/by-document/:documentoId */
+  getDocumentAuditEvents(documentoId: string): Observable<DocumentAuditEventResponse[]> {
+    return this.http.get<DocumentAuditEventResponse[]>(
+      `${this.documentPermissionsUrl}/audit/by-document/${documentoId}`
+    );
+  }
+
+  /** GET /api/document-permissions/audit/by-tramite/:tramiteId */
+  getTramiteDocumentAuditEvents(tramiteId: string): Observable<DocumentAuditEventResponse[]> {
+    return this.http.get<DocumentAuditEventResponse[]>(
+      `${this.documentPermissionsUrl}/audit/by-tramite/${tramiteId}`
+    );
   }
 
   /** POST /api/politicas */

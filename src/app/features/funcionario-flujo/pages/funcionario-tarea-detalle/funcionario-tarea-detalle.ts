@@ -22,6 +22,8 @@ import { FuncionarioFlujoApiService } from '../../services/funcionario-flujo-api
 import { mapTareaDetalleDto, mapTareaMiaDto } from '../../services/funcionario-flujo.mapper';
 import { FuncionarioFlujoFacadeService } from '../../services/funcionario-flujo-facade.service';
 import { AuthService } from '../../../../core/auth/services/auth.service';
+import { ToastService } from '../../../../shared/services/toast.service';
+import { DocumentoColaborativoService, DocumentoColaborativoMetadata } from '../../services/documento-colaborativo.service';
 import {
   getEstadoBadgeVariant,
   isTareaCompletable,
@@ -45,6 +47,7 @@ interface FlujoTraceStep {
   observaciones: string | null;
   camposFormulario: FlujoTraceField[];
   documentos: ArchivoMetadataResponseDto[];
+  documentosColaborativos: DocumentoColaborativoMetadata[];
 }
 
 @Component({
@@ -69,6 +72,12 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
   private readonly api = inject(FuncionarioFlujoApiService);
   private readonly guideContext = inject(FuncionarioGuiaContextService);
   private readonly auth = inject(AuthService);
+  private readonly collabDocService = inject(DocumentoColaborativoService);
+  private readonly toastService = inject(ToastService);
+
+  readonly documentosColaborativos = signal<DocumentoColaborativoMetadata[]>([]);
+  readonly documentosColaborativosLoading = signal<boolean>(false);
+  readonly documentosColaborativosError = signal<string | null>(null);
 
   readonly facade = inject(FuncionarioFlujoFacadeService);
 
@@ -164,6 +173,17 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     return Object.keys(task.formularioRespuesta ?? {}).length > 0;
   });
 
+  readonly currentInstanciaId = computed(() => {
+    const task = this.tareaDetalleVisible();
+    return (
+      task?.instanciaId ??
+      task?.tramiteId ??
+      task?.processInstanceId ??
+      task?.instanciaPoliticaId ??
+      null
+    );
+  });
+
   readonly resumenRespuestaJson = computed(() => {
     const task = this.tareaDetalleVisible();
     if (!task) {
@@ -194,6 +214,25 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     });
 
     effect(() => {
+      const instId = this.currentInstanciaId();
+      const task = this.tareaDetalleVisible();
+      if (task) {
+        console.log('Tarea para metadata colaborativa:', task);
+        console.log('IDs tarea documentos colaborativos:', {
+          instanciaId: task.instanciaId,
+          tramiteId: task.tramiteId,
+          processInstanceId: task.processInstanceId,
+          instanciaPoliticaId: task.instanciaPoliticaId,
+        });
+      }
+      if (instId) {
+        this.cargarDocumentosColaborativos(instId);
+      } else {
+        this.documentosColaborativos.set([]);
+      }
+    });
+
+    effect(() => {
       const task = this.tareaDetalleVisible();
       if (!task) {
         return;
@@ -203,10 +242,44 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
       this.guideContext.updateContext({
         screen: hasForm ? 'TASK_FORM' : 'TASK_DETAIL',
         taskId: task.id,
-        instanceId: task.instanciaId,
+        instanceId: this.currentInstanciaId(),
         availableActions: this.buildGuideActions(task),
       });
     });
+  }
+
+  cargarDocumentosColaborativos(instanciaId: string): void {
+    this.documentosColaborativosLoading.set(true);
+    this.documentosColaborativosError.set(null);
+    console.log('Consultando documentos colaborativos con instanciaId:', instanciaId);
+
+    this.collabDocService.listarPorTramite(instanciaId).subscribe({
+      next: (docs) => {
+        console.log('Documentos colaborativos recibidos:', docs || []);
+        this.documentosColaborativos.set(docs || []);
+        this.documentosColaborativosLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Error al cargar documentos colaborativos:', err);
+        this.documentosColaborativosError.set('No se pudieron cargar los documentos colaborativos de este trámite.');
+        this.documentosColaborativosLoading.set(false);
+      }
+    });
+  }
+
+  abrirDocumentoColaborativo(doc: DocumentoColaborativoMetadata): void {
+    if (!this.puedeAbrirDocumentoColaborativo(doc)) {
+      return;
+    }
+    void this.router.navigate(['/funcionario/documentos-colaborativos', doc.documentoId, 'editar']);
+  }
+
+  puedeAbrirDocumentoColaborativo(doc: DocumentoColaborativoMetadata): boolean {
+    return Boolean(doc.permisosUsuario?.puedeLeer || doc.permisosUsuario?.puedeEditar);
+  }
+
+  etiquetaAccionDocumentoColaborativo(doc: DocumentoColaborativoMetadata): string {
+    return doc.permisosUsuario?.puedeEditar ? 'Editar' : 'Ver';
   }
 
   ngOnDestroy(): void {
@@ -299,8 +372,9 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     return forkJoin({
       tasks: this.api.getTareasPorInstancia(instanciaId).pipe(map((items) => items.map(mapTareaMiaDto))),
       documentos: this.api.getArchivosPorInstancia(instanciaId).pipe(catchError(() => of([] as ArchivoMetadataResponseDto[]))),
+      documentosColaborativos: this.collabDocService.listarPorTramite(instanciaId).pipe(catchError(() => of([] as DocumentoColaborativoMetadata[]))),
     }).pipe(
-      switchMap(({ tasks, documentos }) => {
+      switchMap(({ tasks, documentos, documentosColaborativos }) => {
         const byId = new Map<string, TareaResumen>();
         for (const task of tasks) {
           byId.set(task.id, task);
@@ -343,7 +417,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
         );
 
         return forkJoin(detailRequests).pipe(
-          map((items) => this.buildTraceSteps(items, documentos))
+          map((items) => this.buildTraceSteps(items, documentos, documentosColaborativos))
         );
       }),
       catchError(() => {
@@ -361,7 +435,8 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
       summary: TareaResumen;
       detail: TareaDetalle | null;
     }>,
-    documentos: ArchivoMetadataResponseDto[]
+    documentos: ArchivoMetadataResponseDto[],
+    documentosColaborativos: DocumentoColaborativoMetadata[]
   ): FlujoTraceStep[] {
     return items
       .map(({ summary, detail }) => ({
@@ -375,6 +450,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
         observaciones: detail?.observaciones ?? null,
         camposFormulario: this.formatFormularioFields(detail),
         documentos: this.documentosPorTarea(documentos, summary.id),
+        documentosColaborativos: this.documentosColaborativosPorTarea(documentosColaborativos, detail),
       }))
       .filter((step) => this.isFlujoStepVisible(step))
       .sort((left, right) => this.stepSortWeight(left) - this.stepSortWeight(right));
@@ -394,7 +470,8 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
       Boolean(step.fechaFin) ||
       Boolean(step.observaciones?.trim()) ||
       step.camposFormulario.length > 0 ||
-      step.documentos.length > 0
+      step.documentos.length > 0 ||
+      step.documentosColaborativos.length > 0
     );
   }
 
@@ -519,6 +596,66 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     tareaId: string
   ): ArchivoMetadataResponseDto[] {
     return documentos.filter((documento) => documento.tareaId === tareaId);
+  }
+
+  private documentosColaborativosPorTarea(
+    documentos: DocumentoColaborativoMetadata[],
+    detail: TareaDetalle | null
+  ): DocumentoColaborativoMetadata[] {
+    const campos = detail?.actividad.formularioDefinicion.campos ?? [];
+    if (documentos.length === 0 || campos.length === 0) {
+      return [];
+    }
+
+    const exactos = new Set<string>();
+    const normalizados = new Set<string>();
+    const agregar = (value: string | null | undefined) => {
+      const trimmed = value?.trim();
+      if (!trimmed) {
+        return;
+      }
+      exactos.add(trimmed);
+      normalizados.add(this.normalizarDocumentoColaborativoTexto(trimmed));
+    };
+
+    for (const campo of campos) {
+      agregar(campo.id);
+      agregar(campo.clave);
+      agregar(campo.nombre);
+      agregar(campo.etiqueta);
+    }
+
+    const vistos = new Set<string>();
+    return documentos.filter((documento) => {
+      const coincide =
+        this.coincideDocumentoColaborativo(documento.campoFormularioId, exactos, normalizados) ||
+        this.coincideDocumentoColaborativo(documento.nombreDocumento, exactos, normalizados);
+      if (!coincide || vistos.has(documento.documentoId)) {
+        return false;
+      }
+      vistos.add(documento.documentoId);
+      return true;
+    });
+  }
+
+  private coincideDocumentoColaborativo(
+    value: string | null | undefined,
+    exactos: Set<string>,
+    normalizados: Set<string>
+  ): boolean {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return false;
+    }
+    return exactos.has(trimmed) || normalizados.has(this.normalizarDocumentoColaborativoTexto(trimmed));
+  }
+
+  private normalizarDocumentoColaborativoTexto(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[\s-]+/g, '_');
   }
 
   private stepSortWeight(step: FlujoTraceStep): number {

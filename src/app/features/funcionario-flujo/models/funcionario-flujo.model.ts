@@ -25,7 +25,9 @@ export interface FlujoArchivoMetadata {
 }
 
 export interface FlujoFormularioCampo {
+  id: string | null;
   clave: string;
+  nombre: string | null;
   etiqueta: string;
   tipo: FlujoFormularioCampoTipo;
   requerido: boolean;
@@ -51,6 +53,19 @@ export interface FlujoFormularioCampo {
       departamentos: string[];
       roles: string[];
       usuarios: string[];
+    };
+    permisosImpresion: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+    };
+    permisosAdicionales?: {
+      puedeDescargar: boolean;
+      puedeImprimir: boolean;
+      puedeComentar: boolean;
+      puedeReemplazar: boolean;
+      puedeEliminar: boolean;
+      puedeCompartirInternamente: boolean;
     };
   } | null;
 }
@@ -128,6 +143,9 @@ export interface TareaPoliticaDetalle {
 
 export interface TareaDetalle {
   id: string;
+  tramiteId?: string | null;
+  processInstanceId?: string | null;
+  instanciaPoliticaId?: string | null;
   estadoTarea: string;
   fechaCreacion: string;
   fechaInicio: string | null;

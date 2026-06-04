@@ -164,12 +164,13 @@
             [activityName]="tareaDetalleVisible()!.actividad.nombreActividad"
             [policyName]="tareaDetalleVisible()!.politica?.nombre ?? facade.instanciaDetalle()?.politicaNombre ?? 'Politica sin nombre'"
             [intelligentContext]="{
-              tramiteId: facade.instanciaDetalle()?.codigoTramite ?? tareaDetalleVisible()!.instanciaId,
+              tramiteId: facade.instanciaDetalle()?.codigoTramite ?? currentInstanciaId(),
               currentDepartment: tareaDetalleVisible()!.actividad.responsableId ?? tareaDetalleVisible()!.actividad.responsableTipo,
               userRole: 'funcionario',
-              instanciaId: tareaDetalleVisible()!.instanciaId,
+              instanciaId: currentInstanciaId(),
               tareaId: tareaDetalleVisible()!.id
             }"
+            [documentosColaborativos]="documentosColaborativos()"
             [disabled]="!puedeCompletar()"
             [pending]="facade.detalleAction() === 'completar' || facade.detalleAction() === 'tomar-y-completar'"
             submitLabel="Completar tarea"
@@ -268,10 +269,33 @@
                 <div class="workflow-trace-step__section">
                   <p class="workflow-trace-step__section-title">Documentos cargados</p>
 
-                  @if (step.documentos.length === 0) {
+                  @if (step.documentos.length === 0 && step.documentosColaborativos.length === 0) {
                     <p class="workflow-trace-step__section-empty">Sin documentos visibles para tu usuario en este paso.</p>
                   } @else {
                     <div class="workflow-trace-documents">
+                      @for (documento of step.documentosColaborativos; track documento.documentoId) {
+                        <article class="workflow-trace-document workflow-trace-document--collaborative">
+                          <div class="workflow-trace-document__main">
+                            <p class="workflow-trace-document__name">{{ documento.nombreDocumento }}</p>
+                            <p class="workflow-trace-document__meta">
+                              {{ documento.tipoDocumento || 'Documento colaborativo' }} ·
+                              {{ (documento.fechaUltimaModificacion || documento.fechaCreacion) | date : 'medium' }} ·
+                              {{ documento.modificadoPor || documento.creadoPor || 'Usuario no identificado' }}
+                            </p>
+                          </div>
+                          <app-badge [variant]="documento.permisosUsuario?.puedeEditar ? 'success' : 'neutral'">
+                            {{ documento.permisosUsuario?.puedeEditar ? 'EDICION' : 'LECTURA' }}
+                          </app-badge>
+                          <div class="workflow-trace-document__actions">
+                            @if (puedeAbrirDocumentoColaborativo(documento)) {
+                              <button type="button" class="workflow-trace-document__button" (click)="abrirDocumentoColaborativo(documento)">
+                                {{ etiquetaAccionDocumentoColaborativo(documento) }}
+                              </button>
+                            }
+                          </div>
+                        </article>
+                      }
+
                       @for (documento of step.documentos; track documento.id) {
                         <article class="workflow-trace-document">
                           <div class="workflow-trace-document__main">

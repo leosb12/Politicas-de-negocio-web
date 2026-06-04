@@ -15,7 +15,9 @@ describe('TareaFormularioDinamicoComponent', () => {
     descripcion: null,
     campos: [
       {
+        id: null,
         clave: 'comentario',
+        nombre: null,
         etiqueta: 'Comentario',
         tipo: 'TEXTO',
         requerido: true,
@@ -24,7 +26,9 @@ describe('TareaFormularioDinamicoComponent', () => {
         orden: 0,
       },
       {
+        id: null,
         clave: 'monto',
+        nombre: null,
         etiqueta: 'Monto',
         tipo: 'NUMERO',
         requerido: true,
@@ -33,7 +37,9 @@ describe('TareaFormularioDinamicoComponent', () => {
         orden: 1,
       },
       {
+        id: null,
         clave: 'aprobado',
+        nombre: null,
         etiqueta: 'Aprobado',
         tipo: 'BOOLEANO',
         requerido: true,
@@ -42,7 +48,9 @@ describe('TareaFormularioDinamicoComponent', () => {
         orden: 2,
       },
       {
+        id: null,
         clave: 'fechaEjecucion',
+        nombre: null,
         etiqueta: 'Fecha',
         tipo: 'FECHA',
         requerido: false,
@@ -51,7 +59,9 @@ describe('TareaFormularioDinamicoComponent', () => {
         orden: 3,
       },
       {
+        id: null,
         clave: 'adjunto',
+        nombre: null,
         etiqueta: 'Adjunto',
         tipo: 'ARCHIVO',
         requerido: false,
@@ -127,6 +137,43 @@ describe('TareaFormularioDinamicoComponent', () => {
     expect(emitted).toBe(false);
     expect(component.fieldError(definition.campos[0])).toContain('obligatorio');
     expect(component.fieldError(definition.campos[1])).toContain('obligatorio');
+  });
+
+  it('no exige documento colaborativo para completar la tarea', () => {
+    const collabDefinition: FlujoFormularioDefinicion = {
+      titulo: 'Documento colaborativo',
+      descripcion: null,
+      campos: [
+        {
+          id: null,
+          clave: 'dc',
+          nombre: null,
+          etiqueta: 'Documento colaborativo',
+          tipo: 'DOCUMENTO_COLABORATIVO',
+          requerido: true,
+          placeholder: null,
+          ayuda: null,
+          orden: 0,
+        },
+      ],
+    };
+    let emittedPayload: unknown;
+
+    fixture.componentRef.setInput('definicion', collabDefinition);
+    fixture.detectChanges();
+    component.submitted.subscribe((payload) => {
+      emittedPayload = payload;
+    });
+
+    component.onSubmit();
+
+    expect(component.fieldError(collabDefinition.campos[0])).toBeNull();
+    expect(emittedPayload).toEqual({
+      formularioRespuesta: {
+        dc: '',
+      },
+      observaciones: null,
+    });
   });
 
   it('no muestra errores mientras el envio esta pendiente', () => {

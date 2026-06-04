@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
+import { ArrowUpDown, LucideAngularModule } from 'lucide-angular';
 
 import { DashboardAdministrador } from './dashboard-administrador';
 
@@ -10,7 +11,7 @@ describe('DashboardAdministrador', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DashboardAdministrador],
+      imports: [DashboardAdministrador, LucideAngularModule.pick({ ArrowUpDown })],
       providers: [provideRouter([]), provideHttpClient()],
     }).compileComponents();
 

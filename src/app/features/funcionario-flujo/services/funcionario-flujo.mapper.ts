@@ -39,9 +39,18 @@ export function mapTareaMiaDto(dto: TareaMiaResponseDto): TareaResumen {
 
 export function mapTareaDetalleDto(dto: TareaDetalleResponseDto): TareaDetalle {
   const instancia = dto.instancia ? mapInstanciaDetalleDto(dto.instancia) : null;
+  const instanciaId =
+    trimToNull(dto.instanciaId) ??
+    instancia?.id ??
+    trimToNull(dto.tramiteId) ??
+    trimToNull(dto.processInstanceId) ??
+    trimToNull(dto.instanciaPoliticaId);
 
   return {
     id: dto.id,
+    tramiteId: dto.tramiteId ?? null,
+    processInstanceId: dto.processInstanceId ?? null,
+    instanciaPoliticaId: dto.instanciaPoliticaId ?? null,
     estadoTarea: dto.estadoTarea,
     fechaCreacion: dto.fechaCreacion,
     fechaInicio: dto.fechaInicio,
@@ -61,7 +70,7 @@ export function mapTareaDetalleDto(dto: TareaDetalleResponseDto): TareaDetalle {
       ),
     },
     formularioRespuesta: dto.formularioRespuesta ?? {},
-    instanciaId: instancia?.id ?? null,
+    instanciaId: instanciaId ?? null,
     instancia,
     politica: dto.politica
       ? {
@@ -152,6 +161,7 @@ function mapFormularioField(
   field: FlujoFormularioCampoDefinicionDto,
   index: number
 ): FlujoFormularioCampo | null {
+  const id = trimToNull(field.id) ?? trimToNull(field.campo);
   const key =
     trimToNull(field.clave) ??
     trimToNull(field.campo) ??
@@ -172,16 +182,22 @@ function mapFormularioField(
     trimToNull(field.campo) ??
     trimToNull(field.clave) ??
     `Campo ${index + 1}`;
+  const name = trimToNull(field.nombre) ?? trimToNull(field.etiqueta) ?? label;
 
   return {
+    id,
     clave: key,
+    nombre: name,
     etiqueta: label,
     tipo,
-    requerido: field.requerido ?? field.required ?? true,
+    requerido: tipo === 'DOCUMENTO_COLABORATIVO'
+      ? false
+      : field.requerido ?? field.required ?? true,
     placeholder: trimToNull(field.placeholder),
     ayuda: trimToNull(field.ayuda),
     orden: typeof field.orden === 'number' ? field.orden : index,
     opciones: field.opciones ?? field.options ?? null,
+    configuracionDocumento: field.configuracionDocumento ?? null,
   };
 }
 

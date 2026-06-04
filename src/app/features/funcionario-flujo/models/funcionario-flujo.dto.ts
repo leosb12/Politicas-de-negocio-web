@@ -11,6 +11,7 @@ export type FlujoFormularioCampoTipoDto =
   | 'DOCUMENTO_COLABORATIVO';
 
 export interface FlujoFormularioCampoDefinicionDto {
+  id?: string | null;
   campo?: string | null;
   clave?: string | null;
   nombre?: string | null;
@@ -24,6 +25,7 @@ export interface FlujoFormularioCampoDefinicionDto {
   orden?: number | null;
   opciones?: string[] | null;
   options?: string[] | null;
+  configuracionDocumento?: any;
 }
 
 export interface FlujoFormularioDefinicionObjetoDto {
@@ -104,6 +106,10 @@ export interface InstanciaDetalleResponseDto {
 
 export interface TareaDetalleResponseDto {
   id: string;
+  instanciaId?: string | null;
+  tramiteId?: string | null;
+  processInstanceId?: string | null;
+  instanciaPoliticaId?: string | null;
   estadoTarea: string;
   fechaCreacion: string;
   fechaInicio: string | null;

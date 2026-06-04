@@ -488,6 +488,11 @@ export class AdministradorPoliticasPageComponent implements OnInit {
     this.router.navigate(['/admin/politicas', id, 'canvas']);
   }
 
+  openAuditoria(id: string, event?: Event): void {
+    event?.stopPropagation();
+    this.router.navigate(['/admin/politicas', id, 'auditoria']);
+  }
+
   onPoliticaCardClick(event: MouseEvent, id: string): void {
     const target = event.target as HTMLElement | null;
     const card = event.currentTarget as HTMLElement | null;

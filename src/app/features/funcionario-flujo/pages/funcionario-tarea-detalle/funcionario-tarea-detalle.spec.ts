@@ -9,6 +9,7 @@ import {
 } from '../../models/funcionario-flujo.model';
 import { FuncionarioFlujoApiService } from '../../services/funcionario-flujo-api.service';
 import { FuncionarioFlujoFacadeService } from '../../services/funcionario-flujo-facade.service';
+import { DocumentoColaborativoMetadata } from '../../services/documento-colaborativo.service';
 import { FuncionarioTareaDetallePageComponent } from './funcionario-tarea-detalle';
 
 class FuncionarioFlujoDetalleFacadeStub {
@@ -82,6 +83,8 @@ describe('FuncionarioTareaDetallePageComponent', () => {
       fechaInicio: null,
       fechaFin: null,
       asignadoA: 'USR-1',
+      participantesIds: [],
+      participantesNombres: [],
       observaciones: null,
       actividad: {
         nodoId: 'N-1',
@@ -149,5 +152,92 @@ describe('FuncionarioTareaDetallePageComponent', () => {
 
     const html = fixture.nativeElement as HTMLElement;
     expect(html.textContent).toContain('La tarea ya fue completada por otro actor.');
+  });
+
+  it('asocia documentos colaborativos visibles al paso que contiene su campo', () => {
+    const detail: TareaDetalle = {
+      id: 'TASK-ANTERIOR',
+      estadoTarea: 'COMPLETADA',
+      fechaCreacion: '2026-04-18T10:00:00Z',
+      fechaInicio: '2026-04-18T10:05:00Z',
+      fechaFin: '2026-04-18T10:10:00Z',
+      asignadoA: 'USR-1',
+      participantesIds: [],
+      participantesNombres: [],
+      observaciones: null,
+      actividad: {
+        nodoId: 'N-ANT',
+        nombreActividad: 'Preparar documento',
+        responsableTipo: 'DEPARTAMENTO',
+        responsableId: 'DEP-1',
+        formularioDefinicion: {
+          titulo: null,
+          descripcion: null,
+          campos: [
+            {
+              id: 'dc',
+              clave: 'dc',
+              nombre: 'Documento colaborativo',
+              etiqueta: 'DC',
+              tipo: 'DOCUMENTO_COLABORATIVO',
+              requerido: false,
+              placeholder: null,
+              ayuda: null,
+              orden: 0,
+            },
+          ],
+        },
+      },
+      formularioRespuesta: {},
+      instanciaId: 'INS-1',
+      instancia: null,
+      politica: null,
+      historialRelevante: [],
+    };
+    const documento: DocumentoColaborativoMetadata = {
+      documentoId: 'doc-1',
+      clienteId: 'cliente-1',
+      tramiteId: 'INS-1',
+      campoFormularioId: 'dc',
+      nombreDocumento: 'DC',
+      descripcion: 'Documento de prueba',
+      tipoDocumento: 'WORD',
+      estado: 'CREADO',
+      s3Key: 'key.docx',
+      creadoPor: 'USR-1',
+      fechaCreacion: '2026-04-18T10:06:00Z',
+      fechaUltimaModificacion: null,
+      permisosUsuario: {
+        puedeLeer: true,
+        puedeEditar: true,
+        puedeDescargar: false,
+        puedeComentar: false,
+        puedeReemplazar: false,
+        puedeEliminar: false,
+        puedeCompartirInternamente: false,
+      },
+    };
+
+    const steps = (component as any).buildTraceSteps(
+      [
+        {
+          summary: {
+            id: 'TASK-ANTERIOR',
+            nombreActividad: 'Preparar documento',
+            estadoTarea: 'COMPLETADA',
+            fechaInicio: '2026-04-18T10:05:00Z',
+            responsableActual: 'DEP-1',
+          },
+          detail,
+        },
+      ],
+      [],
+      [documento]
+    );
+
+    expect(steps.length).toBe(1);
+    expect(steps[0].documentosColaborativos).toEqual([documento]);
+    expect(component.puedeAbrirDocumentoColaborativo(documento)).toBe(true);
+    expect(component.etiquetaAccionDocumentoColaborativo(documento)).toBe('Editar');
   });
 });

@@ -203,25 +203,36 @@ describe('FuncionarioFlujoApiService', () => {
         response = data;
       });
 
-    const req = httpMock.expectOne((request) => request.url.endsWith('/api/documentos/tramites/INS-1/archivos'));
+    const req = httpMock.expectOne(API_ENDPOINTS.archivos);
     expect(req.request.method).toBe('POST');
     expect(req.request.body instanceof FormData).toBe(true);
 
     const body = req.request.body as FormData;
-    expect(body.get('file')).toBe(archivo);
-    expect(body.get('origenCarga')).toBe('WEB');
+    expect(body.get('archivo')).toBe(archivo);
+    expect(body.get('instanciaId')).toBe('INS-1');
+    expect(body.get('tareaId')).toBe('TASK-1');
+    expect(body.get('usuarioId')).toBe('USR-1');
 
     req.flush({
-      archivoId: 'ARCH-1',
-      nombreArchivoOriginal: 'evidencia.pdf',
-      nombreArchivoSanitizado: 'evidencia.pdf',
-      tipoArchivo: 'application/pdf',
+      id: 'ARCH-1',
+      nombreOriginal: 'evidencia.pdf',
+      nombreGuardado: 'evidencia.pdf',
+      rutaOKey: 'instancias/INS-1/tareas/TASK-1/abc123.pdf',
+      storageType: 's3',
+      contentType: 'application/pdf',
+      extension: 'pdf',
       tamanoBytes: 9,
       fechaSubida: '2026-04-19T15:00:00Z',
-      s3Key: 'instancias/INS-1/tareas/TASK-1/abc123.pdf',
-      s3Bucket: 'bucket-name',
-      s3Url: 'https://bucket-name.s3.sa-east-1.amazonaws.com/key',
-      clienteId: 'USR-1'
+      subidoPor: 'USR-1',
+      instanciaId: 'INS-1',
+      actividadId: null,
+      tareaId: 'TASK-1',
+      usuarioId: 'USR-1',
+      estado: 'ACTIVO',
+      descripcion: 'Adjunto de prueba',
+      urlAcceso: 'https://bucket-name.s3.sa-east-1.amazonaws.com/key',
+      bucket: 'bucket-name',
+      clienteId: 'USR-1',
     });
 
     expect(response?.id).toBe('ARCH-1');

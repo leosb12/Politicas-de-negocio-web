@@ -1,0 +1,237 @@
+<section class="auditoria-politica-page">
+  <header class="auditoria-header">
+    <div>
+      <p class="auditoria-kicker">Politica {{ politicaId }}</p>
+      <h1>Auditoria de politica</h1>
+    </div>
+
+    <div class="auditoria-tabs" role="tablist" aria-label="Tipos de auditoria">
+      <button
+        type="button"
+        role="tab"
+        class="auditoria-tab"
+        [class.auditoria-tab--active]="activeTab() === 'general'"
+        [attr.aria-selected]="activeTab() === 'general'"
+        (click)="setActiveTab('general')"
+      >
+        Auditoria general
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="auditoria-tab"
+        [class.auditoria-tab--active]="activeTab() === 'documental'"
+        [attr.aria-selected]="activeTab() === 'documental'"
+        (click)="setActiveTab('documental')"
+      >
+        Auditoria documental
+      </button>
+    </div>
+  </header>
+
+  @if (activeTab() === 'general') {
+    <section class="auditoria-panel" role="tabpanel">
+      <h2>Auditoria general</h2>
+    </section>
+  } @else {
+    <section class="auditoria-panel auditoria-panel--documental" role="tabpanel">
+      <div class="documental-head">
+        <div>
+          <h2>Auditoria documental</h2>
+          <p>Tareas de esta politica que tienen documentos cargados o colaborativos.</p>
+        </div>
+        <button type="button" class="refresh-button" (click)="refreshAuditoriaDocumental()" [disabled]="documentalLoading()">
+          {{ documentalLoading() ? 'Cargando...' : 'Refrescar' }}
+        </button>
+      </div>
+
+      @if (documentalLoading()) {
+        <div class="documental-state">
+          <div class="spinner"></div>
+          <p>Cargando documentos de tareas...</p>
+        </div>
+      } @else if (documentalError()) {
+        <div class="documental-state documental-state--error">
+          <p>{{ documentalError() }}</p>
+          <button type="button" class="refresh-button" (click)="refreshAuditoriaDocumental()">Reintentar</button>
+        </div>
+      } @else if (auditoriaDocumental(); as auditoria) {
+        <div class="documental-summary">
+          <article>
+            <span>Tareas con documentos</span>
+            <strong>{{ auditoria.totalTareas }}</strong>
+          </article>
+          <article>
+            <span>Documentos encontrados</span>
+            <strong>{{ auditoria.totalDocumentos }}</strong>
+          </article>
+        </div>
+
+        @if (auditoria.tareas.length === 0) {
+          <div class="documental-state">
+            <p>No hay tareas con documentos para esta politica.</p>
+          </div>
+        } @else {
+          <div class="documental-cards">
+            @for (tarea of auditoria.tareas; track trackTarea($index, tarea)) {
+              <article class="tarea-card">
+                <div class="tarea-card__head">
+                  <div class="tarea-card__title-wrap">
+                    <div class="tarea-card__icon">TD</div>
+                    <div>
+                      <p class="tarea-card__label">Tarea documental</p>
+                      <h3>{{ tarea.nombreNodo || 'Tarea sin nombre' }}</h3>
+                    </div>
+                  </div>
+                  <div class="tarea-card__badges">
+                    <span class="document-count">{{ tarea.totalDocumentos }} doc.</span>
+                    <span class="estado-chip">{{ tarea.estadoTarea }}</span>
+                  </div>
+                </div>
+
+                <div class="tarea-card__body">
+                  <div class="tarea-card__identity">
+                    <p class="identity-label">ID de tarea</p>
+                    <p class="identity-value">{{ tarea.tareaId }}</p>
+                  </div>
+
+                  <div class="tarea-card__meta">
+                    <span>Instancia: {{ tarea.instanciaId }}</span>
+                    <span>Nodo: {{ tarea.nodoId || '-' }}</span>
+                    <span>Asignado: {{ tarea.asignadoANombre || tarea.asignadoA || '-' }}</span>
+                    <span>Creada: {{ tarea.fechaCreacion | date : 'dd/MM/yy HH:mm' }}</span>
+                  </div>
+                </div>
+
+                <div class="documents-section-title">
+                  <span>Documentos asociados</span>
+                  <strong>{{ tarea.totalDocumentos }}</strong>
+                </div>
+
+                <div class="documentos-list">
+                  @for (documento of tarea.documentos; track trackDocumento($index, documento)) {
+                    <article class="documento-card">
+                      <div class="documento-card__main">
+                        <div class="documento-card__icon" [ngClass]="getDocumentoTipoClass(documento)">
+                          {{ documento.tipoOrigen === 'DOCUMENTO_COLABORATIVO' ? 'DC' : 'AD' }}
+                        </div>
+                        <div class="documento-card__copy">
+                          <div class="documento-card__topline">
+                            <span class="documento-type" [ngClass]="getDocumentoTipoClass(documento)">
+                              {{ getDocumentoTipoLabel(documento) }}
+                            </span>
+                            <span class="documento-date">{{ documento.fecha | date : 'dd/MM/yy HH:mm' }}</span>
+                          </div>
+                          <p class="documento-card__name">{{ documento.nombre || 'Documento sin nombre' }}</p>
+                          <p class="documento-card__meta">
+                            {{ documento.contentType || documento.extension || 'Sin tipo' }}
+                            /
+                            Campo {{ documento.campoId || '-' }}
+                          </p>
+                          <p class="documento-card__actor">
+                            Actor: {{ documento.subidoOCreadoPorNombre || documento.subidoOCreadoPor || '-' }}
+                          </p>
+                        </div>
+                      </div>
+                      <div class="documento-card__side">
+                        <span>{{ documento.estado || '-' }}</span>
+                        <small>{{ formatBytes(documento.tamanoBytes) }}</small>
+                        <button type="button" class="audit-document-button" (click)="openDocumentAuditModal(documento, tarea)">
+                          Auditar
+                        </button>
+                      </div>
+                    </article>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+        }
+      } @else {
+        <div class="documental-state">
+          <p>Selecciona auditoria documental para cargar los documentos.</p>
+        </div>
+      }
+    </section>
+  }
+</section>
+
+@if (selectedAuditDocument(); as auditDocument) {
+  <div class="audit-modal-backdrop" (click)="closeDocumentAuditModal()">
+    <section class="audit-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="audit-modal__header">
+        <div>
+          <p class="audit-modal__kicker">Auditoria del archivo</p>
+          <h2>{{ auditDocument.nombre || 'Documento sin nombre' }}</h2>
+          <p>
+            {{ getDocumentoTipoLabel(auditDocument) }}
+            /
+            Campo {{ auditDocument.campoId || '-' }}
+            /
+            Tarea {{ selectedAuditTask()?.tareaId || '-' }}
+          </p>
+        </div>
+        <button type="button" class="audit-modal__close" (click)="closeDocumentAuditModal()">Cerrar</button>
+      </header>
+
+      <div class="audit-modal__summary">
+        <article>
+          <span>Eventos</span>
+          <strong>{{ documentAuditEvents().length }}</strong>
+        </article>
+        <article>
+          <span>Estado</span>
+          <strong>{{ auditDocument.estado || '-' }}</strong>
+        </article>
+        <article>
+          <span>Actor inicial</span>
+          <strong>{{ auditDocument.subidoOCreadoPorNombre || auditDocument.subidoOCreadoPor || '-' }}</strong>
+        </article>
+      </div>
+
+      @if (documentAuditLoading()) {
+        <div class="audit-modal__state">
+          <div class="spinner"></div>
+          <p>Cargando historial del documento...</p>
+        </div>
+      } @else if (documentAuditError()) {
+        <div class="audit-modal__state audit-modal__state--error">
+          <p>{{ documentAuditError() }}</p>
+        </div>
+      } @else if (documentAuditEvents().length === 0) {
+        <div class="audit-modal__state">
+          <p>No hay eventos de auditoria registrados para este documento.</p>
+        </div>
+      } @else {
+        <div class="audit-events">
+          @for (event of documentAuditEvents(); track trackAuditEvent($index, event)) {
+            <article class="audit-event">
+              <div class="audit-event__rail">
+                <span class="audit-event__dot" [ngClass]="actionClass(event.accion)"></span>
+              </div>
+              <div class="audit-event__body">
+                <div class="audit-event__top">
+                  <span class="audit-action" [ngClass]="actionClass(event.accion)">
+                    {{ actionLabel(event.accion) }}
+                  </span>
+                  <time>{{ event.fechaHora | date : 'dd/MM/yy HH:mm:ss' }}</time>
+                </div>
+
+                <h3>{{ actorLabel(event) }}</h3>
+                <p class="audit-event__detail">{{ event.detalle || 'Sin detalle adicional.' }}</p>
+
+                <div class="audit-event__meta">
+                  <span>Resultado: {{ event.resultado || '-' }}</span>
+                  <span>Rol: {{ event.rol || '-' }}</span>
+                  <span>Departamento: {{ event.departamentoNombre || event.departamentoId || '-' }}</span>
+                  <span>IP: {{ event.ip || '-' }}</span>
+                  <span>Documento: {{ event.documentoId || auditDocument.id }}</span>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </section>
+  </div>
+}

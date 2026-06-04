@@ -1,0 +1,33 @@
+<section class="editor-shell" [class.is-loading]="loading()" [class.has-error]="error()">
+  <header class="editor-header">
+    <div class="editor-title-group">
+      <span class="editor-kicker">Documento colaborativo</span>
+      <h1 class="editor-title">{{ nombreDocumento() }}</h1>
+    </div>
+
+    <button type="button" class="back-button" (click)="volver()">
+      Volver
+    </button>
+  </header>
+
+  <main class="editor-body">
+    <div id="onlyoffice-editor"></div>
+
+    @if (loading()) {
+      <div class="editor-state" aria-live="polite">
+        <div class="state-panel">
+          <span class="loader"></span>
+          <p>Cargando OnlyOffice...</p>
+        </div>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="editor-error">
+        <strong>Error al cargar el documento</strong>
+        <span>{{ error() }}</span>
+        <button type="button" (click)="cargarEditor()">Reintentar</button>
+      </div>
+    }
+  </main>
+</section>

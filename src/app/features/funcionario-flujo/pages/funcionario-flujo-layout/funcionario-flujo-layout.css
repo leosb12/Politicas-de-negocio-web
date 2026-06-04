@@ -1,3 +1,48 @@
 :host {
   display: block;
 }
+
+.funcionario-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.funcionario-layout__main {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.funcionario-layout--editor {
+  min-height: 100dvh;
+}
+
+.funcionario-layout--editor .funcionario-layout__main {
+  max-width: none;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .funcionario-layout__main {
+    padding-right: 1.5rem;
+    padding-left: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .funcionario-layout__main {
+    padding-right: 2rem;
+    padding-left: 2rem;
+  }
+
+  .funcionario-layout--editor .funcionario-layout__main {
+    padding-right: 0;
+    padding-left: 0;
+  }
+}

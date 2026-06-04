@@ -48,6 +48,13 @@ export const ADMINISTRADOR_ROUTES: Routes = [
           ),
       },
       {
+        path: 'politicas/:id/auditoria',
+        loadComponent: () =>
+          import('./pages/administrador-politica-auditoria/administrador-politica-auditoria').then(
+            (module) => module.AdministradorPoliticaAuditoriaPageComponent
+          ),
+      },
+      {
         path: 'analytics',
         loadComponent: () =>
           import('./pages/administrador-analiticas/administrador-analiticas').then(

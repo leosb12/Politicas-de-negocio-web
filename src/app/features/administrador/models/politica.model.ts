@@ -46,6 +46,19 @@ export interface CampoFormulario {
       roles: string[];
       usuarios: string[];
     };
+    permisosImpresion: {
+      departamentos: string[];
+      roles: string[];
+      usuarios: string[];
+    };
+    permisosAdicionales?: {
+      puedeDescargar: boolean;
+      puedeImprimir: boolean;
+      puedeComentar: boolean;
+      puedeReemplazar: boolean;
+      puedeEliminar: boolean;
+      puedeCompartirInternamente: boolean;
+    };
   } | null;
 }
 

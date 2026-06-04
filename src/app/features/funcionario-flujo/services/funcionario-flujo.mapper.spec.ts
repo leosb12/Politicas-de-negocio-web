@@ -44,16 +44,20 @@ describe('funcionario-flujo.mapper', () => {
       campos: [
         { campo: 'monto', tipo: 'NUMERO', requerido: true },
         { campo: 'observacion', tipo: 'TEXTO' },
+        { campo: 'dc', tipo: 'DOCUMENTO_COLABORATIVO', requerido: true },
         { campo: '', tipo: 'BOOLEANO' },
         { campo: 'invalido', tipo: 'NO_SOPORTADO' },
       ],
     });
 
     expect(definition.titulo).toBe('Formulario');
-    expect(definition.campos.length).toBe(2);
+    expect(definition.campos.length).toBe(3);
     expect(definition.campos[0].clave).toBe('monto');
     expect(definition.campos[0].tipo).toBe('NUMERO');
     expect(definition.campos[0].requerido).toBe(true);
+    expect(definition.campos[2].clave).toBe('dc');
+    expect(definition.campos[2].tipo).toBe('DOCUMENTO_COLABORATIVO');
+    expect(definition.campos[2].requerido).toBe(false);
   });
 
   it('mapea detalle de tarea incluyendo instancia y historial', () => {

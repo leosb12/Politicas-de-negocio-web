@@ -1604,6 +1604,77 @@
             </div>
           </div>
         </section>
+
+        <!-- Seccion 4b: Permisos de impresion -->
+        <section class="document-permission-section">
+          <div class="document-section-title" style="color: #4f46e5;"><lucide-icon name="printer" [size]="15"></lucide-icon><span>Permisos de impresión</span></div>
+          
+          <div class="collab-permisos-grid">
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Impresión: Departamentos</span>
+              <div class="scroll-select-box">
+                @for (d of departamentos(); track d.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosImpresion.departamentos.includes(d.id)" (change)="toggleCollabImpresionDept(d.id, $any($event.target).checked)" />
+                    <span>{{ d.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Impresión: Roles</span>
+              <div class="scroll-select-box">
+                @for (r of roles(); track r.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosImpresion.roles.includes(r.nombre)" (change)="toggleCollabImpresionRole(r.nombre, $any($event.target).checked)" />
+                    <span>{{ r.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+            <div>
+              <span class="prop-label" style="font-weight: 500; margin-bottom: 0.25rem; display: block;">Permisos de Impresión: Usuarios especificos</span>
+              <div class="scroll-select-box">
+                @for (u of usuarios(); track u.id) {
+                  <label class="collab-check-label">
+                    <input type="checkbox" [checked]="collabModal.permisosImpresion.usuarios.includes(u.id)" (change)="toggleCollabImpresionUser(u.id, $any($event.target).checked)" />
+                    <span>{{ u.nombre }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="document-permission-section">
+          <div class="document-section-title" style="color: #4f46e5;"><lucide-icon name="settings" [size]="15"></lucide-icon><span>Permisos adicionales de OnlyOffice</span></div>
+          <div class="collab-permisos-grid">
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.permisosAdicionales.puedeDescargar" />
+              <span>Puede descargar / guardar</span>
+            </label>
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.permisosAdicionales.puedeImprimir" />
+              <span>Puede imprimir</span>
+            </label>
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.permisosAdicionales.puedeComentar" />
+              <span>Puede comentar</span>
+            </label>
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.permisosAdicionales.puedeReemplazar" />
+              <span>Puede reemplazar</span>
+            </label>
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.permisosAdicionales.puedeEliminar" />
+              <span>Puede eliminar</span>
+            </label>
+            <label class="document-check">
+              <input type="checkbox" [(ngModel)]="collabModal.permisosAdicionales.puedeCompartirInternamente" />
+              <span>Puede compartir internamente</span>
+            </label>
+          </div>
+        </section>
       </div>
 
       <div class="document-permission-actions" style="padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 1rem;">

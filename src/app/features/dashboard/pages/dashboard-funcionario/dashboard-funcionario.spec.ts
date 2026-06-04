@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
+import { ArrowUpDown, LucideAngularModule } from 'lucide-angular';
 
 import { DashboardFuncionario } from './dashboard-funcionario';
 
@@ -10,7 +11,7 @@ describe('DashboardFuncionario', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DashboardFuncionario],
+      imports: [DashboardFuncionario, LucideAngularModule.pick({ ArrowUpDown })],
       providers: [provideRouter([]), provideHttpClient()],
     }).compileComponents();
 
