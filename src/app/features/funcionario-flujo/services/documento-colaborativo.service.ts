@@ -18,6 +18,7 @@ export interface PermisosLectura {
 
 export interface PermisosAdicionales {
   puedeDescargar: boolean;
+  puedeImprimir: boolean;
   puedeComentar: boolean;
   puedeReemplazar: boolean;
   puedeEliminar: boolean;
@@ -28,11 +29,14 @@ export interface PermisosDocumentoColaborativoUsuario {
   puedeLeer: boolean;
   puedeEditar: boolean;
   puedeDescargar: boolean;
+  puedeImprimir: boolean;
   puedeComentar: boolean;
   puedeReemplazar: boolean;
   puedeEliminar: boolean;
   puedeCompartirInternamente: boolean;
 }
+
+export type DocumentoColaborativoAuditAction = 'EDITAR' | 'DESCARGAR' | 'IMPRIMIR';
 
 export interface DocumentoColaborativoMetadata {
   documentoId: string;
@@ -49,10 +53,27 @@ export interface DocumentoColaborativoMetadata {
   fechaCreacion: string;
   fechaUltimaModificacion: string | null;
   ultimoEventoOnlyOffice?: string | null;
+  controlVersionesHabilitado?: boolean;
+  versionActual?: number;
   permisosEdicion?: PermisosEdicion;
   permisosLectura?: PermisosLectura;
   permisosAdicionales?: PermisosAdicionales;
   permisosUsuario?: PermisosDocumentoColaborativoUsuario;
+}
+
+export interface DocumentoVersion {
+  id?: string;
+  documentoId: string;
+  numeroVersion: number;
+  s3KeyVersion: string;
+  nombreArchivo: string;
+  creadoPorUsuarioId?: string | null;
+  creadoPorNombre?: string | null;
+  fechaCreacion: string;
+  origen?: string | null;
+  accion: string;
+  tamanioBytes?: number | null;
+  hashArchivoOpcional?: string | null;
 }
 
 @Injectable({
@@ -67,10 +88,58 @@ export class DocumentoColaborativoService {
     );
   }
 
-  obtenerEditorConfig(documentoId: string): Observable<{ documentServerUrl: string, config: any }> {
-    return this.http.post<{ documentServerUrl: string, config: any }>(
+  obtenerEditorConfig(documentoId: string): Observable<{
+    documentServerUrl: string;
+    config: any;
+    controlVersionesHabilitado?: boolean;
+    versionActual?: number;
+  }> {
+    return this.http.post<{
+      documentServerUrl: string;
+      config: any;
+      controlVersionesHabilitado?: boolean;
+      versionActual?: number;
+    }>(
       `${API_BASE_URL}/api/documentos-colaborativos/${encodeURIComponent(documentoId)}/editor-config`,
       {}
+    );
+  }
+
+  listarVersiones(documentoId: string): Observable<DocumentoVersion[]> {
+    return this.http.get<DocumentoVersion[]>(
+      `${API_BASE_URL}/api/documentos-colaborativos/${encodeURIComponent(documentoId)}/versiones`
+    );
+  }
+
+  descargarVersion(documentoId: string, numeroVersion: number): Observable<Blob> {
+    return this.http.get(
+      `${API_BASE_URL}/api/documentos-colaborativos/${encodeURIComponent(documentoId)}/versiones/${encodeURIComponent(numeroVersion)}/download`,
+      { responseType: 'blob' }
+    );
+  }
+
+  restaurarVersion(documentoId: string, numeroVersion: number): Observable<DocumentoVersion> {
+    return this.http.post<DocumentoVersion>(
+      `${API_BASE_URL}/api/documentos-colaborativos/${encodeURIComponent(documentoId)}/versiones/${encodeURIComponent(numeroVersion)}/restaurar`,
+      {}
+    );
+  }
+
+  descargarAuditado(documentoId: string, format: 'pdf' | 'original'): Observable<Blob> {
+    return this.http.get(
+      `${API_BASE_URL}/api/documentos-colaborativos/${encodeURIComponent(documentoId)}/download?format=${encodeURIComponent(format)}`,
+      { responseType: 'blob' }
+    );
+  }
+
+  registrarEventoEditor(
+    documentoId: string,
+    accion: DocumentoColaborativoAuditAction,
+    detalle?: string
+  ): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(
+      `${API_BASE_URL}/api/documentos-colaborativos/${encodeURIComponent(documentoId)}/audit-event`,
+      { accion, detalle }
     );
   }
 }

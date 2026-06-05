@@ -5,10 +5,75 @@
       <h1 class="editor-title">{{ nombreDocumento() }}</h1>
     </div>
 
-    <button type="button" class="back-button" (click)="volver()">
-      Volver
-    </button>
+    <div class="editor-actions">
+      @if (puedeDescargar()) {
+        <button type="button" class="download-button" (click)="descargarOriginalAuditado()" [disabled]="descargandoOriginal()">
+          {{ descargandoOriginal() ? 'Descargando...' : etiquetaDescargaOriginal() }}
+        </button>
+        <button type="button" class="download-button" (click)="descargarPdfAuditado()" [disabled]="descargandoPdf()">
+          {{ descargandoPdf() ? 'Descargando...' : 'PDF' }}
+        </button>
+      }
+      @if (puedeImprimir()) {
+        <button type="button" class="print-button" (click)="imprimirAuditado()" [disabled]="imprimiendo()">
+          {{ imprimiendo() ? 'Imprimiendo...' : 'Imprimir' }}
+        </button>
+      }
+      <button type="button" class="back-button" (click)="volver()">
+        Volver
+      </button>
+    </div>
   </header>
+
+  @if (controlVersionesHabilitado()) {
+    <section class="version-history" aria-label="Historial de versiones">
+      <div class="version-history-header">
+        <div>
+          <span class="version-kicker">Control de versiones</span>
+          <h2>Historial de versiones</h2>
+        </div>
+        <button type="button" class="refresh-versions-button" (click)="cargarVersiones()" [disabled]="versionesLoading()">
+          {{ versionesLoading() ? 'Actualizando...' : 'Actualizar' }}
+        </button>
+      </div>
+
+      @if (versionesLoading()) {
+        <p class="version-message">Cargando historial...</p>
+      } @else if (versionesError()) {
+        <p class="version-message is-error">{{ versionesError() }}</p>
+      } @else if (!versiones().length) {
+        <p class="version-message">Todavia no hay versiones guardadas para este documento.</p>
+      } @else {
+        <div class="version-list">
+          @for (version of versiones(); track version.numeroVersion) {
+            <article class="version-row">
+              <div class="version-number">
+                <span>v{{ version.numeroVersion }}</span>
+                @if (version.numeroVersion === versionActual()) {
+                  <small>Actual</small>
+                }
+              </div>
+              <div class="version-meta">
+                <strong>{{ etiquetaAccionVersion(version.accion) }}</strong>
+                <span>{{ version.creadoPorNombre || version.creadoPorUsuarioId || 'Usuario no identificado' }}</span>
+              </div>
+              <time>{{ version.fechaCreacion | date:'short' }}</time>
+              @if (puedeDescargar()) {
+                <button
+                  type="button"
+                  class="version-download-button"
+                  (click)="descargarVersionAuditada(version)"
+                  [disabled]="descargandoVersion() === version.numeroVersion"
+                >
+                  {{ descargandoVersion() === version.numeroVersion ? 'Descargando...' : 'Descargar' }}
+                </button>
+              }
+            </article>
+          }
+        </div>
+      }
+    </section>
+  }
 
   <main class="editor-body">
     <div id="onlyoffice-editor"></div>

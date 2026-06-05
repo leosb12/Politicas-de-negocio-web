@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { API_ENDPOINTS } from '../../../core/config/api.config';
+import { API_BASE_URL, API_ENDPOINTS } from '../../../core/config/api.config';
 import {
   PoliticaNegocio,
   CreatePoliticaRequest,
@@ -67,6 +67,24 @@ export interface DocumentAuditEventResponse {
   resultado: string | null;
 }
 
+export interface DocumentoVersionResponse {
+  documentoId: string;
+  numeroVersion: number;
+  s3KeyVersion: string;
+  s3KeyActual?: string | null;
+  nombreArchivo: string;
+  createdAt?: string | null;
+  createdBy?: string | null;
+  creadoPorUsuarioId?: string | null;
+  creadoPorNombre?: string | null;
+  fechaCreacion: string;
+  origen?: string | null;
+  accion: string;
+  tamanioBytes?: number | null;
+  checksum?: string | null;
+  hashArchivoOpcional?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PoliticaService {
   private readonly http = inject(HttpClient);
@@ -92,6 +110,21 @@ export class PoliticaService {
   getDocumentAuditEvents(documentoId: string): Observable<DocumentAuditEventResponse[]> {
     return this.http.get<DocumentAuditEventResponse[]>(
       `${this.documentPermissionsUrl}/audit/by-document/${documentoId}`
+    );
+  }
+
+  /** GET /api/politicas/:id/auditoria/documental/documentos/:documentoId/versiones */
+  getDocumentoVersionesAuditoria(id: string, documentoId: string): Observable<DocumentoVersionResponse[]> {
+    return this.http.get<DocumentoVersionResponse[]>(
+      `${this.url}/${id}/auditoria/documental/documentos/${encodeURIComponent(documentoId)}/versiones`
+    );
+  }
+
+  /** GET /api/documentos-colaborativos/:documentoId/versiones/:numeroVersion/download */
+  descargarVersionDocumento(documentoId: string, numeroVersion: number): Observable<Blob> {
+    return this.http.get(
+      `${API_BASE_URL}/api/documentos-colaborativos/${encodeURIComponent(documentoId)}/versiones/${encodeURIComponent(numeroVersion)}/download`,
+      { responseType: 'blob' }
     );
   }
 

@@ -67,6 +67,8 @@ export interface FlujoFormularioCampo {
       puedeEliminar: boolean;
       puedeCompartirInternamente: boolean;
     };
+    auditarCambios?: boolean;
+    controlVersionesHabilitado?: boolean;
   } | null;
 }
 

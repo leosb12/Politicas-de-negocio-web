@@ -139,6 +139,14 @@
                         <button type="button" class="audit-document-button" (click)="openDocumentAuditModal(documento, tarea)">
                           Auditar
                         </button>
+                        @if (documento.tipoOrigen === 'DOCUMENTO_COLABORATIVO') {
+                          <button type="button" class="open-document-button" (click)="abrirDocumentoColaborativo(documento.id)">
+                            Abrir
+                          </button>
+                          <button type="button" class="versions-document-button" (click)="openDocumentVersionsModal(documento, tarea)">
+                            Ver versiones
+                          </button>
+                        }
                       </div>
                     </article>
                   }
@@ -231,6 +239,90 @@
             </article>
           }
         </div>
+      }
+    </section>
+  </div>
+}
+
+@if (selectedVersionsDocument(); as versionsDocument) {
+  <div class="audit-modal-backdrop" (click)="closeDocumentVersionsModal()">
+    <section class="audit-modal versions-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <header class="audit-modal__header">
+        <div>
+          <p class="audit-modal__kicker">Versiones del documento</p>
+          <h2>{{ versionsDocument.nombre || 'Documento sin nombre' }}</h2>
+          <p>
+            Campo {{ versionsDocument.campoId || '-' }}
+            /
+            Tarea {{ selectedVersionsTask()?.tareaId || '-' }}
+          </p>
+        </div>
+        <button type="button" class="audit-modal__close" (click)="closeDocumentVersionsModal()">Cerrar</button>
+      </header>
+
+      <div class="audit-modal__summary">
+        <article>
+          <span>Versiones</span>
+          <strong>{{ documentVersions().length }}</strong>
+        </article>
+        <article>
+          <span>Estado</span>
+          <strong>{{ versionsDocument.estado || '-' }}</strong>
+        </article>
+        <article>
+          <span>Documento</span>
+          <strong>{{ versionsDocument.id }}</strong>
+        </article>
+      </div>
+
+      @if (documentVersionsLoading()) {
+        <div class="audit-modal__state">
+          <div class="spinner"></div>
+          <p>Cargando versiones del documento...</p>
+        </div>
+      } @else {
+        @if (documentVersionsError()) {
+          <div class="audit-modal__state audit-modal__state--error">
+            <p>{{ documentVersionsError() }}</p>
+          </div>
+        }
+
+        @if (documentVersions().length === 0) {
+          <div class="audit-modal__state">
+            <p>No hay versiones registradas para este documento.</p>
+          </div>
+        } @else {
+          <div class="version-events">
+            @for (version of documentVersions(); track trackVersion($index, version)) {
+              <article class="version-event">
+                <div class="version-event__head">
+                  <div>
+                    <span class="version-badge">v{{ version.numeroVersion }}</span>
+                    <h3>{{ version.nombreArchivo || versionsDocument.nombre || 'Documento' }}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    class="open-version-button"
+                    (click)="openVersion(version)"
+                    [disabled]="openingVersion() === version.numeroVersion"
+                  >
+                    {{ openingVersion() === version.numeroVersion ? 'Abriendo...' : 'Abrir' }}
+                  </button>
+                </div>
+
+                <div class="version-event__grid">
+                  <span>Fecha: {{ (version.createdAt || version.fechaCreacion) | date : 'dd/MM/yy HH:mm:ss' }}</span>
+                  <span>Usuario: {{ version.creadoPorNombre || version.createdBy || version.creadoPorUsuarioId || '-' }}</span>
+                  <span>Accion: {{ versionActionLabel(version.accion) }}</span>
+                  <span>Origen: {{ version.origen || '-' }}</span>
+                  <span>Tamano: {{ formatBytes(version.tamanioBytes) }}</span>
+                  <span>Checksum: {{ version.checksum || version.hashArchivoOpcional || '-' }}</span>
+                  <span class="version-event__s3">S3 version: {{ version.s3KeyVersion || '-' }}</span>
+                </div>
+              </article>
+            }
+          </div>
+        }
       }
     </section>
   </div>

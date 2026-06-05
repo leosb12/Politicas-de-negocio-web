@@ -59,6 +59,8 @@ export interface CampoFormulario {
       puedeEliminar: boolean;
       puedeCompartirInternamente: boolean;
     };
+    auditarCambios?: boolean;
+    controlVersionesHabilitado?: boolean;
   } | null;
 }
 

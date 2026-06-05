@@ -205,6 +205,8 @@ interface CollabDocumentModalState {
     puedeEliminar: boolean;
     puedeCompartirInternamente: boolean;
   };
+  auditarCambios: boolean;
+  controlVersionesHabilitado: boolean;
 }
 
 interface DocumentFieldValidationConfig {
@@ -1300,10 +1302,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         responsableId: node.responsableId ?? null,
         x: Math.round(node.x * 100) / 100,
         y: Math.round(node.y * 100) / 100,
-        formulario: (node.formulario ?? []).map((campo) => ({
-          campo: campo.campo,
-          tipo: campo.tipo,
-        })),
+        formulario: node.formulario ?? [],
         condiciones: (node.condiciones ?? []).map((condicion) => ({
           resultado: condicion.resultado,
           siguiente: condicion.siguiente,
@@ -5418,7 +5417,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         puedeReemplazar: config?.permisosAdicionales?.puedeReemplazar ?? false,
         puedeEliminar: config?.permisosAdicionales?.puedeEliminar ?? false,
         puedeCompartirInternamente: config?.permisosAdicionales?.puedeCompartirInternamente ?? false,
-      }
+      },
+      auditarCambios: config?.auditarCambios === true,
+      controlVersionesHabilitado: config?.controlVersionesHabilitado === true,
     };
     this.showCollabDocumentModal.set(true);
   }
@@ -5497,7 +5498,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           puedeReemplazar: modal.permisosAdicionales.puedeReemplazar,
           puedeEliminar: modal.permisosAdicionales.puedeEliminar,
           puedeCompartirInternamente: modal.permisosAdicionales.puedeCompartirInternamente,
-        }
+        },
+        auditarCambios: modal.auditarCambios,
+        controlVersionesHabilitado: modal.controlVersionesHabilitado,
       }
     };
 

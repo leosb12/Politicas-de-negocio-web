@@ -111,6 +111,14 @@ export const ADMINISTRADOR_ROUTES: Routes = [
           ),
       },
       {
+        path: 'documentos-colaborativos/:id/editar',
+        data: { layout: 'editor' },
+        loadComponent: () =>
+          import('../funcionario-flujo/pages/documento-colaborativo-editor/documento-colaborativo-editor').then(
+            (module) => module.DocumentoColaborativoEditorPageComponent
+          ),
+      },
+      {
         path: 'policies/:policyId/simulate',
         loadComponent: () =>
           import('../simulaciones/pages/politica-simulacion-formulario/politica-simulacion-formulario').then(
@@ -129,4 +137,5 @@ export const ADMINISTRADOR_ROUTES: Routes = [
       ),
   },
 ];
+
 
