@@ -156,6 +156,7 @@ export interface PoliticaNegocio {
   laneHeight?: number | null;
   nodos: Nodo[];
   conexiones: Conexion[];
+  requisitosIniciales?: CampoFormulario[] | null;
   fechaCreacion: string;
   fechaActualizacion: string;
 }
@@ -193,4 +194,8 @@ export interface UpdateFlujoRequest {
 
 export interface CambiarEstadoRequest {
   estado: EstadoPolitica;
+}
+
+export interface UpdateRequisitosInicialesRequest {
+  requisitosIniciales: CampoFormulario[];
 }

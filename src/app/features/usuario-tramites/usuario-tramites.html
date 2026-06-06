@@ -1,0 +1,155 @@
+<main class="usuario-tramites">
+  <header class="page-head">
+    <div>
+      <h1>Tramites disponibles</h1>
+      <p>Selecciona el tramite que quieres iniciar.</p>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="alert">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="loading">Cargando...</div>
+  } @else {
+    <section class="tramites-grid">
+      @for (tramite of tramites(); track tramite.id) {
+        <article class="tramite-card">
+          <div>
+            <h2>{{ tramite.nombre }}</h2>
+            <p>{{ tramite.descripcion || 'Sin descripcion.' }}</p>
+          </div>
+          <div class="badges">
+            @if (tramite.tieneRequisitosIniciales) {
+              <span>Requisitos previos</span>
+            }
+            @if (tramite.requierePago) {
+              <span>{{ tramite.monedaPago || 'USD' }} {{ tramite.montoPago }}</span>
+            }
+          </div>
+          <button type="button" (click)="iniciar(tramite)" [disabled]="starting()">
+            Iniciar tramite
+          </button>
+        </article>
+      }
+    </section>
+  }
+
+  @if (selected()) {
+    <div class="modal-backdrop">
+      <section class="modal">
+        <header>
+          <div>
+            <h2>Requisitos iniciales</h2>
+            <p>{{ selected()!.nombre }}</p>
+          </div>
+          <button type="button" class="icon-btn" (click)="cerrarModal()">x</button>
+        </header>
+
+        @if (modalError()) {
+          <div class="alert">{{ modalError() }}</div>
+        }
+
+        <div class="form-grid">
+          @for (requisito of requisitos(); track requisito.campo) {
+            <div class="field" [class.full]="requisito.tipo === 'TEXTO' || requisito.tipo === 'CHECKBOX' || requisito.tipo === 'GRID' || requisito.tipo === 'LABEL'">
+              @if (requisito.tipo === 'LABEL') {
+                <div class="label-box">
+                  <strong>{{ requisito.etiqueta || requisito.campo }}</strong>
+                  @if (requisito.ayuda) {
+                    <span>{{ requisito.ayuda }}</span>
+                  }
+                </div>
+              } @else {
+                <label>
+                  {{ requisito.etiqueta || requisito.campo }}
+                  @if (requisito.requerido) {
+                    <span>*</span>
+                  }
+                </label>
+
+                @switch (requisito.tipo) {
+                  @case ('NUMERO') {
+                    <input type="number" [(ngModel)]="respuestas[requisito.campo]" [placeholder]="requisito.placeholder || ''" />
+                  }
+                  @case ('BOOLEANO') {
+                    <select [(ngModel)]="respuestas[requisito.campo]">
+                      <option value="">Selecciona una opcion</option>
+                      <option [ngValue]="true">Si</option>
+                      <option [ngValue]="false">No</option>
+                    </select>
+                  }
+                  @case ('FECHA') {
+                    <input type="date" [(ngModel)]="respuestas[requisito.campo]" />
+                  }
+                  @case ('ARCHIVO') {
+                    <input type="file" (change)="onFileSelected(requisito, $event)" />
+                  }
+                  @case ('CHECKBOX') {
+                    <div class="options">
+                      @for (option of requisito.opciones ?? []; track option) {
+                        <label>
+                          <input type="checkbox" (change)="toggleOption(requisito, option, $any($event.target).checked)" />
+                          {{ option }}
+                        </label>
+                      }
+                    </div>
+                  }
+                  @case ('SELECCION') {
+                    <select [(ngModel)]="respuestas[requisito.campo]">
+                      <option value="">Selecciona una opcion</option>
+                      @for (option of requisito.opciones ?? []; track option) {
+                        <option [value]="option">{{ option }}</option>
+                      }
+                    </select>
+                  }
+                  @case ('GRID') {
+                    <div class="grid-field">
+                      <table>
+                        @if (requisito.opciones?.length) {
+                          <thead>
+                            <tr>
+                              @for (column of requisito.opciones; track column) {
+                                <th>{{ column }}</th>
+                              }
+                            </tr>
+                          </thead>
+                        }
+                        <tbody>
+                          @for (row of gridValue(requisito); track $index; let rowIndex = $index) {
+                            <tr>
+                              @for (cell of row; track $index; let colIndex = $index) {
+                                <td>
+                                  <input type="text" [value]="cell" (input)="updateGridCell(requisito, rowIndex, colIndex, $any($event.target).value)" />
+                                </td>
+                              }
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                  @default {
+                    <input type="text" [(ngModel)]="respuestas[requisito.campo]" [placeholder]="requisito.placeholder || ''" />
+                  }
+                }
+
+                @if (requisito.ayuda) {
+                  <small>{{ requisito.ayuda }}</small>
+                }
+              }
+            </div>
+          }
+        </div>
+
+        <footer>
+          <button type="button" class="secondary" (click)="cerrarModal()">Cancelar</button>
+          <button type="button" (click)="confirmarInicio()" [disabled]="starting()">
+            {{ starting() ? 'Iniciando...' : 'Continuar' }}
+          </button>
+        </footer>
+      </section>
+    </div>
+  }
+</main>

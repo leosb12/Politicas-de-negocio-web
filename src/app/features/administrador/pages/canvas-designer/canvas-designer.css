@@ -1727,3 +1727,25 @@
   margin-top: 0.85rem;
   margin-bottom: 0.5rem;
 }
+
+/* ─── Requisitos Iniciales UI Adaptations ────────────────────────── */
+.requisito-inicial-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  padding: 0.4rem 0.5rem !important;
+}
+
+.requisito-inicial-row .campo-name {
+  width: 100% !important;
+  flex: 0 0 100% !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  margin-bottom: 2px;
+}
+
+.requisito-inicial-row .campo-tipo {
+  margin-right: auto;
+}
+

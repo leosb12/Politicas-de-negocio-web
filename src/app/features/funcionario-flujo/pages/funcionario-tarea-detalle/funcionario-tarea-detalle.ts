@@ -16,7 +16,11 @@ import {
   TareaDetalle,
   TareaResumen,
 } from '../../models/funcionario-flujo.model';
-import { ArchivoMetadataResponseDto } from '../../models/funcionario-flujo.dto';
+import {
+  ArchivoMetadataResponseDto,
+  InstanciaDetalleResponseDto,
+  FlujoFormularioCampoDefinicionDto,
+} from '../../models/funcionario-flujo.dto';
 import { FuncionarioGuiaContextService } from '../../services/funcionario-guia-context.service';
 import { FuncionarioFlujoApiService } from '../../services/funcionario-flujo-api.service';
 import { mapTareaDetalleDto, mapTareaMiaDto } from '../../services/funcionario-flujo.mapper';
@@ -370,11 +374,12 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     tareaActualId: string
   ): Observable<FlujoTraceStep[]> {
     return forkJoin({
+      instancia: this.api.getInstanciaDetalle(instanciaId).pipe(catchError(() => of(null))),
       tasks: this.api.getTareasPorInstancia(instanciaId).pipe(map((items) => items.map(mapTareaMiaDto))),
       documentos: this.api.getArchivosPorInstancia(instanciaId).pipe(catchError(() => of([] as ArchivoMetadataResponseDto[]))),
       documentosColaborativos: this.collabDocService.listarPorTramite(instanciaId).pipe(catchError(() => of([] as DocumentoColaborativoMetadata[]))),
     }).pipe(
-      switchMap(({ tasks, documentos, documentosColaborativos }) => {
+      switchMap(({ instancia, tasks, documentos, documentosColaborativos }) => {
         const byId = new Map<string, TareaResumen>();
         for (const task of tasks) {
           byId.set(task.id, task);
@@ -403,7 +408,29 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
 
         const summaries = Array.from(byId.values());
         if (summaries.length === 0) {
-          return of([] as FlujoTraceStep[]);
+          const emptyResult: FlujoTraceStep[] = [];
+          if (instancia && instancia.requisitosInicialesDefinicion && instancia.requisitosInicialesDefinicion.length > 0) {
+            const answers = instancia.respuestasRequisitosIniciales ?? {};
+            const requirementsFields = this.formatRequisitosInicialesFields(
+              instancia.requisitosInicialesDefinicion,
+              answers
+            );
+            const initialDocs = documentos.filter(doc => !doc.tareaId);
+            emptyResult.push({
+              tareaId: 'requisitos-iniciales',
+              nombreActividad: 'Requisitos iniciales',
+              departamento: 'Cliente',
+              responsable: instancia.creadaPorNombre || instancia.creadaPor || '-',
+              estadoTarea: 'COMPLETADA',
+              fechaInicio: instancia.fechaCreacion,
+              fechaFin: instancia.fechaCreacion,
+              observaciones: null,
+              camposFormulario: requirementsFields,
+              documentos: initialDocs,
+              documentosColaborativos: [],
+            });
+          }
+          return of(emptyResult);
         }
 
         const detailRequests = summaries.map((summary) =>
@@ -417,7 +444,7 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
         );
 
         return forkJoin(detailRequests).pipe(
-          map((items) => this.buildTraceSteps(items, documentos, documentosColaborativos))
+          map((items) => this.buildTraceSteps(items, documentos, documentosColaborativos, instancia))
         );
       }),
       catchError(() => {
@@ -436,9 +463,10 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
       detail: TareaDetalle | null;
     }>,
     documentos: ArchivoMetadataResponseDto[],
-    documentosColaborativos: DocumentoColaborativoMetadata[]
+    documentosColaborativos: DocumentoColaborativoMetadata[],
+    instancia: InstanciaDetalleResponseDto | null
   ): FlujoTraceStep[] {
-    return items
+    const steps = items
       .map(({ summary, detail }) => ({
         tareaId: summary.id,
         nombreActividad: detail?.actividad.nombreActividad ?? summary.nombreActividad,
@@ -452,11 +480,37 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
         documentos: this.documentosPorTarea(documentos, summary.id),
         documentosColaborativos: this.documentosColaborativosPorTarea(documentosColaborativos, detail),
       }))
-      .filter((step) => this.isFlujoStepVisible(step))
-      .sort((left, right) => this.stepSortWeight(left) - this.stepSortWeight(right));
+      .filter((step) => this.isFlujoStepVisible(step));
+
+    if (instancia && instancia.requisitosInicialesDefinicion && instancia.requisitosInicialesDefinicion.length > 0) {
+      const answers = instancia.respuestasRequisitosIniciales ?? {};
+      const requirementsFields = this.formatRequisitosInicialesFields(
+        instancia.requisitosInicialesDefinicion,
+        answers
+      );
+      const initialDocs = documentos.filter(doc => !doc.tareaId);
+      steps.push({
+        tareaId: 'requisitos-iniciales',
+        nombreActividad: 'Requisitos iniciales',
+        departamento: 'Cliente',
+        responsable: instancia.creadaPorNombre || instancia.creadaPor || '-',
+        estadoTarea: 'COMPLETADA',
+        fechaInicio: instancia.fechaCreacion,
+        fechaFin: instancia.fechaCreacion,
+        observaciones: null,
+        camposFormulario: requirementsFields,
+        documentos: initialDocs,
+        documentosColaborativos: [],
+      });
+    }
+
+    return steps.sort((left, right) => this.stepSortWeight(left) - this.stepSortWeight(right));
   }
 
   private isFlujoStepVisible(step: FlujoTraceStep): boolean {
+    if (step.tareaId === 'requisitos-iniciales') {
+      return true;
+    }
     const normalized = normalizeEstado(step.estadoTarea);
     const wasExecuted =
       normalized === 'EN_PROCESO' ||
@@ -659,6 +713,9 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
   }
 
   private stepSortWeight(step: FlujoTraceStep): number {
+    if (step.tareaId === 'requisitos-iniciales') {
+      return Number.MIN_SAFE_INTEGER;
+    }
     const dateSource = step.fechaInicio ?? step.fechaFin;
     if (!dateSource) {
       return Number.MAX_SAFE_INTEGER;
@@ -690,6 +747,29 @@ export class FuncionarioTareaDetallePageComponent implements OnDestroy {
     const definitionByKey = new Map(
       detail.actividad.formularioDefinicion.campos.map((field) => [field.clave, field.etiqueta])
     );
+
+    return Object.entries(respuestas).map(([key, value]) => ({
+      etiqueta: definitionByKey.get(key) ?? key,
+      valor: this.formatFieldValue(value),
+    }));
+  }
+
+  private formatRequisitosInicialesFields(
+    definicion: FlujoFormularioCampoDefinicionDto[] | null | undefined,
+    respuestas: Record<string, unknown> | null | undefined
+  ): FlujoTraceField[] {
+    if (!definicion || !respuestas) {
+      return [];
+    }
+
+    const definitionByKey = new Map<string, string>();
+    for (const field of definicion) {
+      const key = field.clave || field.campo || field.id;
+      const label = field.etiqueta || field.nombre || field.label;
+      if (key && label) {
+        definitionByKey.set(key, label);
+      }
+    }
 
     return Object.entries(respuestas).map(([key, value]) => ({
       etiqueta: definitionByKey.get(key) ?? key,

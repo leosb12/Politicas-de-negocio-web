@@ -102,6 +102,8 @@ export interface InstanciaDetalleResponseDto {
   tareasCompletadas: number | null;
   tareasCanceladas: number | null;
   tareasRechazadas: number | null;
+  requisitosInicialesDefinicion?: FlujoFormularioCampoDefinicionDto[] | null;
+  respuestasRequisitosIniciales?: Record<string, unknown> | null;
 }
 
 export interface TareaDetalleResponseDto {

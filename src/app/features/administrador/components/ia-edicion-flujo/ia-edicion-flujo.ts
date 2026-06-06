@@ -298,6 +298,18 @@ export class IaEdicionFlujoComponent {
           ? `Reordenar flujo: ${nodeNames.join(' -> ')}`
           : operation.nodeName ?? null;
       }
+      case 'ADD_INITIAL_REQUIREMENT':
+        return operation.fieldLabel
+          ? `Agregar requisito inicial: ${operation.fieldLabel}${operation.fieldType ? ` (${operation.fieldType})` : ''}`
+          : operation.fieldLabel ?? null;
+      case 'DELETE_INITIAL_REQUIREMENT':
+        return operation.fieldLabel
+          ? `Eliminar requisito inicial: ${operation.fieldLabel}`
+          : operation.fieldLabel ?? null;
+      case 'UPDATE_INITIAL_REQUIREMENT':
+        return operation.fieldLabel
+          ? `Modificar requisito inicial: ${operation.fieldLabel}`
+          : operation.fieldLabel ?? null;
       case 'DELETE_TRANSITION':
         return operation.fromNodeName && operation.toNodeName
           ? `Eliminar transicion: ${operation.fromNodeName} -> ${operation.toNodeName}`
@@ -313,6 +325,7 @@ export class IaEdicionFlujoComponent {
           ?? (operation.fromNodeName && operation.toNodeName
             ? `${operation.fromNodeName} -> ${operation.toNodeName}`
             : operation.fromNodeName ?? operation.toNodeName ?? null);
+
     }
   }
 

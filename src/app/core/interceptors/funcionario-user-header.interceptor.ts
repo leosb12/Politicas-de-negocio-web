@@ -1,7 +1,7 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { AuthService } from '../auth/services/auth.service';
-import { isFuncionarioRole } from '../auth/utils/role.util';
+import { isAdminRole, isFuncionarioRole } from '../auth/utils/role.util';
 
 export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
   request,
@@ -11,6 +11,9 @@ export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
     request.url.includes('/api/tareas') ||
     request.url.includes('/api/instancias') ||
     request.url.includes('/api/tramites') ||
+    request.url.includes('/api/politicas/movil/disponibles') ||
+    request.url.includes('/api/politicas') && request.url.includes('/requisitos-iniciales') ||
+    request.url.includes('/api/pagos') ||
     request.url.includes('/api/archivos') ||
     request.url.includes('/api/documentos') ||
     request.url.includes('/api/guide/employee') ||
@@ -34,7 +37,9 @@ export const funcionarioUserHeaderInterceptor: HttpInterceptorFn = (
     return next(request);
   }
 
-  const headerName = isFuncionarioRole(session.rol) ? 'X-User-Id' : 'X-Admin-User-Id';
+  const headerName = isAdminRole(session.rol) && !isFuncionarioRole(session.rol)
+    ? 'X-Admin-User-Id'
+    : 'X-User-Id';
 
   const requestWithActorHeader = request.clone({
     setHeaders: {

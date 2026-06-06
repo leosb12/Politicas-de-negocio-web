@@ -514,8 +514,14 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   decisionConditionPreviewState = signal<Record<string, boolean>>({});
   decisionConditionDraftState = signal<Record<string, DecisionConditionDraft>>({});
 
+  // ── Initial requirements state ───────────────────────────────
+  readonly REQUISITOS_INICIALES_EDIT_NODE_ID = '__REQUISITOS_INICIALES__';
+  requisitosIniciales = signal<CampoFormulario[]>([]);
+  savingRequisitosIniciales = signal<boolean>(false);
+  newRequisitoInicial = { campo: '', tipo: 'TEXTO' as TipoCampo, requerido: false };
+
   // ── New campo form ────────────────────────────────────────────
-  newCampo = { campo: '', tipo: 'TEXTO' as TipoCampo };
+  newCampo: { campo: string; tipo: TipoCampo; requerido?: boolean } = { campo: '', tipo: 'TEXTO' as TipoCampo, requerido: false };
   newCondicion = { resultado: '', siguiente: '' };
   readonly showDocumentPermissionModal = signal(false);
   readonly savingDocumentPermissionConfig = signal(false);
@@ -1376,6 +1382,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   private setPoliticaState(policy: PoliticaNegocio): void {
     this.politica.set(policy);
+    this.requisitosIniciales.set(policy.requisitosIniciales ?? []);
     this.syncLaneConfigFromPolicy(policy);
     this.syncReadOnlyUiState();
   }
@@ -5226,7 +5233,171 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       updatedNode?.version
     );
     this.scheduleAutoSave();
-    this.newCampo = { campo: '', tipo: 'TEXTO' };
+    this.newCampo = { campo: '', tipo: 'TEXTO', requerido: false };
+  }
+
+  addRequisitoInicial(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    if (!this.newRequisitoInicial.campo.trim()) return;
+    if (this.newRequisitoInicial.tipo === 'ARCHIVO') {
+      this.openDocumentPermissionModal('create', this.REQUISITOS_INICIALES_EDIT_NODE_ID, undefined, this.newRequisitoInicial.campo.trim());
+      return;
+    }
+    if (this.newRequisitoInicial.tipo === 'DOCUMENTO_COLABORATIVO') {
+      this.openCollabDocumentModal('create', this.REQUISITOS_INICIALES_EDIT_NODE_ID, undefined, this.newRequisitoInicial.campo.trim());
+      return;
+    }
+
+    const campo: CampoFormulario = {
+      campo: this.newRequisitoInicial.campo.trim(),
+      tipo: this.newRequisitoInicial.tipo,
+      requerido: this.newRequisitoInicial.requerido,
+    };
+
+    this.requisitosIniciales.update((items) => [...items, campo]);
+    this.persistRequisitosInicialesAsync().catch(() => {
+      this.toast.error('Error', 'No se pudo guardar el requisito inicial');
+    });
+
+    this.newRequisitoInicial = { campo: '', tipo: 'TEXTO', requerido: false };
+  }
+
+  startEditRequisitoInicial(event: Event, idx: number): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    event.stopPropagation();
+
+    const campo = this.requisitosIniciales()?.[idx];
+    if (!campo) {
+      return;
+    }
+
+    if (campo.tipo === 'ARCHIVO') {
+      this.openDocumentPermissionModal('edit', this.REQUISITOS_INICIALES_EDIT_NODE_ID, idx);
+      return;
+    }
+    if (campo.tipo === 'DOCUMENTO_COLABORATIVO') {
+      this.openCollabDocumentModal('edit', this.REQUISITOS_INICIALES_EDIT_NODE_ID, idx);
+      return;
+    }
+
+    this.editingCampoNodeId.set(this.REQUISITOS_INICIALES_EDIT_NODE_ID);
+    this.editingCampoIndex.set(idx);
+    this.editingCampoName.set(campo.campo);
+    this.editingCampoType.set(campo.tipo);
+    this.editingCampoEtiqueta.set(campo.etiqueta ?? '');
+    this.editingCampoRequerido.set(campo.requerido ?? false);
+    this.editingCampoPlaceholder.set(campo.placeholder ?? '');
+    this.editingCampoAyuda.set(campo.ayuda ?? '');
+    this.editingCampoOpciones.set((campo.opciones ?? []).join(', '));
+  }
+
+  saveEditRequisitoInicial(idx: number, event?: Event): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    event?.stopPropagation();
+
+    const campoName = this.editingCampoName().trim();
+    if (!campoName) {
+      return;
+    }
+
+    const tipo = this.editingCampoType();
+    const etiqueta = this.editingCampoEtiqueta().trim() || null;
+    const requerido = this.editingCampoRequerido();
+    const placeholder = this.editingCampoPlaceholder().trim() || null;
+    const ayuda = this.editingCampoAyuda().trim() || null;
+
+    const opcionesRaw = this.editingCampoOpciones().trim();
+    const opciones = opcionesRaw
+      ? opcionesRaw.split(',').map((s) => s.trim()).filter(Boolean)
+      : null;
+
+    if (tipo === 'ARCHIVO') {
+      this.openDocumentPermissionModal('edit', this.REQUISITOS_INICIALES_EDIT_NODE_ID, idx, campoName);
+      return;
+    }
+    if (tipo === 'DOCUMENTO_COLABORATIVO') {
+      this.openCollabDocumentModal('edit', this.REQUISITOS_INICIALES_EDIT_NODE_ID, idx, campoName);
+      return;
+    }
+
+    this.requisitosIniciales.update((items) =>
+      items.map((item, itemIndex) =>
+        itemIndex === idx
+          ? {
+              ...item,
+              campo: campoName,
+              tipo,
+              etiqueta,
+              requerido,
+              placeholder,
+              ayuda,
+              opciones,
+            }
+          : item
+      )
+    );
+
+    this.persistRequisitosInicialesAsync().catch(() => {
+      this.toast.error('Error', 'No se pudo guardar la edición del requisito inicial');
+    });
+
+    this.cancelEditCampo();
+  }
+
+  removeRequisitoInicial(idx: number): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+
+    this.requisitosIniciales.update((items) =>
+      items.filter((_, i) => i !== idx)
+    );
+
+    this.persistRequisitosInicialesAsync().catch(() => {
+      this.toast.error('Error', 'No se pudo guardar la eliminación del requisito inicial');
+    });
+
+    this.cancelEditCampo();
+  }
+
+  async persistRequisitosInicialesAsync(): Promise<void> {
+    const policy = this.politica();
+    if (!policy) return;
+
+    this.savingRequisitosIniciales.set(true);
+    try {
+      const updated = await firstValueFrom(
+        this.svc.saveRequisitosIniciales(policy.id, this.requisitosIniciales())
+      );
+      this.setPoliticaState(updated);
+    } finally {
+      this.savingRequisitosIniciales.set(false);
+    }
+  }
+
+  getCampoTipoLabel(tipo: string): string {
+    switch (tipo) {
+      case 'TEXTO': return 'Texto';
+      case 'NUMERO': return 'Número';
+      case 'BOOLEANO': return 'Booleano';
+      case 'ARCHIVO': return 'Archivo';
+      case 'FECHA': return 'Fecha';
+      case 'CHECKBOX': return 'Casilla de verificación';
+      case 'SELECCION': return 'Selección única';
+      case 'GRID': return 'Cuadrícula';
+      case 'LABEL': return 'Etiqueta de texto';
+      case 'DOCUMENTO_COLABORATIVO': return 'Documento Colaborativo';
+      default: return tipo;
+    }
   }
 
   toggleSelection(list: string[], item: string, checked: boolean): string[] {
@@ -5354,8 +5525,15 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     fieldIndex?: number,
     fieldName?: string
   ): void {
-    const node = this.nodos().find((item) => item.id === nodeId);
-    const currentField = fieldIndex !== undefined ? node?.formulario?.[fieldIndex] : null;
+    let currentField: CampoFormulario | null = null;
+    if (fieldIndex !== undefined) {
+      if (nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
+        currentField = this.requisitosIniciales()?.[fieldIndex] ?? null;
+      } else {
+        const node = this.nodos().find((item) => item.id === nodeId);
+        currentField = node?.formulario?.[fieldIndex] ?? null;
+      }
+    }
     const campoNombre = (
       fieldName ??
       (mode === 'edit' && currentField?.tipo === 'DOCUMENTO_COLABORATIVO'
@@ -5460,6 +5638,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const previousRequisitos = this.requisitosIniciales();
     const previousNodes = this.nodos();
     const campo: CampoFormulario = {
       campo: modal.mode === 'edit' ? modal.originalCampoId : modal.campoId,
@@ -5505,51 +5684,73 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     };
 
     try {
-      if (modal.mode === 'create') {
-        this.nodos.update((nodes) =>
-          nodes.map((node) =>
-            node.id === modal.nodeId
-              ? { ...node, formulario: [...(node.formulario ?? []), campo] }
-              : node
-          )
-        );
+      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
+        if (modal.mode === 'create') {
+          this.requisitosIniciales.update((items) => [...items, campo]);
+        } else {
+          this.requisitosIniciales.update((items) =>
+            items.map((item, index) =>
+              index === modal.fieldIndex ? { ...item, ...campo } : item
+            )
+          );
+        }
+        await this.persistRequisitosInicialesAsync();
       } else {
-        this.nodos.update((nodes) =>
-          nodes.map((node) => {
-            if (node.id !== modal.nodeId) {
-              return node;
-            }
+        if (modal.mode === 'create') {
+          this.nodos.update((nodes) =>
+            nodes.map((node) =>
+              node.id === modal.nodeId
+                ? { ...node, formulario: [...(node.formulario ?? []), campo] }
+                : node
+            )
+          );
+        } else {
+          this.nodos.update((nodes) =>
+            nodes.map((node) => {
+              if (node.id !== modal.nodeId) {
+                return node;
+              }
 
-            return {
-              ...node,
-              formulario: (node.formulario ?? []).map((item, index) =>
-                index === modal.fieldIndex ? { ...item, ...campo } : item
-              ),
-            };
-          })
+              return {
+                ...node,
+                formulario: (node.formulario ?? []).map((item, index) =>
+                  index === modal.fieldIndex ? { ...item, ...campo } : item
+                ),
+              };
+            })
+          );
+        }
+
+        const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
+        this.collabFacade.emitUpdateNode(
+          modal.nodeId,
+          { formulario: updatedNode?.formulario ?? [] },
+          updatedNode?.version
         );
+
+        await this.persistAndBroadcastCurrentFlow('No se pudo guardar el documento colaborativo');
       }
 
-      const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
-      this.collabFacade.emitUpdateNode(
-        modal.nodeId,
-        { formulario: updatedNode?.formulario ?? [] },
-        updatedNode?.version
-      );
-
-      await this.persistAndBroadcastCurrentFlow('No se pudo guardar el documento colaborativo');
-
-      this.newCampo = { campo: '', tipo: 'TEXTO' };
+      this.newCampo = { campo: '', tipo: 'TEXTO', requerido: false };
       this.cancelEditCampo();
       this.showCollabDocumentModal.set(false);
       this.collabDocumentModal = null;
       this.toast.success('Documento colaborativo', 'Configuracion guardada correctamente.');
     } catch (error) {
-      this.nodos.set(previousNodes);
-      try {
-        await this.persistAndBroadcastCurrentFlow('No se pudo revertir el documento colaborativo');
-      } catch {
-        // ignore
+      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
+        this.requisitosIniciales.set(previousRequisitos);
+        try {
+          await this.persistRequisitosInicialesAsync();
+        } catch {
+          // ignore
+        }
+      } else {
+        this.nodos.set(previousNodes);
+        try {
+          await this.persistAndBroadcastCurrentFlow('No se pudo revertir el documento colaborativo');
+        } catch {
+          // ignore
+        }
       }
       const msg = (error as any)?.error?.message ?? (error as any)?.userMessage ?? 'No se pudo guardar la configuracion';
       this.toast.error('Documento colaborativo', msg);
@@ -5562,8 +5763,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     fieldIndex?: number,
     fieldName?: string
   ): void {
-    const node = this.nodos().find((item) => item.id === nodeId);
-    const currentField = fieldIndex !== undefined ? node?.formulario?.[fieldIndex] : null;
+    let currentField: CampoFormulario | null = null;
+    let fallbackDeptId = '';
+    if (nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
+      if (fieldIndex !== undefined) {
+        currentField = this.requisitosIniciales()?.[fieldIndex] ?? null;
+      }
+    } else {
+      const node = this.nodos().find((item) => item.id === nodeId);
+      fallbackDeptId = node?.departamentoId ?? '';
+      if (fieldIndex !== undefined) {
+        currentField = node?.formulario?.[fieldIndex] ?? null;
+      }
+    }
     const storedConfig = this.readDocumentFieldValidationConfig(currentField);
     const campoNombre = (
       fieldName ??
@@ -5597,7 +5809,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       nivelConfidencialidad: storedConfig?.nivelConfidencialidad ?? 'INTERNO',
       clienteId: storedConfig?.clienteId ?? '',
       tramiteId: storedConfig?.tramiteId ?? '',
-      departamentoId: storedConfig?.departamentoId ?? node?.departamentoId ?? '',
+      departamentoId: storedConfig?.departamentoId ?? fallbackDeptId,
       reglasPermiso: storedConfig?.reglasPermiso ?? this.defaultDocumentPermissionRules(),
       auditoria: storedConfig?.auditoria ?? this.defaultDocumentAuditConfig(),
     };
@@ -5670,57 +5882,81 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const previousRequisitos = this.requisitosIniciales();
     const previousNodes = this.nodos();
     const campo = this.buildDocumentField(modal);
     this.savingDocumentPermissionConfig.set(true);
 
     try {
-      if (modal.mode === 'create') {
-        this.nodos.update((nodes) =>
-          nodes.map((node) =>
-            node.id === modal.nodeId
-              ? { ...node, formulario: [...(node.formulario ?? []), campo] }
-              : node
-          )
-        );
+      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
+        if (modal.mode === 'create') {
+          this.requisitosIniciales.update((items) => [...items, campo]);
+        } else {
+          this.requisitosIniciales.update((items) =>
+            items.map((item, index) =>
+              index === modal.fieldIndex ? { ...item, ...campo } : item
+            )
+          );
+        }
+        await this.persistRequisitosInicialesAsync();
       } else {
-        this.nodos.update((nodes) =>
-          nodes.map((node) => {
-            if (node.id !== modal.nodeId) {
-              return node;
-            }
+        if (modal.mode === 'create') {
+          this.nodos.update((nodes) =>
+            nodes.map((node) =>
+              node.id === modal.nodeId
+                ? { ...node, formulario: [...(node.formulario ?? []), campo] }
+                : node
+            )
+          );
+        } else {
+          this.nodos.update((nodes) =>
+            nodes.map((node) => {
+              if (node.id !== modal.nodeId) {
+                return node;
+              }
 
-            return {
-              ...node,
-              formulario: (node.formulario ?? []).map((item, index) =>
-                index === modal.fieldIndex ? { ...item, ...campo } : item
-              ),
-            };
-          })
+              return {
+                ...node,
+                formulario: (node.formulario ?? []).map((item, index) =>
+                  index === modal.fieldIndex ? { ...item, ...campo } : item
+                ),
+              };
+            })
+          );
+        }
+
+        const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
+        this.collabFacade.emitUpdateNode(
+          modal.nodeId,
+          { formulario: updatedNode?.formulario ?? [] },
+          updatedNode?.version
         );
+
+        await this.persistAndBroadcastCurrentFlow('No se pudo guardar el campo documental');
       }
 
-      const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
-      this.collabFacade.emitUpdateNode(
-        modal.nodeId,
-        { formulario: updatedNode?.formulario ?? [] },
-        updatedNode?.version
-      );
-
-      await this.persistAndBroadcastCurrentFlow('No se pudo guardar el campo documental');
       await this.saveDocumentPermissionConfigRequest(modal);
 
-      this.newCampo = { campo: '', tipo: 'TEXTO' };
+      this.newCampo = { campo: '', tipo: 'TEXTO', requerido: false };
       this.cancelEditCampo();
       this.showDocumentPermissionModal.set(false);
       this.documentPermissionModal = null;
       this.toast.success('Permisos documentales', 'Configuracion guardada correctamente.');
     } catch (error) {
-      this.nodos.set(previousNodes);
-      try {
-        await this.persistAndBroadcastCurrentFlow('No se pudo revertir el campo documental');
-      } catch {
-        // El error principal se informa abajo.
+      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
+        this.requisitosIniciales.set(previousRequisitos);
+        try {
+          await this.persistRequisitosInicialesAsync();
+        } catch {
+          // ignore
+        }
+      } else {
+        this.nodos.set(previousNodes);
+        try {
+          await this.persistAndBroadcastCurrentFlow('No se pudo revertir el campo documental');
+        } catch {
+          // El error principal se informa abajo.
+        }
       }
       const msg = (error as any)?.error?.message ?? (error as any)?.userMessage ?? 'No se pudo guardar la configuracion documental';
       this.toast.error('Permisos documentales', msg);

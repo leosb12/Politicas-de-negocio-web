@@ -7,6 +7,7 @@ import {
   CreatePoliticaRequest,
   UpdatePoliticaRequest,
   UpdateFlujoRequest,
+  CampoFormulario,
   EstadoPolitica,
 } from '../models/politica.model';
 
@@ -148,6 +149,21 @@ export class PoliticaService {
   /** PUT /api/politicas/:id/flujo */
   saveFlujo(id: string, payload: UpdateFlujoRequest): Observable<PoliticaNegocio> {
     return this.http.put<PoliticaNegocio>(`${this.url}/${id}/flujo`, payload);
+  }
+
+  /** GET /api/politicas/:id/requisitos-iniciales */
+  getRequisitosIniciales(id: string): Observable<CampoFormulario[]> {
+    return this.http.get<CampoFormulario[]>(`${this.url}/${id}/requisitos-iniciales`);
+  }
+
+  /** PUT /api/politicas/:id/requisitos-iniciales */
+  saveRequisitosIniciales(
+    id: string,
+    requisitosIniciales: CampoFormulario[]
+  ): Observable<PoliticaNegocio> {
+    return this.http.put<PoliticaNegocio>(`${this.url}/${id}/requisitos-iniciales`, {
+      requisitosIniciales,
+    });
   }
 
   /** PATCH /api/politicas/:id/estado */

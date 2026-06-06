@@ -1,0 +1,286 @@
+﻿diff --git a/src/app/features/administrador/pages/canvas-designer/canvas-designer.ts b/src/app/features/administrador/pages/canvas-designer/canvas-designer.ts
+index 60abfb4..aef35c3 100644
+--- a/src/app/features/administrador/pages/canvas-designer/canvas-designer.ts
++++ b/src/app/features/administrador/pages/canvas-designer/canvas-designer.ts
+@@ -5354,8 +5354,15 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
+     fieldIndex?: number,
+     fieldName?: string
+   ): void {
+-    const node = this.nodos().find((item) => item.id === nodeId);
+-    const currentField = fieldIndex !== undefined ? node?.formulario?.[fieldIndex] : null;
++    let currentField: CampoFormulario | null = null;
++    if (fieldIndex !== undefined) {
++      if (nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
++        currentField = this.requisitosIniciales()?.[fieldIndex] ?? null;
++      } else {
++        const node = this.nodos().find((item) => item.id === nodeId);
++        currentField = node?.formulario?.[fieldIndex] ?? null;
++      }
++    }
+     const campoNombre = (
+       fieldName ??
+       (mode === 'edit' && currentField?.tipo === 'DOCUMENTO_COLABORATIVO'
+@@ -5460,6 +5467,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
+       return;
+     }
+ 
++    const previousRequisitos = this.requisitosIniciales();
+     const previousNodes = this.nodos();
+     const campo: CampoFormulario = {
+       campo: modal.mode === 'edit' ? modal.originalCampoId : modal.campoId,
+@@ -5505,51 +5513,73 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
+     };
+ 
+     try {
+-      if (modal.mode === 'create') {
+-        this.nodos.update((nodes) =>
+-          nodes.map((node) =>
+-            node.id === modal.nodeId
+-              ? { ...node, formulario: [...(node.formulario ?? []), campo] }
+-              : node
+-          )
+-        );
++      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
++        if (modal.mode === 'create') {
++          this.requisitosIniciales.update((items) => [...items, campo]);
++        } else {
++          this.requisitosIniciales.update((items) =>
++            items.map((item, index) =>
++              index === modal.fieldIndex ? { ...item, ...campo } : item
++            )
++          );
++        }
++        await this.persistRequisitosInicialesAsync();
+       } else {
+-        this.nodos.update((nodes) =>
+-          nodes.map((node) => {
+-            if (node.id !== modal.nodeId) {
+-              return node;
+-            }
++        if (modal.mode === 'create') {
++          this.nodos.update((nodes) =>
++            nodes.map((node) =>
++              node.id === modal.nodeId
++                ? { ...node, formulario: [...(node.formulario ?? []), campo] }
++                : node
++            )
++          );
++        } else {
++          this.nodos.update((nodes) =>
++            nodes.map((node) => {
++              if (node.id !== modal.nodeId) {
++                return node;
++              }
++
++              return {
++                ...node,
++                formulario: (node.formulario ?? []).map((item, index) =>
++                  index === modal.fieldIndex ? { ...item, ...campo } : item
++                ),
++              };
++            })
++          );
++        }
+ 
+-            return {
+-              ...node,
+-              formulario: (node.formulario ?? []).map((item, index) =>
+-                index === modal.fieldIndex ? { ...item, ...campo } : item
+-              ),
+-            };
+-          })
++        const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
++        this.collabFacade.emitUpdateNode(
++          modal.nodeId,
++          { formulario: updatedNode?.formulario ?? [] },
++          updatedNode?.version
+         );
+-      }
+ 
+-      const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
+-      this.collabFacade.emitUpdateNode(
+-        modal.nodeId,
+-        { formulario: updatedNode?.formulario ?? [] },
+-        updatedNode?.version
+-      );
+-
+-      await this.persistAndBroadcastCurrentFlow('No se pudo guardar el documento colaborativo');
++        await this.persistAndBroadcastCurrentFlow('No se pudo guardar el documento colaborativo');
++      }
+ 
+-      this.newCampo = { campo: '', tipo: 'TEXTO' };
++      this.newCampo = { campo: '', tipo: 'TEXTO', requerido: false };
+       this.cancelEditCampo();
+       this.showCollabDocumentModal.set(false);
+       this.collabDocumentModal = null;
+       this.toast.success('Documento colaborativo', 'Configuracion guardada correctamente.');
+     } catch (error) {
+-      this.nodos.set(previousNodes);
+-      try {
+-        await this.persistAndBroadcastCurrentFlow('No se pudo revertir el documento colaborativo');
+-      } catch {
+-        // ignore
++      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
++        this.requisitosIniciales.set(previousRequisitos);
++        try {
++          await this.persistRequisitosInicialesAsync();
++        } catch {
++          // ignore
++        }
++      } else {
++        this.nodos.set(previousNodes);
++        try {
++          await this.persistAndBroadcastCurrentFlow('No se pudo revertir el documento colaborativo');
++        } catch {
++          // ignore
++        }
+       }
+       const msg = (error as any)?.error?.message ?? (error as any)?.userMessage ?? 'No se pudo guardar la configuracion';
+       this.toast.error('Documento colaborativo', msg);
+@@ -5562,8 +5592,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
+     fieldIndex?: number,
+     fieldName?: string
+   ): void {
+-    const node = this.nodos().find((item) => item.id === nodeId);
+-    const currentField = fieldIndex !== undefined ? node?.formulario?.[fieldIndex] : null;
++    let currentField: CampoFormulario | null = null;
++    let fallbackDeptId = '';
++    if (nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
++      if (fieldIndex !== undefined) {
++        currentField = this.requisitosIniciales()?.[fieldIndex] ?? null;
++      }
++    } else {
++      const node = this.nodos().find((item) => item.id === nodeId);
++      fallbackDeptId = node?.departamentoId ?? '';
++      if (fieldIndex !== undefined) {
++        currentField = node?.formulario?.[fieldIndex] ?? null;
++      }
++    }
+     const storedConfig = this.readDocumentFieldValidationConfig(currentField);
+     const campoNombre = (
+       fieldName ??
+@@ -5597,7 +5638,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
+       nivelConfidencialidad: storedConfig?.nivelConfidencialidad ?? 'INTERNO',
+       clienteId: storedConfig?.clienteId ?? '',
+       tramiteId: storedConfig?.tramiteId ?? '',
+-      departamentoId: storedConfig?.departamentoId ?? node?.departamentoId ?? '',
++      departamentoId: storedConfig?.departamentoId ?? fallbackDeptId,
+       reglasPermiso: storedConfig?.reglasPermiso ?? this.defaultDocumentPermissionRules(),
+       auditoria: storedConfig?.auditoria ?? this.defaultDocumentAuditConfig(),
+     };
+@@ -5670,57 +5711,81 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
+       return;
+     }
+ 
++    const previousRequisitos = this.requisitosIniciales();
+     const previousNodes = this.nodos();
+     const campo = this.buildDocumentField(modal);
+     this.savingDocumentPermissionConfig.set(true);
+ 
+     try {
+-      if (modal.mode === 'create') {
+-        this.nodos.update((nodes) =>
+-          nodes.map((node) =>
+-            node.id === modal.nodeId
+-              ? { ...node, formulario: [...(node.formulario ?? []), campo] }
+-              : node
+-          )
+-        );
++      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
++        if (modal.mode === 'create') {
++          this.requisitosIniciales.update((items) => [...items, campo]);
++        } else {
++          this.requisitosIniciales.update((items) =>
++            items.map((item, index) =>
++              index === modal.fieldIndex ? { ...item, ...campo } : item
++            )
++          );
++        }
++        await this.persistRequisitosInicialesAsync();
+       } else {
+-        this.nodos.update((nodes) =>
+-          nodes.map((node) => {
+-            if (node.id !== modal.nodeId) {
+-              return node;
+-            }
++        if (modal.mode === 'create') {
++          this.nodos.update((nodes) =>
++            nodes.map((node) =>
++              node.id === modal.nodeId
++                ? { ...node, formulario: [...(node.formulario ?? []), campo] }
++                : node
++            )
++          );
++        } else {
++          this.nodos.update((nodes) =>
++            nodes.map((node) => {
++              if (node.id !== modal.nodeId) {
++                return node;
++              }
++
++              return {
++                ...node,
++                formulario: (node.formulario ?? []).map((item, index) =>
++                  index === modal.fieldIndex ? { ...item, ...campo } : item
++                ),
++              };
++            })
++          );
++        }
+ 
+-            return {
+-              ...node,
+-              formulario: (node.formulario ?? []).map((item, index) =>
+-                index === modal.fieldIndex ? { ...item, ...campo } : item
+-              ),
+-            };
+-          })
++        const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
++        this.collabFacade.emitUpdateNode(
++          modal.nodeId,
++          { formulario: updatedNode?.formulario ?? [] },
++          updatedNode?.version
+         );
+-      }
+ 
+-      const updatedNode = this.nodos().find((node) => node.id === modal.nodeId);
+-      this.collabFacade.emitUpdateNode(
+-        modal.nodeId,
+-        { formulario: updatedNode?.formulario ?? [] },
+-        updatedNode?.version
+-      );
++        await this.persistAndBroadcastCurrentFlow('No se pudo guardar el campo documental');
++      }
+ 
+-      await this.persistAndBroadcastCurrentFlow('No se pudo guardar el campo documental');
+       await this.saveDocumentPermissionConfigRequest(modal);
+ 
+-      this.newCampo = { campo: '', tipo: 'TEXTO' };
++      this.newCampo = { campo: '', tipo: 'TEXTO', requerido: false };
+       this.cancelEditCampo();
+       this.showDocumentPermissionModal.set(false);
+       this.documentPermissionModal = null;
+       this.toast.success('Permisos documentales', 'Configuracion guardada correctamente.');
+     } catch (error) {
+-      this.nodos.set(previousNodes);
+-      try {
+-        await this.persistAndBroadcastCurrentFlow('No se pudo revertir el campo documental');
+-      } catch {
+-        // El error principal se informa abajo.
++      if (modal.nodeId === this.REQUISITOS_INICIALES_EDIT_NODE_ID) {
++        this.requisitosIniciales.set(previousRequisitos);
++        try {
++          await this.persistRequisitosInicialesAsync();
++        } catch {
++          // ignore
++        }
++      } else {
++        this.nodos.set(previousNodes);
++        try {
++          await this.persistAndBroadcastCurrentFlow('No se pudo revertir el campo documental');
++        } catch {
++          // El error principal se informa abajo.
++        }
+       }
+       const msg = (error as any)?.error?.message ?? (error as any)?.userMessage ?? 'No se pudo guardar la configuracion documental';
+       this.toast.error('Permisos documentales', msg);

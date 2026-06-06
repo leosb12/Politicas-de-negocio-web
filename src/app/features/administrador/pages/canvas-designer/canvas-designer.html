@@ -168,6 +168,161 @@
           {{ lane.label }}
         </div>
       }
+
+      <div class="palette-divider"></div>
+      <div class="palette-title flex items-center justify-between">
+        <span>Requisitos iniciales</span>
+        @if (savingRequisitosIniciales()) {
+          <span class="mini-spin"></span>
+        }
+      </div>
+
+      @for (requisito of requisitosIniciales(); track $index) {
+        <div class="campo-row requisito-inicial-row" [style.display]="(editingCampoNodeId() === REQUISITOS_INICIALES_EDIT_NODE_ID && editingCampoIndex() === $index) ? 'block' : 'flex'">
+          @if (editingCampoNodeId() === REQUISITOS_INICIALES_EDIT_NODE_ID && editingCampoIndex() === $index) {
+            <div class="flex flex-col gap-2 w-full p-1">
+              <input
+                class="prop-input campo-edit-input"
+                type="text"
+                placeholder="Nombre (Clave)"
+                [value]="editingCampoName()"
+                (input)="editingCampoName.set(($any($event.target).value))"
+              />
+
+              <select
+                class="prop-select"
+                [value]="editingCampoType()"
+                (change)="editingCampoType.set($any($event.target).value)"
+              >
+                @for (t of tipoCampoOptions; track t) {
+                  <option [value]="t" [title]="t">{{ getCampoTipoLabel(t) }}</option>
+                }
+              </select>
+
+              <input
+                class="prop-input"
+                type="text"
+                placeholder="Etiqueta visible"
+                [value]="editingCampoEtiqueta()"
+                (input)="editingCampoEtiqueta.set(($any($event.target).value))"
+              />
+
+              <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  [checked]="editingCampoRequerido()"
+                  (change)="editingCampoRequerido.set($any($event.target).checked)"
+                  [disabled]="editingCampoType() === 'LABEL'"
+                />
+                <span>Requerido</span>
+              </label>
+
+              @if (editingCampoType() !== 'LABEL' && editingCampoType() !== 'GRID' && editingCampoType() !== 'CHECKBOX') {
+                <input
+                  class="prop-input"
+                  type="text"
+                  placeholder="Placeholder"
+                  [value]="editingCampoPlaceholder()"
+                  (input)="editingCampoPlaceholder.set(($any($event.target).value))"
+                />
+              }
+
+              @if (editingCampoType() === 'GRID') {
+                <input
+                  class="prop-input"
+                  type="number"
+                  min="1"
+                  placeholder="Numero de filas"
+                  [value]="editingCampoPlaceholder()"
+                  (input)="editingCampoPlaceholder.set(($any($event.target).value))"
+                />
+              }
+
+              <input
+                class="prop-input"
+                type="text"
+                placeholder="Texto de ayuda"
+                [value]="editingCampoAyuda()"
+                (input)="editingCampoAyuda.set(($any($event.target).value))"
+              />
+
+              @if (editingCampoType() === 'CHECKBOX' || editingCampoType() === 'SELECCION' || editingCampoType() === 'GRID') {
+                <input
+                  class="prop-input"
+                  type="text"
+                  [placeholder]="editingCampoType() === 'GRID' ? 'Columnas separadas por comas' : 'Opciones separadas por comas'"
+                  [value]="editingCampoOpciones()"
+                  (input)="editingCampoOpciones.set(($any($event.target).value))"
+                />
+              }
+
+              <div class="flex justify-end gap-1.5 mt-1 border-t border-white/10 pt-2">
+                <button
+                  class="px-3 py-1 bg-green-700/20 text-green-400 border border-green-700/40 rounded text-xs font-semibold hover:bg-green-700/30"
+                  type="button"
+                  (click)="saveEditRequisitoInicial($index, $event)"
+                >
+                  Guardar
+                </button>
+
+                <button
+                  class="px-2 py-1 bg-rose-700/20 text-rose-400 border border-rose-700/40 rounded text-xs font-semibold hover:bg-rose-700/30"
+                  type="button"
+                  (click)="cancelEditCampo($event)"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          } @else {
+            <span class="campo-name">{{ requisito.etiqueta || requisito.campo }}</span>
+            <span class="campo-tipo">{{ getCampoTipoLabel(requisito.tipo) }}{{ requisito.requerido ? ' *' : '' }}</span>
+
+            <button
+              class="btn-edit-campo"
+              type="button"
+              (click)="startEditRequisitoInicial($event, $index)"
+              [id]="'btn-edit-requisito-inicial-' + $index"
+              title="Editar requisito"
+            >
+              <lucide-icon name="pencil" [size]="12"></lucide-icon>
+            </button>
+
+            <button class="btn-remove" (click)="removeRequisitoInicial($index)" [id]="'btn-remove-requisito-inicial-' + $index">
+              <lucide-icon name="x" [size]="12"></lucide-icon>
+            </button>
+          }
+        </div>
+      }
+
+      @if (!requisitosIniciales().length) {
+        <div class="palette-hint">
+          <span>Sin requisitos previos configurados.</span>
+        </div>
+      }
+
+      <div class="add-campo-form requisitos-iniciales-form">
+        <input
+          class="prop-input"
+          type="text"
+          placeholder="Nombre del requisito"
+          [(ngModel)]="newRequisitoInicial.campo"
+          id="input-nuevo-requisito-inicial"
+          (keyup.enter)="addRequisitoInicial()"
+        />
+        <select class="prop-select" [(ngModel)]="newRequisitoInicial.tipo" id="select-tipo-requisito-inicial">
+          @for (t of tipoCampoOptions; track t) {
+            <option [value]="t">{{ getCampoTipoLabel(t) }}</option>
+          }
+        </select>
+        <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 w-full mt-2 mb-2">
+          <input type="checkbox" [(ngModel)]="newRequisitoInicial.requerido" [disabled]="newRequisitoInicial.tipo === 'LABEL'" />
+          <span>Requerido</span>
+        </label>
+        <button class="btn-add-campo" (click)="addRequisitoInicial()" id="btn-agregar-requisito-inicial">
+          + Requisito
+        </button>
+      </div>
     </aside>
 
     <!-- ── CANVAS VIEWPORT ────────────────────────────────────── -->
@@ -865,7 +1020,7 @@
                       [disabled]="isCanvasReadOnly()"
                     >
                       @for (t of tipoCampoOptions; track t) {
-                        <option [value]="t" [title]="t">{{ t }}</option>
+                        <option [value]="t" [title]="t">{{ getCampoTipoLabel(t) }}</option>
                       }
                     </select>
                   </div>
@@ -961,7 +1116,7 @@
                 </div>
               } @else {
                 <span class="campo-name">{{ campo.campo }}</span>
-                <span class="campo-tipo">{{ campo.tipo }}</span>
+                <span class="campo-tipo">{{ getCampoTipoLabel(campo.tipo) }}</span>
 
                 <button
                   class="btn-edit-campo"
@@ -1006,6 +1161,10 @@
                 <option [value]="t">{{ t }}</option>
               }
             </select>
+            <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 w-full mt-2 mb-2">
+              <input type="checkbox" [(ngModel)]="newCampo.requerido" [disabled]="isCanvasReadOnly() || newCampo.tipo === 'LABEL'" />
+              <span>Requerido</span>
+            </label>
             <button class="btn-add-campo" (click)="addCampo(sidebarNode()!.id)" id="btn-agregar-campo" [disabled]="isCanvasReadOnly()">
               ＋ Campo
             </button>
