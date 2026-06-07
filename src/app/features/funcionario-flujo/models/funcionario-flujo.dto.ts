@@ -55,6 +55,8 @@ export interface TareaMiaResponseDto {
   codigoTramite: string | null;
   estadoInstancia: string | null;
   contextoResumen: Record<string, unknown> | null;
+  recursoRecomendado?: string | null;
+  motivoRecomendacion?: string | null;
 }
 
 export interface TareaActividadDetalleDto {
@@ -126,6 +128,10 @@ export interface TareaDetalleResponseDto {
   instancia: InstanciaDetalleResponseDto | null;
   politica: TareaPoliticaDetalleDto | null;
   historialRelevante: HistorialInstanciaEventoDto[] | null;
+  prioridad?: string | null;
+  recursoRecomendado?: string | null;
+  recursoRecomendadoNombre?: string | null;
+  motivoRecomendacion?: string | null;
 }
 
 export interface SubirArchivoRequestDto {

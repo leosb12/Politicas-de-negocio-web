@@ -52,6 +52,7 @@ import { FindNodePipe } from '../../pipes/find-node.pipe';
 import { PoliticaColaboracionFacadeService } from '../../services/politica-colaboracion-facade.service';
 import { IaGeneradorFlujoComponent } from '../../components/ia-generador-flujo/ia-generador-flujo';
 import { IaEdicionFlujoComponent } from '../../components/ia-edicion-flujo/ia-edicion-flujo';
+import { IaPrediccionesComponent } from '../../components/ia-predicciones/ia-predicciones.component';
 import { AdministradorGuiaContextService } from '../../services/administrador-guia-context.service';
 import { IaFlujoMapperService } from '../../services/ia-flujo-mapper.service';
 import { DocumentPermissionService } from '../../services/document-permission.service';
@@ -275,6 +276,7 @@ import { LucideAngularModule } from 'lucide-angular';
     LucideAngularModule,
     IaGeneradorFlujoComponent,
     IaEdicionFlujoComponent,
+    IaPrediccionesComponent,
   ],
   templateUrl: './canvas-designer.html',
   styleUrl: './canvas-designer.css',
@@ -333,6 +335,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   showSidebar = signal(false);
   showIaFlujoModal = signal(false);
+  showIaPrediccionesModal = signal(false);
   isApplyingIaFlujo = signal(false);
   decisionConditionEditIndex = signal<number | null>(null);
   private iaFlowJustAppliedAt: number | null = null;
@@ -2457,6 +2460,14 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
    */
   closeIaFlujoModal(): void {
     this.showIaFlujoModal.set(false);
+  }
+
+  abrirModalPredicciones(): void {
+    this.showIaPrediccionesModal.set(true);
+  }
+
+  cerrarModalPredicciones(): void {
+    this.showIaPrediccionesModal.set(false);
   }
 
   /**

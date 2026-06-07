@@ -34,6 +34,8 @@ export function mapTareaMiaDto(dto: TareaMiaResponseDto): TareaResumen {
     codigoTramite: dto.codigoTramite,
     estadoInstancia: dto.estadoInstancia,
     contextoResumen: dto.contextoResumen,
+    recursoRecomendado: dto.recursoRecomendado ?? null,
+    motivoRecomendacion: dto.motivoRecomendacion ?? null,
   };
 }
 
@@ -81,6 +83,10 @@ export function mapTareaDetalleDto(dto: TareaDetalleResponseDto): TareaDetalle {
         }
       : null,
     historialRelevante: (dto.historialRelevante ?? []).map(mapHistorialEventoDto),
+    prioridad: dto.prioridad ?? null,
+    recursoRecomendado: dto.recursoRecomendado ?? null,
+    recursoRecomendadoNombre: dto.recursoRecomendadoNombre ?? null,
+    motivoRecomendacion: dto.motivoRecomendacion ?? null,
   };
 }
 

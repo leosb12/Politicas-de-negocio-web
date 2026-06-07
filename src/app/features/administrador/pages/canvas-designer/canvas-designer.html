@@ -122,6 +122,14 @@
         (workflowApplied)="onIaWorkflowApplied($event)"
       ></app-ia-edicion-flujo>
 
+      @if (showIaPrediccionesModal()) {
+        <app-ia-predicciones
+          [policyId]="politica()!.id"
+          [policyName]="politica()!.nombre"
+          (close)="cerrarModalPredicciones()"
+        ></app-ia-predicciones>
+      }
+
       <div class="palette-divider"></div>
       <div class="palette-title">Generación Automática</div>
       <button
@@ -140,6 +148,18 @@
         <lucide-icon name="zap" [size]="12" class="inline"></lucide-icon>
         Describe tu flujo y la IA creará el diagrama automáticamente
       </div>
+
+      <button
+        type="button"
+        style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(99, 102, 241, 0.15)); border: 1px solid rgba(139, 92, 246, 0.3); color: #a78bfa; margin-bottom: 0.75rem;"
+        class="btn-add-campo flex items-center gap-2"
+        (click)="abrirModalPredicciones()"
+        id="btn-predicciones-ia"
+        title="Analizar workflow y predecir optimizaciones con IA"
+      >
+        <lucide-icon name="brain-circuit" [size]="16"></lucide-icon>
+        <span>Predicciones IA</span>
+      </button>
 
       <div class="palette-divider"></div>
       <div class="palette-title">Carriles</div>
@@ -1951,3 +1971,11 @@
   (workflowGenerated)="onIaFlujoGenerated($event)"
   (closeRequested)="closeIaFlujoModal()"
 ></app-ia-generador-flujo>
+
+@if (showIaPrediccionesModal()) {
+  <app-ia-predicciones
+    [policyId]="politica()!.id"
+    [policyName]="politica()!.nombre"
+    (close)="cerrarModalPredicciones()"
+  ></app-ia-predicciones>
+}

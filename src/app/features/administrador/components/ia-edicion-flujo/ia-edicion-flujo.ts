@@ -137,31 +137,11 @@ export class IaEdicionFlujoComponent {
     this.applyResultMessage.set(null);
     this.confirmationAccepted.set(false);
 
-    this.iaEdicionFlujoService.applyChanges(policyId, { prompt }).subscribe({
+    this.iaEdicionFlujoService.previewChanges(policyId, { prompt }).subscribe({
       next: (response) => {
-        const message = response.message?.trim() || 'Cambios aplicados y guardados en la politica.';
-        const operations = response.operations ?? [];
-        const warnings = response.warnings ?? [];
-        const errors = response.errors ?? [];
-        this.previewResponse.set({
-          policyId: response.policyId ?? policyId,
-          policyName: response.policyName ?? this.policyName() ?? '',
-          success: response.success ?? true,
-          valid: (response.success ?? true) && errors.length === 0,
-          intent: 'UPDATE_WORKFLOW',
-          summary: message,
-          operations,
-          warnings,
-          errors,
-          requiresConfirmation: false,
-          generatedAt: response.appliedAt ?? new Date().toISOString(),
-        });
-        this.applyResultMessage.set(message);
+        this.previewResponse.set(response);
         this.previewLoading.set(false);
         this.applyLoading.set(false);
-        this.prompt.set('');
-        this.toast.success('Edicion IA', message);
-        this.workflowApplied.emit(response);
       },
       error: (error: unknown) => {
         this.previewLoading.set(false);
@@ -169,7 +149,7 @@ export class IaEdicionFlujoComponent {
         this.previewError.set(
           getApiErrorMessage(
             error,
-            'No se pudieron aplicar los cambios del workflow.'
+            'No se pudo generar la previsualizacion de la IA.'
           )
         );
       },

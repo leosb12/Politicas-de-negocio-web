@@ -64,6 +64,11 @@ import {
   Info,
   Volume2,
   VolumeX,
+  Loader2,
+  BrainCircuit,
+  Route,
+  Timer,
+  ListOrdered,
 } from 'lucide-angular';
 
 export const appConfig: ApplicationConfig = {
@@ -135,6 +140,11 @@ export const appConfig: ApplicationConfig = {
         Info,
         Volume2,
         VolumeX,
+        Loader2,
+        BrainCircuit,
+        Route,
+        Timer,
+        ListOrdered,
       })
     )
   ]

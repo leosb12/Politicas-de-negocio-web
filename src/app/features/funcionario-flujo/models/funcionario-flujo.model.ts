@@ -94,6 +94,8 @@ export interface TareaResumen {
   codigoTramite: string | null;
   estadoInstancia: string | null;
   contextoResumen: Record<string, unknown> | null;
+  recursoRecomendado?: string | null;
+  motivoRecomendacion?: string | null;
 }
 
 export interface HistorialEvento {
@@ -163,6 +165,10 @@ export interface TareaDetalle {
   instancia: InstanciaDetalle | null;
   politica: TareaPoliticaDetalle | null;
   historialRelevante: HistorialEvento[];
+  prioridad?: string | null;
+  recursoRecomendado?: string | null;
+  recursoRecomendadoNombre?: string | null;
+  motivoRecomendacion?: string | null;
 }
 
 export interface CompletarTareaPayload {

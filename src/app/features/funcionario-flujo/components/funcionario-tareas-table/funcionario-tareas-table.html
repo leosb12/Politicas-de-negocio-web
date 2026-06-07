@@ -31,6 +31,11 @@
             <app-badge [variant]="prioridadVariant(tarea.prioridad)">
               {{ tarea.prioridad ?? 'SIN_PRIORIDAD' }}
             </app-badge>
+            @if (tarea.motivoRecomendacion) {
+              <p class="text-[10px] text-slate-500 mt-1 leading-tight" [title]="tarea.motivoRecomendacion">
+                <span class="font-semibold text-indigo-600">IA:</span> {{ tarea.motivoRecomendacion }}
+              </p>
+            }
           </td>
 
           <td class="px-4 py-3 align-top">
