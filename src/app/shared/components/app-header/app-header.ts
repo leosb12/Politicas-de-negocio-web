@@ -54,6 +54,7 @@ const ADMIN_MENU_GROUPS: HeaderMenuGroup[] = [
       { label: 'Menu de analitica', routerLink: '/dashboard-admin/analitica' },
       { label: 'Analiticas generales', routerLink: '/admin/analytics' },
       { label: 'Analisis con IA', routerLink: '/admin/analisis-ia' },
+      { label: 'Reportes Inteligentes', routerLink: '/admin/reportes-dinamicos' },
     ],
   },
 ];

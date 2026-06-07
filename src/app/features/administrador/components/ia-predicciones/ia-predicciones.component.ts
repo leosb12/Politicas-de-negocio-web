@@ -386,7 +386,7 @@ export interface RichPredictionResponse {
                       <lucide-icon name="route" [size]="18" class="text-slate-400 group-hover:text-violet-600 transition-colors" [class.text-violet-600]="predictMejorRuta"></lucide-icon>
                       <p class="font-bold text-slate-800">Mejor Ruta Óptima</p>
                     </div>
-                    <p class="text-xs text-slate-500 leading-relaxed">Descubre el camino más eficiente basado en tiempos y reglas históricas.</p>
+                    <p class="text-xs text-slate-500 leading-relaxed">Descubre el camino más eficiente evaluando la estructura semántica de la política.</p>
                   </div>
                 </label>
 
@@ -443,7 +443,7 @@ export interface RichPredictionResponse {
         <!-- Footer -->
         <div class="bg-white px-8 py-5 border-t border-slate-100 flex justify-between items-center shrink-0">
           <div>
-             <span class="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5"><lucide-icon name="zap" [size]="14"></lucide-icon> Powered by DeepSeek & Keras</span>
+             <span class="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1.5"><lucide-icon name="zap" [size]="14"></lucide-icon> Powered by Keras</span>
           </div>
           <div class="flex items-center gap-3">
             @if (!result()) {

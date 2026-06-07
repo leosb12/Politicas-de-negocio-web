@@ -125,6 +125,13 @@ export const ADMINISTRADOR_ROUTES: Routes = [
             (module) => module.PoliticaSimulacionFormularioPageComponent
           ),
       },
+      {
+        path: 'reportes-dinamicos',
+        loadComponent: () =>
+          import('./pages/administrador-reportes-dinamicos/administrador-reportes-dinamicos').then(
+            (module) => module.AdministradorReportesDinamicosPageComponent
+          ),
+      },
     ],
   },
   // Canvas designer — full-screen, outside the admin layout shell

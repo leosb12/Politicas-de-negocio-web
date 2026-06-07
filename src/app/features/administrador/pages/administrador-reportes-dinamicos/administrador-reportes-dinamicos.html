@@ -1,0 +1,157 @@
+<div class="reportes-container">
+  <div class="header">
+    <h2>Reportes Inteligentes con IA</h2>
+    <p>Solicita reportes dinámicos en lenguaje natural sin configuración previa.</p>
+  </div>
+
+  <div class="input-section card">
+    <div class="input-wrapper">
+      <textarea 
+        class="query-input" 
+        [ngModel]="textoQuery()" 
+        (ngModelChange)="textoQuery.set($event)"
+        placeholder="Describe el reporte que necesitas. Ejemplo: quiero ver la política más usada este mes en Excel."
+        rows="3"
+        [disabled]="isProcessing()"></textarea>
+      
+      <div class="input-actions">
+        <button class="btn btn-mic" [class.recording]="isDictating()" (click)="dictarReporte()" [disabled]="isProcessing()">
+          <i class="fa" [class.fa-microphone]="!isDictating()" [class.fa-stop-circle]="isDictating()"></i>
+          {{ isDictating() ? 'Escuchando...' : 'Dictar' }}
+        </button>
+        <button class="btn btn-clear" (click)="limpiar()" [disabled]="isProcessing() || !textoQuery()">
+          <i class="fa fa-eraser"></i> Limpiar
+        </button>
+        <button class="btn btn-primary" (click)="analizarTexto()" [disabled]="isProcessing() || !textoQuery()">
+          <i class="fa" [class.fa-magic]="!isProcessing()" [class.fa-spinner]="isProcessing()" [class.fa-spin]="isProcessing()"></i>
+          Analizar con IA
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="results-grid" *ngIf="interpretacion()">
+    <!-- Panel IA -->
+    <div class="panel-ia card">
+      <h3>Interpretación de IA</h3>
+      
+      <div class="aclaracion-alert" *ngIf="interpretacion()?.requiereAclaracion">
+        <i class="fa fa-exclamation-triangle"></i>
+        <div>
+          <strong>El pedido es ambiguo o incompleto.</strong>
+          <p>{{ interpretacion()?.preguntaAclaratoria }}</p>
+        </div>
+      </div>
+
+      <div class="ia-details" *ngIf="!interpretacion()?.requiereAclaracion">
+        <div class="detail-row">
+          <span class="label">Intención:</span>
+          <span class="value badge">{{ interpretacion()?.intencionDetectada }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Entidad Principal:</span>
+          <span class="value">{{ interpretacion()?.entidadPrincipal }}</span>
+        </div>
+        <div class="detail-row" *ngIf="interpretacion()?.agrupaciones?.length">
+          <span class="label">Agrupado por:</span>
+          <span class="value">{{ interpretacion()?.agrupaciones?.join(', ') }}</span>
+        </div>
+        <div class="detail-row" *ngIf="interpretacion()?.filtros?.length">
+          <span class="label">Filtros:</span>
+          <ul class="value-list">
+            <li *ngFor="let f of interpretacion()?.filtros">
+              {{ f.campo }} {{ f.operador }} {{ f.valor || '' }}
+            </li>
+          </ul>
+        </div>
+        <div class="detail-row">
+          <span class="label">Formato:</span>
+          <span class="value badge badge-format">{{ interpretacion()?.formatoSalida }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Confianza:</span>
+          <span class="value">{{ (interpretacion()?.confianza || 0) * 100 | number:'1.0-0' }}%</span>
+        </div>
+      </div>
+      
+      <div class="export-actions" *ngIf="!interpretacion()?.requiereAclaracion && previewData()">
+        <button class="btn btn-excel" (click)="exportar('excel')"><i class="fa fa-file-excel-o"></i> Excel</button>
+        <button class="btn btn-pdf" (click)="exportar('pdf')"><i class="fa fa-file-pdf-o"></i> PDF</button>
+        <button class="btn btn-word" (click)="exportar('word')"><i class="fa fa-file-word-o"></i> Word</button>
+      </div>
+      <div class="export-actions" *ngIf="!interpretacion()?.requiereAclaracion && !previewData()">
+        <button class="btn btn-primary w-100" (click)="generarPreview()"><i class="fa fa-eye"></i> Generar Vista Previa</button>
+      </div>
+    </div>
+
+    <!-- Vista Previa -->
+    <div class="panel-preview card" *ngIf="previewData()">
+      <div class="preview-header">
+        <h3>Vista Previa del Reporte</h3>
+        <span class="badge">{{ previewData()?.resultados?.length }} resultados</span>
+      </div>
+
+      <div class="preview-content">
+        <!-- Tabla -->
+        <div class="table-responsive" *ngIf="interpretacion()?.visualizacion === 'tabla' || !chartData().length">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th *ngFor="let key of getKeys(previewData()?.resultados?.[0])">{{ key }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of previewData()?.resultados">
+                <td *ngFor="let key of getKeys(row)">{{ row[key] }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty-state" *ngIf="previewData()?.resultados?.length === 0">
+            No se encontraron resultados para los criterios indicados.
+          </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="chart-container" *ngIf="interpretacion()?.visualizacion !== 'tabla' && chartData().length">
+          <ngx-charts-bar-vertical
+            *ngIf="interpretacion()?.visualizacion === 'grafico_barras'"
+            [view]="view"
+            [results]="chartData()"
+            [gradient]="true"
+            [xAxis]="true"
+            [yAxis]="true"
+            [legend]="true"
+            [showXAxisLabel]="true"
+            [showYAxisLabel]="true"
+            xAxisLabel="Grupos"
+            yAxisLabel="Valores">
+          </ngx-charts-bar-vertical>
+
+          <ngx-charts-pie-chart
+            *ngIf="interpretacion()?.visualizacion === 'grafico_pie'"
+            [view]="view"
+            [results]="chartData()"
+            [gradient]="true"
+            [legend]="true"
+            [labels]="true">
+          </ngx-charts-pie-chart>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historial -->
+  <div class="historial-section card mt-4" *ngIf="historial().length > 0">
+    <h3>Historial Reciente</h3>
+    <div class="historial-list">
+      <div class="historial-item" *ngFor="let item of historial()" (click)="cargarHistorialItem(item)">
+        <div class="h-text">"{{ item.textoOriginal }}"</div>
+        <div class="h-meta">
+          <span class="badge">{{ item.intencionDetectada }}</span>
+          <span>{{ item.fechaGeneracion | date:'short' }}</span>
+          <span class="badge badge-outline">{{ item.cantidadResultados }} res</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

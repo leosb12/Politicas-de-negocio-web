@@ -51,4 +51,5 @@ export const API_ENDPOINTS = {
   documentPermissions: `${API_BASE_URL}/api/document-permissions`,
   pushTokens: `${API_BASE_URL}/api/push/tokens`,
   ia: `${API_BASE_URL}/api/ia`,
+  adminReportes: `${API_BASE_URL}/api/admin/reportes`,
 } as const;
