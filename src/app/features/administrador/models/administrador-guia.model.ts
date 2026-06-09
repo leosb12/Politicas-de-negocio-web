@@ -8,6 +8,7 @@ export type AdministradorGuiaScreen =
   | 'ADMIN_AI_SERVICES'
   | 'ADMIN_SIMULATIONS'
   | 'PERFIL_USUARIO'
+  | 'ADMIN_REPORTS'
   | 'GENERAL_ADMIN';
 
 export type AdministradorGuiaSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
@@ -19,8 +20,15 @@ export interface AdministradorGuiaRequest {
     policyId?: string | null;
     selectedNodeId?: string | null;
     availableActions?: string[];
+    currentPath?: string | null;
+    role?: string | null;
+    screenName?: string | null;
+    visibleButtons?: string[];
+    currentModule?: string | null;
+    exportFormatsAvailable?: string[];
   };
 }
+
 
 export interface AdministradorGuiaSuggestedResponsible {
   name: string;

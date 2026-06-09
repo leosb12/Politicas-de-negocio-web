@@ -1,11 +1,13 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportesDinamicosService, ReporteVisualResponse } from '../../../services/reportes-dinamicos.service';
 import { BloqueReporteComponent } from './components/bloque-reporte/bloque-reporte.component';
+import { AdministradorGuiaContextService } from '../../../services/administrador-guia-context.service';
 import { jsPDF } from 'jspdf';
 import * as echarts from 'echarts';
 import pptxgen from 'pptxgenjs';
+import * as ExcelJS from 'exceljs';
 
 @Component({
   selector: 'app-reportes-inteligentes',
@@ -14,25 +16,53 @@ import pptxgen from 'pptxgenjs';
   templateUrl: './reportes-inteligentes.component.html',
   styleUrls: ['./reportes-inteligentes.component.css']
 })
-export class ReportesInteligentesComponent {
+export class ReportesInteligentesComponent implements OnInit, OnDestroy {
   private reportesService = inject(ReportesDinamicosService);
+  private guideContext = inject(AdministradorGuiaContextService, { optional: true });
+
+  ngOnInit(): void {
+    if (this.guideContext) {
+      this.guideContext.setScreen('ADMIN_REPORTS');
+      this.guideContext.currentPath.set('/admin/reportes-inteligentes');
+      this.guideContext.currentModule.set('Reportes Inteligentes');
+      this.guideContext.visibleButtons.set(['Generar Reporte', 'Limpiar', 'IA+']);
+      this.guideContext.exportFormatsAvailable.set(['pantalla', 'pdf', 'excel', 'word', 'powerpoint']);
+      this.guideContext.availableActions.set([
+        'GENERAR_REPORTE',
+        'LIMPIAR_PROMPT',
+        'ACTIVAR_IA_PLUS',
+        'SELECCIONAR_FORMATO',
+        'EXPORTAR_REPORTE'
+      ]);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.guideContext) {
+      this.guideContext.clearDesignerContext();
+    }
+    this.detenerDictado();
+  }
 
   promptText = signal('');
+  isDictating = signal(false);
+  recognition: any = null;
+
   isProcessing = signal(false);
   reporte = signal<ReporteVisualResponse | null>(null);
   errorMessage = signal<string | null>(null);
   iaPlus = signal(false);
   showFormatModal = signal(false);
-  
+
   // Estados para exportación offscreen
   isExporting = signal(false);
   exportReporte = signal<ReporteVisualResponse | null>(null);
 
   sugerencias = [
-    "Quiero un gráfico de barras con los funcionarios más activos, abajo una torta con los usuarios que más inician políticas y debajo una tabla con los administradores que más políticas crearon.",
+    "Quiero un gráfico de barras con los funcionarios más activos, abajo una torta con los usuarios que más inician políticas y debajo una tabla con las politicas mas usadas. en pantalla",
     "Hazme un dashboard con un KPI de total de trámites, una línea de trámites por mes y una dona de políticas por estado.",
     "Quiero una matriz de funcionarios y cantidad de trámites finalizados por cada uno.",
-    "Muéstrame pagos pendientes por política y total de pagos realizados."
+    "Genera un dashboard con los funcionarios más activos, las políticas más utilizadas y la distribución de trámites por estado durante este mes, en pantalla."
   ];
 
   generarReporte() {
@@ -223,7 +253,7 @@ export class ReportesInteligentesComponent {
 
       if (isKpi) {
         checkPageBreak(35);
-        
+
         doc.setFillColor(15, 23, 42); // #0f172a
         doc.rect(20, currentY, pageWidth - 40, 28, 'F');
         doc.setDrawColor(71, 85, 105);
@@ -294,7 +324,7 @@ export class ReportesInteligentesComponent {
           cols.forEach((col, idx) => {
             doc.text(col, 25 + idx * colWidth, tableY);
           });
-          
+
           doc.setDrawColor(51, 65, 85);
           doc.line(25, tableY + 2, pageWidth - 25, tableY + 2);
           tableY += 8;
@@ -316,110 +346,174 @@ export class ReportesInteligentesComponent {
     doc.save(`reporte_visual_${new Date().getTime()}.pdf`);
   }
 
-  exportarAExcel(reporte: ReporteVisualResponse, chartImages: { [key: string]: string }) {
-    let html = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <meta charset="utf-8">
-        <style>
-          .title { font-size: 16pt; font-weight: bold; color: #4f46e5; }
-          .desc { font-size: 11pt; color: #64748b; }
-          .section-title { font-size: 12pt; font-weight: bold; background-color: #f1f5f9; color: #1e293b; }
-          .th { background-color: #4f46e5; color: #ffffff; font-weight: bold; border: 0.5pt solid #cbd5e1; }
-          .td { border: 0.5pt solid #cbd5e1; font-size: 10pt; }
-          .kpi-title { font-weight: bold; color: #475569; font-size: 10pt; }
-          .kpi-val { font-size: 14pt; font-weight: bold; color: #6366f1; }
-        </style>
-      </head>
-      <body>
-        <table>
-          <tr><td class="title" colspan="4">${reporte.titulo}</td></tr>
-          <tr><td class="desc" colspan="4">${reporte.descripcion}</td></tr>
-          <tr><td class="desc" colspan="4">Generado el: ${new Date().toLocaleString('es-ES')}</td></tr>
-          <tr><td colspan="4"></td></tr>
-    `;
+  async exportarAExcel(reporte: ReporteVisualResponse, chartImages: { [key: string]: string }) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Reporte');
 
-    reporte.bloques.forEach((bloque) => {
+    // Estilos generales
+    const fontTitle = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF4F46E5' } };
+    const fontDesc = { name: 'Arial', size: 11, color: { argb: 'FF64748B' } };
+    const fontSection = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF1E293B' } };
+    const fontBold = { name: 'Arial', size: 10, bold: true };
+    const fontNormal = { name: 'Arial', size: 10 };
+
+    // Título principal
+    const rowTitle = worksheet.addRow([reporte.titulo]);
+    rowTitle.getCell(1).font = fontTitle;
+
+    const rowDesc = worksheet.addRow([reporte.descripcion]);
+    rowDesc.getCell(1).font = fontDesc;
+
+    const rowDate = worksheet.addRow([`Generado el: ${new Date().toLocaleString('es-ES')}`]);
+    rowDate.getCell(1).font = fontDesc;
+
+    worksheet.addRow([]); // Fila vacía
+    worksheet.addRow([]); // Fila vacía
+
+    let currentRow = 6;
+
+    // Procesar bloques
+    for (const bloque of reporte.bloques) {
       const isChart = ['bar', 'pie', 'doughnut', 'line', 'area'].includes(bloque.tipo);
       const isTable = ['table', 'matrix'].includes(bloque.tipo);
       const isKpi = bloque.tipo === 'kpi';
 
-      html += `
-        <tr><td colspan="4"></td></tr>
-        <tr><td class="section-title" colspan="4">${bloque.titulo}</td></tr>
-      `;
+      // Título de la sección
+      const sectionRow = worksheet.addRow([bloque.titulo]);
+      sectionRow.getCell(1).font = fontSection;
+
+      // Aplicar color de fondo gris claro al título de sección
+      sectionRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF1F5F9' }
+      };
+
+      currentRow++;
+      worksheet.addRow([]); // Espacio vacío
+      currentRow++;
 
       if (isKpi) {
         const data = bloque.datos || bloque.dataset;
         const valStr = data && data.values && data.values.length > 0 ? String(data.values[0]) : '0';
         const labelStr = data && data.labels && data.labels.length > 0 ? String(data.labels[0]) : 'Total';
-        html += `
-          <tr>
-            <td class="kpi-title">${labelStr}</td>
-            <td class="kpi-val">${valStr}</td>
-            <td colspan="2"></td>
-          </tr>
-        `;
+
+        const rowKpiLabel = worksheet.addRow([labelStr.toUpperCase(), valStr]);
+        rowKpiLabel.getCell(1).font = fontBold;
+        rowKpiLabel.getCell(2).font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF6366F1' } };
+
+        currentRow++;
+        worksheet.addRow([]); // Espacio vacío
+        currentRow++;
       } else if (isChart) {
         const imgData = chartImages[bloque.id];
         if (imgData) {
-          html += `
-            <tr>
-              <td colspan="4" style="text-align: center; height: 320px; vertical-align: middle;">
-                <img src="${imgData}" width="550" height="300" style="display: block; margin: 0 auto;" />
-              </td>
-            </tr>
-          `;
+          // Extraer los datos base64 quitando el prefijo
+          const base64Data = imgData.split(',')[1];
+          try {
+            const imageId = workbook.addImage({
+              base64: base64Data,
+              extension: 'png'
+            });
+
+            // Añadir la imagen abarcando de la columna A a la columna G
+            // y desde la fila actual hasta 14 filas más abajo
+            worksheet.addImage(imageId, `A${currentRow}:G${currentRow + 13}`);
+
+            // Avanzar el contador de filas de la planilla
+            currentRow += 15;
+            // Insertar filas vacías para empujar el cursor de la hoja de cálculo
+            for (let i = 0; i < 15; i++) {
+              worksheet.addRow([]);
+            }
+          } catch (e) {
+            console.error('Error al insertar imagen en excel:', e);
+            const rowErr = worksheet.addRow(['[No se pudo renderizar la imagen del gráfico]']);
+            rowErr.getCell(1).font = { italic: true, color: { argb: 'FF94A3B8' } };
+            currentRow++;
+          }
         }
-        
+
+        // Renderizar la tabla de datos del gráfico abajo
         const dataset = bloque.datos || bloque.dataset;
         if (dataset && dataset.labels && dataset.values) {
-          html += `
-            <tr>
-              <td class="th">Categoría</td>
-              <td class="th">Valor</td>
-              <td colspan="2"></td>
-            </tr>
-          `;
+          const headerRow = worksheet.addRow(['Categoría', 'Valor']);
+          headerRow.getCell(1).font = fontBold;
+          headerRow.getCell(2).font = fontBold;
+
+          headerRow.getCell(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE2E8F0' }
+          };
+          headerRow.getCell(2).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE2E8F0' }
+          };
+
+          currentRow++;
+
           dataset.labels.forEach((label, idx) => {
             const val = dataset.values[idx] || 0;
-            html += `
-              <tr>
-                <td class="td">${label}</td>
-                <td class="td">${val}</td>
-                <td colspan="2"></td>
-              </tr>
-            `;
+            const dataRow = worksheet.addRow([label, val]);
+            dataRow.getCell(1).font = fontNormal;
+            dataRow.getCell(2).font = fontNormal;
+            currentRow++;
           });
         }
+
+        worksheet.addRow([]);
+        currentRow++;
       } else if (isTable) {
         const dataset = bloque.datos || bloque.dataset;
         if (dataset && dataset.columns && dataset.rows) {
-          html += '<tr>';
-          dataset.columns.forEach((col) => {
-            html += `<td class="th">${col}</td>`;
+          const headerRow = worksheet.addRow(dataset.columns);
+          headerRow.eachCell((cell) => {
+            cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FF4F46E5' } // Color violeta de la marca
+            };
           });
-          html += '</tr>';
+          currentRow++;
 
           dataset.rows.forEach((row) => {
-            html += '<tr>';
-            row.forEach((cell) => {
-              html += `<td class="td">${cell}</td>`;
+            const dataRow = worksheet.addRow(row.map(cell => String(cell)));
+            dataRow.eachCell((cell) => {
+              cell.font = fontNormal;
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+              };
             });
-            html += '</tr>';
+            currentRow++;
           });
         }
+        worksheet.addRow([]);
+        currentRow++;
       }
+    }
+
+    // Autoajustar anchos de columnas
+    worksheet.columns.forEach((column) => {
+      let maxLength = 12;
+      column.eachCell?.((cell) => {
+        const columnLength = cell.value ? String(cell.value).length : 0;
+        if (columnLength > maxLength) {
+          maxLength = columnLength;
+        }
+      });
+      column.width = maxLength + 2;
     });
 
-    html += `
-        </table>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    this.descargarArchivo(blob, `reporte_excel_${new Date().getTime()}.xls`);
+    // Escribir el buffer del workbook y descargar
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    this.descargarArchivo(blob, `reporte_excel_${new Date().getTime()}.xlsx`);
   }
 
   exportarAWord(reporte: ReporteVisualResponse, chartImages: { [key: string]: string }) {
@@ -629,7 +723,7 @@ export class ReportesInteligentesComponent {
         const dataset = bloque.datos || bloque.dataset;
         if (dataset && dataset.columns && dataset.rows) {
           const tableRows: any[] = [];
-          
+
           const headerRow = dataset.columns.map((col) => ({
             text: col,
             options: { fill: { color: brandColor }, color: textWhite, bold: true, fontSize: 10, align: 'left' }
@@ -698,6 +792,63 @@ export class ReportesInteligentesComponent {
     this.showFormatModal.set(false);
     this.isExporting.set(false);
     this.exportReporte.set(null);
+  }
+
+  toggleDictado() {
+    if (this.isDictating()) {
+      this.detenerDictado();
+    } else {
+      this.iniciarDictado();
+    }
+  }
+
+  private iniciarDictado() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.');
+      return;
+    }
+
+    this.recognition = new SpeechRecognition();
+    this.recognition.lang = 'es-ES';
+    this.recognition.interimResults = true;
+    this.recognition.maxAlternatives = 1;
+    this.recognition.continuous = true;
+
+    this.isDictating.set(true);
+
+    this.recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      this.promptText.set(transcript);
+    };
+
+    this.recognition.onerror = (event: any) => {
+      console.error('Error de reconocimiento de voz:', event.error);
+      this.isDictating.set(false);
+    };
+
+    this.recognition.onend = () => {
+      this.isDictating.set(false);
+      if (this.promptText().trim()) {
+        this.generarReporte();
+      }
+    };
+
+    this.recognition.start();
+  }
+
+  private detenerDictado() {
+    if (this.recognition) {
+      try {
+        this.recognition.stop();
+      } catch (e) {
+        console.error('Error al detener reconocimiento de voz:', e);
+      }
+    }
+    this.isDictating.set(false);
   }
 }
 

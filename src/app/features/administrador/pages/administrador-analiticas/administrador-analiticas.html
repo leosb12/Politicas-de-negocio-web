@@ -17,94 +17,166 @@
         </p>
 
         <div class="analytics-hero__actions">
-          <app-button
-            variant="outline"
-            className="border-white/20 bg-white/10 text-white hover:bg-white/15"
-            [pending]="loading()"
-            pendingLabel="Actualizando..."
-            (click)="loadDashboardSummary()"
-          >
-            <lucide-icon name="refresh-cw" [size]="16"></lucide-icon>
-            Refrescar metricas
-          </app-button>
-        </div>
-
-        <div class="analytics-hero__stats">
-          <div class="analytics-hero-stat">
-            <span class="analytics-hero-stat__label">Politicas activas</span>
-            <strong class="analytics-hero-stat__value">
-              {{ formatCount(general()?.activePolicies) }}/{{ formatCount(general()?.totalPolicies) }}
-            </strong>
-          </div>
-          <div class="analytics-hero-stat">
-            <span class="analytics-hero-stat__label">Tareas pendientes</span>
-            <strong class="analytics-hero-stat__value">{{ formatCount(general()?.pendingTasks) }}</strong>
-          </div>
-          <div class="analytics-hero-stat">
-            <span class="analytics-hero-stat__label">Resolucion</span>
-            <strong class="analytics-hero-stat__value">{{ taskCompletionRate() }}%</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="analytics-hero__panel">
-        <div class="analytics-glass-card analytics-glass-card--dark">
-          <div class="analytics-mini-head">
-            <p class="analytics-mini-head__label">Instancias</p>
-            <span class="analytics-mini-head__value">{{ formatCount(general()?.totalInstances) }}</span>
-          </div>
-
-          @if (instanceDistribution().length > 0) {
-            <div class="analytics-segmented-bar">
-              @for (segment of instanceDistribution(); track segment.label) {
-                <div
-                  [ngClass]="segment.tone"
-                  [style.width.%]="segment.width"
-                  [attr.title]="segment.label + ': ' + formatCount(segment.value)"
-                ></div>
-              }
-            </div>
-
-            <div class="analytics-legend-grid">
-              @for (segment of instanceDistribution(); track segment.label) {
-                <div class="analytics-legend-item">
-                  <span class="analytics-legend-item__dot" [ngClass]="segment.tone"></span>
-                  <div>
-                    <p class="analytics-legend-item__label">{{ segment.label }}</p>
-                    <p class="analytics-legend-item__value">{{ formatCount(segment.value) }}</p>
-                  </div>
-                </div>
-              }
-            </div>
+          @if (activeTab() === 'metrics') {
+            <app-button
+              variant="outline"
+              className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+              [pending]="loading()"
+              pendingLabel="Actualizando..."
+              (click)="loadDashboardSummary()"
+            >
+              <lucide-icon name="refresh-cw" [size]="16"></lucide-icon>
+              Refrescar metricas
+            </app-button>
           } @else {
-            <p class="analytics-empty-copy">Sin instancias registradas.</p>
+            <app-button
+              variant="outline"
+              className="border-white/20 bg-white/10 text-white hover:bg-white/15"
+              [pending]="auditLoading()"
+              pendingLabel="Actualizando..."
+              (click)="refreshSystemAuditLogs()"
+            >
+              <lucide-icon name="refresh-cw" [size]="16"></lucide-icon>
+              Refrescar auditoría
+            </app-button>
           }
         </div>
 
-        <div class="analytics-glass-card analytics-glass-card--light">
-          <p class="analytics-mini-head__label">Ritmo de ejecucion</p>
-          <div class="mt-3 flex items-end gap-3">
-            <div>
-              <p class="text-4xl font-bold text-white">{{ taskCompletionRate() }}%</p>
-              <p class="mt-1 text-sm text-white/70">tareas cerradas sobre el total observado</p>
-            </div>
-            <div class="ml-auto rounded-2xl bg-white/10 p-3 text-white/80">
-              <lucide-icon name="arrow-left-right" [size]="22"></lucide-icon>
-            </div>
-          </div>
-          <div class="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-            <div
-              class="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-emerald-300"
-              [style.width.%]="taskCompletionRate()"
-            ></div>
+        <div class="analytics-tabs-wrap">
+          <div class="analytics-tabs" role="tablist" aria-label="Secciones analíticas">
+            <button
+              type="button"
+              role="tab"
+              class="analytics-tab"
+              [class.analytics-tab--active]="activeTab() === 'metrics'"
+              [attr.aria-selected]="activeTab() === 'metrics'"
+              (click)="setActiveTab('metrics')"
+            >
+              Métricas y Desempeño
+            </button>
+            <button
+              type="button"
+              role="tab"
+              class="analytics-tab"
+              [class.analytics-tab--active]="activeTab() === 'system_audit'"
+              [attr.aria-selected]="activeTab() === 'system_audit'"
+              (click)="setActiveTab('system_audit')"
+            >
+              Auditoría del Sistema
+            </button>
           </div>
         </div>
+
+        @if (activeTab() === 'metrics') {
+          <div class="analytics-hero__stats">
+            <div class="analytics-hero-stat">
+              <span class="analytics-hero-stat__label">Politicas activas</span>
+              <strong class="analytics-hero-stat__value">
+                {{ formatCount(general()?.activePolicies) }}/{{ formatCount(general()?.totalPolicies) }}
+              </strong>
+            </div>
+            <div class="analytics-hero-stat">
+              <span class="analytics-hero-stat__label">Tareas pendientes</span>
+              <strong class="analytics-hero-stat__value">{{ formatCount(general()?.pendingTasks) }}</strong>
+            </div>
+            <div class="analytics-hero-stat">
+              <span class="analytics-hero-stat__label">Resolucion</span>
+              <strong class="analytics-hero-stat__value">{{ taskCompletionRate() }}%</strong>
+            </div>
+          </div>
+        } @else {
+          <div class="analytics-hero__stats">
+            <div class="analytics-hero-stat">
+              <span class="analytics-hero-stat__label">Eventos Filtrados</span>
+              <strong class="analytics-hero-stat__value">{{ formatCount(filteredAuditLogs().length) }}</strong>
+            </div>
+            <div class="analytics-hero-stat">
+              <span class="analytics-hero-stat__label">Total Registrados</span>
+              <strong class="analytics-hero-stat__value">{{ formatCount(auditLogs().length) }}</strong>
+            </div>
+            <div class="analytics-hero-stat">
+              <span class="analytics-hero-stat__label">Acciones Únicas</span>
+              <strong class="analytics-hero-stat__value">{{ uniqueActions().length }}</strong>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="analytics-hero__panel">
+        @if (activeTab() === 'metrics') {
+          <div class="analytics-glass-card analytics-glass-card--dark">
+            <div class="analytics-mini-head">
+              <p class="analytics-mini-head__label">Instancias</p>
+              <span class="analytics-mini-head__value">{{ formatCount(general()?.totalInstances) }}</span>
+            </div>
+
+            @if (instanceDistribution().length > 0) {
+              <div class="analytics-segmented-bar">
+                @for (segment of instanceDistribution(); track segment.label) {
+                  <div
+                    [ngClass]="segment.tone"
+                    [style.width.%]="segment.width"
+                    [attr.title]="segment.label + ': ' + formatCount(segment.value)"
+                  ></div>
+                }
+              </div>
+
+              <div class="analytics-legend-grid">
+                @for (segment of instanceDistribution(); track segment.label) {
+                  <div class="analytics-legend-item">
+                    <span class="analytics-legend-item__dot" [ngClass]="segment.tone"></span>
+                    <div>
+                      <p class="analytics-legend-item__label">{{ segment.label }}</p>
+                      <p class="analytics-legend-item__value">{{ formatCount(segment.value) }}</p>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="analytics-empty-copy">Sin instancias registradas.</p>
+            }
+          </div>
+
+          <div class="analytics-glass-card analytics-glass-card--light">
+            <p class="analytics-mini-head__label">Ritmo de ejecucion</p>
+            <div class="mt-3 flex items-end gap-3">
+              <div>
+                <p class="text-4xl font-bold text-white">{{ taskCompletionRate() }}%</p>
+                <p class="mt-1 text-sm text-white/70">tareas cerradas sobre el total observado</p>
+              </div>
+              <div class="ml-auto rounded-2xl bg-white/10 p-3 text-white/80">
+                <lucide-icon name="arrow-left-right" [size]="22"></lucide-icon>
+              </div>
+            </div>
+            <div class="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-emerald-300"
+                [style.width.%]="taskCompletionRate()"
+              ></div>
+            </div>
+          </div>
+        } @else {
+          <div class="analytics-glass-card analytics-glass-card--dark">
+            <div class="analytics-mini-head">
+              <p class="analytics-mini-head__label">Seguridad</p>
+              <span class="analytics-mini-head__value">Monitoreo</span>
+            </div>
+            <p class="mt-3 text-sm text-white/85">
+              Visualiza en tiempo real los accesos a la web, inicios de sesión móvil, modificaciones de políticas y más actividades administrativas.
+            </p>
+            <div class="mt-4 flex items-center justify-between text-xs text-white/50">
+              <span>Auditoría Activa</span>
+              <span>MongoDB</span>
+            </div>
+          </div>
+        }
       </div>
     </div>
   </header>
 
-  @if (loading() && !hasSummary()) {
-    <app-loader message="Cargando analitica del sistema..." />
+  @if (activeTab() === 'metrics') {
+    @if (loading() && !hasSummary()) {
+      <app-loader message="Cargando analitica del sistema..." />
   } @else if (error() && !hasSummary()) {
     <app-empty-state
       title="No se pudo cargar la analitica"
@@ -704,5 +776,113 @@
       [bottlenecks]="bottlenecks()"
       [taskRecommendations]="taskRecommendations()"
     />
+    }
+  } @else {
+    <!-- System Audit dashboard -->
+    <section class="analytics-section-block animate-fade-in">
+      <div class="analytics-section-head">
+        <div>
+          <p class="analytics-section-kicker">Historial general</p>
+          <h2 class="analytics-section-title">Auditoría del Sistema</h2>
+          <p class="analytics-section-subtitle">Registro centralizado de accesos y modificaciones en la plataforma.</p>
+        </div>
+        <span class="analytics-pill analytics-pill--sky">Operaciones</span>
+      </div>
+
+      <app-card className="analytics-surface p-5 mb-5 shadow-sm border border-slate-100">
+        <div class="audit-filters-grid">
+          <div class="search-input-wrap">
+            <label for="auditSearch" class="filter-label">Buscar usuario o detalle</label>
+            <input
+              id="auditSearch"
+              type="text"
+              class="filter-input"
+              placeholder="Ej. admin, inicio de sesión, crédito..."
+              [value]="searchTerm()"
+              (input)="searchTerm.set($any($event.target).value)"
+            />
+          </div>
+
+          <div class="select-input-wrap">
+            <label for="auditAction" class="filter-label">Filtrar por acción</label>
+            <select
+              id="auditAction"
+              class="filter-select"
+              [value]="filterAction()"
+              (change)="filterAction.set($any($event.target).value)"
+            >
+              <option value="TODOS">Todas las acciones</option>
+              @for (action of uniqueActions(); track action) {
+                <option [value]="action">{{ getAuditAccionLabel(action) }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </app-card>
+
+      @if (auditLoading()) {
+        <div class="audit-state-container">
+          <div class="spinner"></div>
+          <p>Cargando registros de auditoría...</p>
+        </div>
+      } @else if (auditError()) {
+        <div class="audit-state-container audit-state-container--error">
+          <p>{{ auditError() }}</p>
+          <button type="button" class="refresh-button" (click)="refreshSystemAuditLogs()">Reintentar</button>
+        </div>
+      } @else if (filteredAuditLogs().length === 0) {
+        <div class="audit-state-container">
+          <p>No se encontraron registros de auditoría que coincidan con los filtros.</p>
+        </div>
+      } @else {
+        <app-card className="analytics-surface overflow-hidden shadow-sm border border-slate-100">
+          <div class="analytics-table-wrap">
+            <app-table className="analytics-table">
+              <thead>
+                <tr class="analytics-table__head-row">
+                  <th class="px-5 py-3 text-left">Usuario / Rol</th>
+                  <th class="px-5 py-3 text-left">Acción</th>
+                  <th class="px-5 py-3 text-left">Detalle del Evento</th>
+                  <th class="px-5 py-3 text-left">Fecha y Hora</th>
+                  <th class="px-5 py-3 text-left">IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (log of filteredAuditLogs(); track trackAuditLog($index, log)) {
+                  <tr class="analytics-table__row">
+                    <td class="px-5 py-3">
+                      <div class="audit-user-cell">
+                        <div class="user-avatar" [ngClass]="getAuditRolClass(log.rol)">
+                          {{ (log.usuarioNombre || 'U').substring(0, 1) | uppercase }}
+                        </div>
+                        <div class="user-meta-info">
+                          <p class="font-bold text-slate-900 leading-tight">{{ log.usuarioNombre || 'Sistema' }}</p>
+                          <p class="text-xs text-slate-500 leading-none mt-0.5">{{ log.usuarioCorreo || 'correo@sistema.com' }}</p>
+                          <span class="role-badge mt-1" [attr.data-role]="log.rol">{{ log.rol }}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-5 py-3">
+                      <span class="audit-action-tag" [ngClass]="getAuditAccionClass(log.accion)">
+                        {{ getAuditAccionLabel(log.accion) }}
+                      </span>
+                    </td>
+                    <td class="px-5 py-3 text-sm text-slate-700 text-wrap-cell">
+                      {{ log.detalle || 'Sin detalles' }}
+                    </td>
+                    <td class="px-5 py-3 text-sm text-slate-500 whitespace-nowrap">
+                      {{ log.fecha | date : 'dd/MM/yyyy HH:mm:ss' }}
+                    </td>
+                    <td class="px-5 py-3 text-sm text-slate-400 font-mono">
+                      {{ log.ip || '-' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </app-table>
+          </div>
+        </app-card>
+      }
+    </section>
   }
 </section>

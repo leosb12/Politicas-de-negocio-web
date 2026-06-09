@@ -6,6 +6,7 @@ import {
   AdministradorAnaliticasDashboardSummary,
   BottlenecksResponse,
   TaskRedistributionResponse,
+  SystemAuditResponse,
 } from '../models/administrador-analiticas.model';
 
 @Injectable({
@@ -27,5 +28,9 @@ export class AdministradorAnaliticasService {
 
   getTaskRecommendations(): Observable<TaskRedistributionResponse> {
     return this.http.get<TaskRedistributionResponse>(`${this.analyticsUrl}/task-redistribution`);
+  }
+
+  getSystemAuditLogs(): Observable<SystemAuditResponse[]> {
+    return this.http.get<SystemAuditResponse[]>(`${this.analyticsUrl}/system-audit`);
   }
 }

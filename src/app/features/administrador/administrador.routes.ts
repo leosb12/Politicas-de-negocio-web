@@ -126,13 +126,6 @@ export const ADMINISTRADOR_ROUTES: Routes = [
           ),
       },
       {
-        path: 'reportes-dinamicos',
-        loadComponent: () =>
-          import('./pages/administrador-reportes-dinamicos/administrador-reportes-dinamicos').then(
-            (module) => module.AdministradorReportesDinamicosPageComponent
-          ),
-      },
-      {
         path: 'reportes-inteligentes',
         loadComponent: () =>
           import('./pages/reportes/reportes-inteligentes/reportes-inteligentes.component').then(

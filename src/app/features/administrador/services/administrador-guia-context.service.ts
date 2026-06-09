@@ -8,6 +8,12 @@ export class AdministradorGuiaContextService {
   readonly selectedNodeId = signal<string | null>(null);
   readonly availableActions = signal<string[]>([]);
 
+  // Señales para contexto extendido de reportes
+  readonly currentPath = signal<string | null>(null);
+  readonly visibleButtons = signal<string[]>([]);
+  readonly currentModule = signal<string | null>(null);
+  readonly exportFormatsAvailable = signal<string[]>([]);
+
   setScreen(screen: AdministradorGuiaScreen): void {
     this.screen.set(screen);
   }
@@ -26,6 +32,10 @@ export class AdministradorGuiaContextService {
     this.policyId.set(null);
     this.selectedNodeId.set(null);
     this.availableActions.set([]);
+    this.currentPath.set(null);
+    this.visibleButtons.set([]);
+    this.currentModule.set(null);
+    this.exportFormatsAvailable.set([]);
   }
 
   buildRequest(question: string): AdministradorGuiaRequest {
@@ -36,6 +46,12 @@ export class AdministradorGuiaContextService {
         policyId: this.policyId(),
         selectedNodeId: this.selectedNodeId(),
         availableActions: this.availableActions(),
+        currentPath: this.currentPath(),
+        role: 'ADMIN',
+        screenName: this.screen(),
+        visibleButtons: this.visibleButtons(),
+        currentModule: this.currentModule(),
+        exportFormatsAvailable: this.exportFormatsAvailable(),
       },
     };
   }
@@ -44,3 +60,4 @@ export class AdministradorGuiaContextService {
     return [...new Set((values ?? []).filter(Boolean))];
   }
 }
+

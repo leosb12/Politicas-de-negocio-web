@@ -86,13 +86,66 @@ export interface DocumentoVersionResponse {
   hashArchivoOpcional?: string | null;
 }
 
+export interface EdicionAuditoriaDto {
+  id: string;
+  tipoAccion: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  fecha: string;
+  detalle: string;
+}
+
+export interface IniciadorAuditoriaDto {
+  instanciaId: string;
+  codigoTramite: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  usuarioCorreo: string;
+  fechaInicio: string;
+  estadoInstancia: string;
+}
+
+export interface TramiteRealizadoDto {
+  instanciaId: string;
+  codigoTramite: string;
+  tareaId: string;
+  nodoId: string;
+  nombreNodo: string;
+  funcionarioId: string;
+  funcionarioNombre: string;
+  fechaInicio: string;
+  fechaFin: string | null;
+  estadoTarea: string;
+}
+
+export interface ColaboradorAuditoriaDto {
+  usuarioId: string;
+  nombre: string;
+  correo: string;
+  rolEnSistema: string;
+  participacion: string;
+  totalActividades: number;
+}
+
+export interface PoliticaAuditoriaGeneralResponse {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  estado: string;
+  creadoPorId: string;
+  creadoPorNombre: string;
+  fechaCreacion: string;
+  ediciones: EdicionAuditoriaDto[];
+  iniciadores: IniciadorAuditoriaDto[];
+  tramitesRealizados: TramiteRealizadoDto[];
+  colaboradores: ColaboradorAuditoriaDto[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class PoliticaService {
   private readonly http = inject(HttpClient);
   private readonly url = API_ENDPOINTS.politicas;
   private readonly documentPermissionsUrl = API_ENDPOINTS.documentPermissions;
-
-  /** GET /api/politicas */
   getAll(): Observable<PoliticaNegocio[]> {
     return this.http.get<PoliticaNegocio[]>(this.url);
   }
@@ -181,5 +234,10 @@ export class PoliticaService {
   /** DELETE /api/politicas/:id */
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.url}/${id}`);
+  }
+
+  /** GET /api/politicas/:id/auditoria/general */
+  getAuditoriaGeneral(id: string): Observable<PoliticaAuditoriaGeneralResponse> {
+    return this.http.get<PoliticaAuditoriaGeneralResponse>(`${this.url}/${id}/auditoria/general`);
   }
 }

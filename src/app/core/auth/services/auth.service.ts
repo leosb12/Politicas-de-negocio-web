@@ -89,6 +89,18 @@ export class AuthService {
   }
 
   cerrarSesion(): void {
+    const usuario = this.session();
+    if (usuario) {
+      this.http.post(`${this.apiUrl}/logout`, {}, {
+        headers: {
+          'X-User-Id': usuario.id || '',
+          'X-Admin-User-Id': usuario.id || ''
+        }
+      }).subscribe({
+        next: () => {},
+        error: () => {}
+      });
+    }
     localStorage.removeItem(SESSION_STORAGE_KEY);
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     this.session.set(null);

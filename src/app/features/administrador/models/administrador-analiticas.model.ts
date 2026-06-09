@@ -137,3 +137,15 @@ export interface TaskRedistributionResponse {
   source: string;
   available: boolean;
 }
+
+export interface SystemAuditResponse {
+  id: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  usuarioCorreo: string;
+  rol: string;
+  accion: string;
+  fecha: string;
+  detalle: string;
+  ip: string;
+}

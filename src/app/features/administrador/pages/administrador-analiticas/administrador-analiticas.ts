@@ -15,8 +15,11 @@ import {
   AdministradorAnaliticasDashboardSummary,
   BottlenecksResponse,
   TaskRedistributionResponse,
+  SystemAuditResponse,
 } from '../../models/administrador-analiticas.model';
 import { AdministradorAnaliticasService } from '../../services/administrador-analiticas.service';
+
+type AnalyticsTab = 'metrics' | 'system_audit';
 
 @Component({
   selector: 'app-administrador-analiticas-page',
@@ -45,6 +48,37 @@ export class AdministradorAnaliticasPageComponent implements OnInit {
   readonly aiError = signal(false);
   readonly bottlenecks = signal<BottlenecksResponse | null>(null);
   readonly taskRecommendations = signal<TaskRedistributionResponse | null>(null);
+
+  readonly activeTab = signal<AnalyticsTab>('metrics');
+  readonly auditLogs = signal<SystemAuditResponse[]>([]);
+  readonly auditLoading = signal(false);
+  readonly auditError = signal<string | null>(null);
+  readonly searchTerm = signal('');
+  readonly filterAction = signal('TODOS');
+
+  readonly uniqueActions = computed(() => {
+    const logs = this.auditLogs();
+    const actions = new Set<string>();
+    logs.forEach(item => {
+      if (item.accion) actions.add(item.accion);
+    });
+    return Array.from(actions).sort();
+  });
+
+  readonly filteredAuditLogs = computed(() => {
+    const logs = this.auditLogs();
+    const query = this.searchTerm().toLowerCase().trim();
+    const action = this.filterAction();
+
+    return logs.filter(item => {
+      const matchesAction = action === 'TODOS' || item.accion === action;
+      
+      const searchStr = `${item.usuarioNombre || ''} ${item.usuarioCorreo || ''} ${item.detalle || ''} ${item.accion || ''}`.toLowerCase();
+      const matchesSearch = !query || searchStr.includes(query);
+
+      return matchesAction && matchesSearch;
+    });
+  });
 
   readonly hasSummary = computed(() => this.summary() !== null);
   readonly general = computed(() => this.summary()?.general ?? null);
@@ -174,8 +208,99 @@ export class AdministradorAnaliticasPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loadDashboardSummary();
-    this.loadAI();
+    if (this.activeTab() === 'metrics') {
+      this.loadDashboardSummary();
+      this.loadAI();
+    } else {
+      this.loadSystemAuditLogs();
+    }
+  }
+
+  setActiveTab(tab: AnalyticsTab): void {
+    this.activeTab.set(tab);
+    if (tab === 'metrics') {
+      this.loadDashboardSummary();
+      this.loadAI();
+    } else if (tab === 'system_audit') {
+      this.loadSystemAuditLogs();
+    }
+  }
+
+  loadSystemAuditLogs(force = false): void {
+    if (!force && this.auditLogs().length > 0) {
+      return;
+    }
+
+    this.auditLoading.set(true);
+    this.auditError.set(null);
+
+    this.analyticsService.getSystemAuditLogs().subscribe({
+      next: (logs) => {
+        this.auditLogs.set(logs || []);
+        this.auditLoading.set(false);
+      },
+      error: (error: unknown) => {
+        this.auditError.set(
+          getApiErrorMessage(error, 'No fue posible cargar la auditoría del sistema.')
+        );
+        this.auditLoading.set(false);
+      },
+    });
+  }
+
+  refreshSystemAuditLogs(): void {
+    this.loadSystemAuditLogs(true);
+  }
+
+  getAuditAccionLabel(accion: string): string {
+    const labels: Record<string, string> = {
+      LOGIN_WEB: 'Sesión Web',
+      LOGIN_MOVIL: 'Sesión Móvil',
+      LOGOUT: 'Cierre de Sesión',
+      REGISTRO_MOVIL: 'Registro Móvil',
+      CAMBIO_PASSWORD: 'Cambio Contraseña',
+      POLITICA_CREACION: 'Creación Política',
+      POLITICA_EDICION_FLUJO: 'Edición Flujo',
+      POLITICA_EDICION_METADATOS: 'Metadatos Modificados',
+      POLITICA_EDICION_REQUISITOS: 'Requisitos Modificados',
+      POLITICA_CAMBIO_ESTADO: 'Estado Modificado',
+      POLITICA_ELIMINACION: 'Eliminación Política',
+      MODIFICAR_DOCUMENTO: 'Modificación Documento',
+      REPORTE_GENERACION: 'Generación Reporte',
+    };
+    return labels[accion] || accion;
+  }
+
+  getAuditAccionClass(accion: string): string {
+    const classes: Record<string, string> = {
+      LOGIN_WEB: 'audit-tag--login-web',
+      LOGIN_MOVIL: 'audit-tag--login-movil',
+      LOGOUT: 'audit-tag--logout',
+      REGISTRO_MOVIL: 'audit-tag--register',
+      CAMBIO_PASSWORD: 'audit-tag--password',
+      POLITICA_CREACION: 'audit-tag--policy-create',
+      POLITICA_EDICION_FLUJO: 'audit-tag--policy-edit',
+      POLITICA_EDICION_METADATOS: 'audit-tag--policy-meta',
+      POLITICA_EDICION_REQUISITOS: 'audit-tag--policy-req',
+      POLITICA_CAMBIO_ESTADO: 'audit-tag--policy-status',
+      POLITICA_ELIMINACION: 'audit-tag--policy-delete',
+      MODIFICAR_DOCUMENTO: 'audit-tag--doc-edit',
+      REPORTE_GENERACION: 'audit-tag--report',
+    };
+    return classes[accion] || 'audit-tag--default';
+  }
+
+  getAuditRolClass(rol: string): string {
+    const classes: Record<string, string> = {
+      ADMIN: 'role-tag--admin',
+      FUNCIONARIO: 'role-tag--funcionario',
+      USUARIO: 'role-tag--usuario',
+    };
+    return classes[rol] || 'role-tag--default';
+  }
+
+  trackAuditLog(_: number, item: SystemAuditResponse): string {
+    return item.id || `${item.accion}-${item.fecha}`;
   }
 
   loadDashboardSummary(): void {

@@ -10,24 +10,26 @@
   <!-- Command Input Section -->
   <div class="prompt-section card">
     <div class="prompt-box">
-      <textarea
-        [ngModel]="promptText()"
-        (ngModelChange)="promptText.set($event)"
-        placeholder="Ej: Quiero un gráfico de barras con los funcionarios más activos, abajo una torta con los usuarios que más inician políticas y debajo una tabla con los administradores que más políticas crearon."
-        rows="3"
-        [disabled]="isProcessing()"
-      ></textarea>
-      
+      <textarea [ngModel]="promptText()" (ngModelChange)="promptText.set($event)"
+        placeholder="Ej: Quiero un gráfico de barras con los funcionarios más activos, abajo una torta con los usuarios que más inician políticas y debajo una tabla con las politicas mas usadas. en pantalla"
+        rows="3" [disabled]="isProcessing()"></textarea>
+
       <div class="prompt-actions">
         <button class="btn-clear" (click)="limpiar()" [disabled]="isProcessing() || !promptText()">
           Limpiar
         </button>
         <div class="ia-plus-toggle-wrapper">
           <label class="ia-plus-toggle">
-            <input type="checkbox" [checked]="iaPlus()" (change)="iaPlus.set($any($event.target).checked)" [disabled]="isProcessing()">
+            <input type="checkbox" [checked]="iaPlus()" (change)="iaPlus.set($any($event.target).checked)"
+              [disabled]="isProcessing()">
             <span class="ia-plus-toggle-text">IA+</span>
           </label>
         </div>
+        <button class="btn-voice" (click)="toggleDictado()" [disabled]="isProcessing()"
+          [class.dictating]="isDictating()" [title]="isDictating() ? 'Detener dictado por voz' : 'Dictar por voz'">
+          <span class="mic-icon">🎤</span>
+          <span>{{ isDictating() ? 'Grabando...' : 'Dictar' }}</span>
+        </button>
         <button class="btn-generate" (click)="generarReporte()" [disabled]="isProcessing() || !promptText().trim()">
           <span *ngIf="!isProcessing()">Generar Reporte</span>
           <span *ngIf="isProcessing()">Generando...</span>
@@ -39,11 +41,7 @@
     <div class="suggestions" *ngIf="!isProcessing() && !reporte()">
       <h3>Sugerencias rápidas:</h3>
       <div class="suggestions-grid">
-        <div 
-          *ngFor="let sug of sugerencias" 
-          class="suggestion-item" 
-          (click)="seleccionarSugerencia(sug)"
-        >
+        <div *ngFor="let sug of sugerencias" class="suggestion-item" (click)="seleccionarSugerencia(sug)">
           {{ sug }}
         </div>
       </div>
@@ -81,11 +79,8 @@
 
     <!-- Blocks Grid -->
     <div class="blocks-container">
-      <div 
-        *ngFor="let bloque of reporte()?.bloques" 
-        class="block-wrapper"
-        [style.grid-column]="bloque.tipo === 'kpi' ? 'span 1' : 'span 2'"
-      >
+      <div *ngFor="let bloque of reporte()?.bloques" class="block-wrapper"
+        [style.grid-column]="bloque.tipo === 'kpi' ? 'span 1' : 'span 2'">
         <app-bloque-reporte [bloque]="bloque"></app-bloque-reporte>
       </div>
     </div>
@@ -96,21 +91,24 @@
     <div class="modal-card" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div class="modal-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="header-svg">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="header-svg">
             <circle cx="12" cy="12" r="10"></circle>
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
             <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
         </div>
         <h2>¿Dónde quieres ver este reporte?</h2>
-        <p>No hemos detectado un formato de visualización en tu solicitud. Por favor, selecciona cómo deseas ver la información:</p>
+        <p>No hemos detectado un formato de visualización en tu solicitud. Por favor, selecciona cómo deseas ver la
+          información:</p>
       </div>
 
       <div class="modal-body-grid">
         <!-- Opción Pantalla -->
         <div class="format-option-card" (click)="seleccionarFormato('pantalla')">
           <div class="option-icon bg-pantalla">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
               <line x1="8" y1="21" x2="16" y2="21"></line>
               <line x1="12" y1="17" x2="12" y2="21"></line>
@@ -125,7 +123,8 @@
         <!-- Opción PDF -->
         <div class="format-option-card" (click)="seleccionarFormato('pdf')">
           <div class="option-icon bg-pdf">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
               <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -142,7 +141,8 @@
         <!-- Opción Excel -->
         <div class="format-option-card" (click)="seleccionarFormato('excel')">
           <div class="option-icon bg-excel">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
               <line x1="3" y1="9" x2="21" y2="9"></line>
               <line x1="3" y1="15" x2="21" y2="15"></line>
@@ -159,7 +159,8 @@
         <!-- Opción Word -->
         <div class="format-option-card" (click)="seleccionarFormato('word')">
           <div class="option-icon bg-word">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
               <line x1="12" y1="18" x2="12" y2="12"></line>
@@ -175,7 +176,8 @@
         <!-- Opción PowerPoint -->
         <div class="format-option-card" (click)="seleccionarFormato('powerpoint')">
           <div class="option-icon bg-pptx">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
               <line x1="8" y1="21" x2="16" y2="21"></line>
               <line x1="12" y1="17" x2="12" y2="21"></line>
@@ -207,12 +209,8 @@
       </div>
 
       <div class="blocks-container">
-        <div 
-          *ngFor="let bloque of exportReporte()?.bloques" 
-          class="block-wrapper"
-          [style.grid-column]="bloque.tipo === 'kpi' ? 'span 1' : 'span 2'"
-          [id]="'export-block-' + bloque.id"
-        >
+        <div *ngFor="let bloque of exportReporte()?.bloques" class="block-wrapper"
+          [style.grid-column]="bloque.tipo === 'kpi' ? 'span 1' : 'span 2'" [id]="'export-block-' + bloque.id">
           <app-bloque-reporte [bloque]="bloque"></app-bloque-reporte>
         </div>
       </div>

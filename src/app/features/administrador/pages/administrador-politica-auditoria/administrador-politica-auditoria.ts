@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   AuditoriaDocumentalPoliticaResponse,
@@ -8,6 +8,11 @@ import {
   DocumentoVersionResponse,
   PoliticaService,
   TareaDocumentoAuditoriaResponse,
+  PoliticaAuditoriaGeneralResponse,
+  EdicionAuditoriaDto,
+  IniciadorAuditoriaDto,
+  TramiteRealizadoDto,
+  ColaboradorAuditoriaDto,
 } from '../../services/politica.service';
 import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 import { forkJoin, of } from 'rxjs';
@@ -22,7 +27,7 @@ type AuditoriaTab = 'general' | 'documental';
   templateUrl: './administrador-politica-auditoria.html',
   styleUrl: './administrador-politica-auditoria.css',
 })
-export class AdministradorPoliticaAuditoriaPageComponent {
+export class AdministradorPoliticaAuditoriaPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly politicaService = inject(PoliticaService);
@@ -44,6 +49,18 @@ export class AdministradorPoliticaAuditoriaPageComponent {
   readonly documentVersionsError = signal<string | null>(null);
   readonly openingVersion = signal<number | null>(null);
 
+  readonly generalLoading = signal(false);
+  readonly generalError = signal<string | null>(null);
+  readonly auditoriaGeneral = signal<PoliticaAuditoriaGeneralResponse | null>(null);
+
+  ngOnInit(): void {
+    if (this.activeTab() === 'general') {
+      this.loadAuditoriaGeneral();
+    } else {
+      this.loadAuditoriaDocumental();
+    }
+  }
+
   abrirDocumentoColaborativo(id: string | null | undefined): void {
     if (id) {
       this.router.navigate(['/admin/documentos-colaborativos', id, 'editar']);
@@ -54,7 +71,81 @@ export class AdministradorPoliticaAuditoriaPageComponent {
     this.activeTab.set(tab);
     if (tab === 'documental') {
       this.loadAuditoriaDocumental();
+    } else if (tab === 'general') {
+      this.loadAuditoriaGeneral();
     }
+  }
+
+  loadAuditoriaGeneral(force = false): void {
+    const id = this.politicaId;
+    if (!id) {
+      this.generalError.set('No se encontro la politica para consultar la auditoria general.');
+      return;
+    }
+
+    if (!force && this.auditoriaGeneral()) {
+      return;
+    }
+
+    this.generalLoading.set(true);
+    this.generalError.set(null);
+
+    this.politicaService.getAuditoriaGeneral(id).subscribe({
+      next: (response) => {
+        this.auditoriaGeneral.set(response);
+        this.generalLoading.set(false);
+      },
+      error: (error: unknown) => {
+        this.generalError.set(
+          getApiErrorMessage(error, 'No se pudo cargar la auditoria general')
+        );
+        this.generalLoading.set(false);
+      },
+    });
+  }
+
+  refreshAuditoriaGeneral(): void {
+    this.loadAuditoriaGeneral(true);
+  }
+
+  getEdicionAccionLabel(tipoAccion: string): string {
+    const labels: Record<string, string> = {
+      CREACION: 'Creación de Política',
+      EDICION_METADATOS: 'Metadatos Modificados',
+      EDICION_FLUJO: 'Flujo de Trabajo Editado',
+      EDICION_REQUISITOS: 'Requisitos Iniciales Editados',
+      CAMBIO_ESTADO: 'Cambio de Estado',
+      EDICION_CANVAS_COLABORATIVA: 'Edición en Lienzo',
+    };
+    return labels[tipoAccion] || tipoAccion;
+  }
+
+  getEdicionAccionClass(tipoAccion: string): string {
+    const classes: Record<string, string> = {
+      CREACION: 'general-action--creation',
+      EDICION_METADATOS: 'general-action--metadata',
+      EDICION_FLUJO: 'general-action--flow',
+      EDICION_REQUISITOS: 'general-action--requirements',
+      CAMBIO_ESTADO: 'general-action--status',
+      EDICION_CANVAS_COLABORATIVA: 'general-action--canvas',
+    };
+    return classes[tipoAccion] || 'general-action--default';
+  }
+
+  trackEdicion(_: number, edicion: EdicionAuditoriaDto): string {
+    return edicion.id || `${edicion.tipoAccion}-${edicion.fecha}`;
+  }
+
+  trackIniciador(_: number, iniciador: IniciadorAuditoriaDto): string {
+    return iniciador.instanciaId;
+  }
+
+  trackTramiteRealizado(_: number, tramite: TramiteRealizadoDto): string {
+    return `${tramite.instanciaId}-${tramite.tareaId}`;
+  }
+
+  trackColaborador(_: number, colaborador: ColaboradorAuditoriaDto): string {
+    return colaborador.usuarioId;
   }
 
   loadAuditoriaDocumental(force = false): void {

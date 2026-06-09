@@ -245,7 +245,19 @@ export class AdministradorGuiaBotComponent {
       ];
     }
 
+    if (screen === 'ADMIN_REPORTS') {
+      return [
+        '¿Cómo hago un reporte dinámico?',
+        '¿Cómo exporto a Excel o PDF?',
+        '¿Qué diferencia hay entre Word y PDF?',
+        '¿Qué escribir para pedir un reporte?',
+        '¿Por qué no aparecen datos?',
+        '¿Qué significa reporte dinámico?'
+      ];
+    }
+
     return ['Que puedo hacer aqui?', 'En que me puedes ayudar?'];
+
   }
 
   severityClass(severity: GuideBotSeverity | undefined): string {
@@ -440,6 +452,10 @@ export class AdministradorGuiaBotComponent {
     if (url.includes('/admin/politicas')) {
       return 'POLICY_LIST';
     }
+    if (url.includes('/admin/reportes-inteligentes')) {
+      return 'ADMIN_REPORTS';
+    }
+
     if (url.includes('/admin/usuarios')) {
       return 'ADMIN_USERS';
     }
@@ -537,6 +553,27 @@ export class AdministradorGuiaBotComponent {
         suggestedForm: [],
         detectedIssues: [],
         suggestedActions: [],
+        severity: 'INFO',
+        source: 'AI',
+      };
+    }
+
+    if (screen === 'ADMIN_REPORTS') {
+      return {
+        answer:
+          'Estas en el visor de Reportes Inteligentes. Puedes indicarme en lenguaje natural que datos quieres analizar (ej: "tramites finalizados por funcionario") y que formato prefieres (Pantalla, PDF, Excel, Word o PowerPoint).',
+        steps: [
+          'Escribe tu consulta en la barra de texto.',
+          'Indica o selecciona un formato de salida (agrega "en pdf", "en excel" a tu consulta).',
+          'Haz clic en el boton "Generar Reporte".',
+          'Activa la opcion "IA+" para usar datos reales de la base de datos.',
+        ],
+        suggestedForm: [],
+        detectedIssues: [],
+        suggestedActions: [
+          { action: 'GENERAR_REPORTE', label: 'Generar Reporte' },
+          { action: 'LIMPIAR_PROMPT', label: 'Limpiar' }
+        ],
         severity: 'INFO',
         source: 'AI',
       };
