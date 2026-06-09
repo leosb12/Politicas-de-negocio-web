@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, from, of, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { IndexedDbService } from '../../../core/offline/indexeddb.service';
 import { API_BASE_URL, API_ENDPOINTS } from '../../../core/config/api.config';
 import {
   PoliticaNegocio,
@@ -144,20 +146,78 @@ export interface PoliticaAuditoriaGeneralResponse {
 @Injectable({ providedIn: 'root' })
 export class PoliticaService {
   private readonly http = inject(HttpClient);
+  private readonly db = inject(IndexedDbService);
   private readonly url = API_ENDPOINTS.politicas;
   private readonly documentPermissionsUrl = API_ENDPOINTS.documentPermissions;
+
+  // ===== MÉTODOS OFFLINE EXPLÍCITOS =====
+
+  async getPoliticasOffline(): Promise<PoliticaNegocio[]> {
+    return this.db.getAll<PoliticaNegocio>('politicas');
+  }
+
+  async getPoliticaDetalleOffline(id: string): Promise<PoliticaNegocio> {
+    const detail = await this.db.get<PoliticaNegocio>('politicaDetalles', id);
+    if (!detail) throw new Error(`Política no encontrada en caché: ${id}`);
+    return detail;
+  }
+
+  async getPoliticaFlujoOffline(id: string): Promise<any> {
+    const flow = await this.db.get<any>('politicaFlujos', id);
+    if (!flow) throw new Error(`Flujo no encontrado en caché: ${id}`);
+    return flow;
+  }
+
+  async getAuditoriaPoliticaOffline(id: string): Promise<PoliticaAuditoriaGeneralResponse> {
+    const audit = await this.db.get<PoliticaAuditoriaGeneralResponse>('politicaAuditoria', id);
+    if (!audit) throw new Error(`Auditoría de política no encontrada en caché: ${id}`);
+    return audit;
+  }
+
+  async getAuditoriaDocumentalOffline(id: string): Promise<AuditoriaDocumentalPoliticaResponse> {
+    const audit = await this.db.get<AuditoriaDocumentalPoliticaResponse>('auditoriaDocumental', id);
+    if (!audit) throw new Error(`Auditoría documental no encontrada en caché: ${id}`);
+    return audit;
+  }
+
+  // =======================================
+
   getAll(): Observable<PoliticaNegocio[]> {
-    return this.http.get<PoliticaNegocio[]>(this.url);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return from(this.getPoliticasOffline());
+    }
+    return this.http.get<PoliticaNegocio[]>(this.url).pipe(
+      catchError((err) => {
+        if (err.status === 0) return from(this.getPoliticasOffline());
+        return throwError(() => err);
+      })
+    );
   }
 
   /** GET /api/politicas/:id */
   getById(id: string): Observable<PoliticaNegocio> {
-    return this.http.get<PoliticaNegocio>(`${this.url}/${id}`);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return from(this.getPoliticaDetalleOffline(id));
+    }
+    return this.http.get<PoliticaNegocio>(`${this.url}/${id}`).pipe(
+      catchError((err) => {
+        if (err.status === 0) return from(this.getPoliticaDetalleOffline(id));
+        return throwError(() => err);
+      })
+    );
   }
 
   /** GET /api/politicas/:id/auditoria/documental */
   getAuditoriaDocumental(id: string): Observable<AuditoriaDocumentalPoliticaResponse> {
-    return this.http.get<AuditoriaDocumentalPoliticaResponse>(`${this.url}/${id}/auditoria/documental`);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return from(this.getAuditoriaDocumentalOffline(id));
+    }
+    return this.http.get<AuditoriaDocumentalPoliticaResponse>(`${this.url}/${id}/auditoria/documental`).pipe(
+      catchError((err) => {
+        if (err.status === 0) return from(this.getAuditoriaDocumentalOffline(id));
+        return throwError(() => err);
+      })
+    );
   }
 
   /** GET /api/document-permissions/audit/by-document/:documentoId */
@@ -206,7 +266,15 @@ export class PoliticaService {
 
   /** GET /api/politicas/:id/requisitos-iniciales */
   getRequisitosIniciales(id: string): Observable<CampoFormulario[]> {
-    return this.http.get<CampoFormulario[]>(`${this.url}/${id}/requisitos-iniciales`);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return from(this.db.get<any>('formDrafts', `requisitos-${id}`).then(d => d?.campos || []));
+    }
+    return this.http.get<CampoFormulario[]>(`${this.url}/${id}/requisitos-iniciales`).pipe(
+      catchError((err) => {
+        if (err.status === 0) return from(this.db.get<any>('formDrafts', `requisitos-${id}`).then(d => d?.campos || []));
+        return throwError(() => err);
+      })
+    );
   }
 
   /** PUT /api/politicas/:id/requisitos-iniciales */
@@ -238,6 +306,14 @@ export class PoliticaService {
 
   /** GET /api/politicas/:id/auditoria/general */
   getAuditoriaGeneral(id: string): Observable<PoliticaAuditoriaGeneralResponse> {
-    return this.http.get<PoliticaAuditoriaGeneralResponse>(`${this.url}/${id}/auditoria/general`);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return from(this.getAuditoriaPoliticaOffline(id));
+    }
+    return this.http.get<PoliticaAuditoriaGeneralResponse>(`${this.url}/${id}/auditoria/general`).pipe(
+      catchError((err) => {
+        if (err.status === 0) return from(this.getAuditoriaPoliticaOffline(id));
+        return throwError(() => err);
+      })
+    );
   }
 }

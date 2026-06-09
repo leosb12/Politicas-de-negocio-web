@@ -1,4 +1,4 @@
-import {
+﻿import {
   Component,
   OnInit,
   OnDestroy,
@@ -22,6 +22,7 @@ import { AdministradorUsuariosService } from '../../services/administrador-usuar
 import { AdministradorRolesService } from '../../services/administrador-roles.service';
 import { ToastService } from '../../../../shared/services/toast.service';
 import { AuthService } from '../../../../core/auth/services/auth.service';
+import { OfflineStatusService } from '../../../../core/offline/offline-status.service';
 import {
   PoliticaNegocio,
   Nodo,
@@ -298,6 +299,9 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly guideContext = inject(AdministradorGuiaContextService);
   private readonly iaMapperService = inject(IaFlujoMapperService);
   private readonly documentPermissionService = inject(DocumentPermissionService);
+  /** Expuesto al template para aviso offline */
+  readonly offlineStatus = inject(OfflineStatusService);
+  readonly isOfflineCanvas = this.offlineStatus.isOffline;
 
   // ── State ─────────────────────────────────────────────────────
   politica = signal<PoliticaNegocio | null>(null);

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { Usuario } from '../../../core/auth/models/usuario.model';
@@ -11,6 +11,7 @@ import { AppButtonComponent } from '../../ui/button/button';
 import { AppCardComponent } from '../../ui/card/card';
 import { AppInputComponent } from '../../ui/input/input';
 import { ProfileSummaryItem } from './profile-page.model';
+import { OfflineInitialSyncService } from '../../../core/offline/offline-initial-sync.service';
 
 type ProfileTheme = 'admin' | 'funcionario';
 
@@ -32,6 +33,7 @@ type ProfileTheme = 'admin' | 'funcionario';
 export class ProfilePageComponent {
   private readonly authService = inject(AuthService);
   private readonly toast = inject(ToastService);
+  readonly syncService = inject(OfflineInitialSyncService);
 
   readonly user = input<Usuario | null>(null);
   readonly theme = input<ProfileTheme>('admin');
@@ -47,6 +49,29 @@ export class ProfilePageComponent {
   readonly accountStatusLabel = input('Cuenta activa');
   readonly securityBadgeLabel = input('Proteccion');
   readonly summaryItems = input<ProfileSummaryItem[]>([]);
+
+  readonly isSyncingNow = signal(false);
+
+  eliminarDatosOffline(): void {
+    this.authService.clearOfflineData().then(() => {
+      this.toast.success('Datos eliminados', 'Se eliminaron correctamente todos los datos guardados en caché offline.');
+      this.syncService.lastSyncTime.set(null);
+    });
+  }
+
+  sincronizarAhora(): void {
+    const user = this.authService.obtenerSesion();
+    if (!user) return;
+    this.isSyncingNow.set(true);
+    this.syncService.syncAll(user.id, user.rol).then((success) => {
+      this.isSyncingNow.set(false);
+      if (success) {
+        this.toast.success('Sincronización exitosa', 'Se actualizaron todos los datos para uso offline.');
+      } else {
+        this.toast.info('Sincronización parcial', 'Hubo errores al sincronizar algunos módulos.');
+      }
+    });
+  }
 
   readonly pageClasses = computed(() => `perfil-page perfil-page--${this.theme()}`);
 

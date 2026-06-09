@@ -11,6 +11,7 @@ import { filter, fromEvent } from 'rxjs';
 import { LucideAngularModule } from 'lucide-angular';
 import { Usuario } from '../../../core/auth/models/usuario.model';
 import { AuthService } from '../../../core/auth/services/auth.service';
+import { OfflineStatusService } from '../../../core/offline/offline-status.service';
 import { isFuncionarioRole, isAdminRole } from '../../../core/auth/utils/role.util';
 
 interface HeaderMenuItem {
@@ -97,6 +98,20 @@ export class AppHeaderComponent {
   readonly profileRoute = computed(() =>
     this.isFuncionarioSession() ? '/funcionario/perfil' : '/admin/perfil'
   );
+
+  readonly statusService = inject(OfflineStatusService);
+  readonly probandoConexion = signal(false);
+  readonly testMessage = signal('');
+
+  checkConnection(): void {
+    this.probandoConexion.set(true);
+    this.testMessage.set('');
+    this.statusService.verifyConnectionActive().then((online) => {
+      this.probandoConexion.set(false);
+      this.testMessage.set(online ? 'Conectado a internet' : 'Sin conexión con el servidor');
+      setTimeout(() => this.testMessage.set(''), 3000);
+    });
+  }
 
   readonly menuGroups = computed(() => {
     const role = this.session()?.rol;

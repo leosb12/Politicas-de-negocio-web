@@ -1,0 +1,45 @@
+@if (isVisible()) {
+  <div
+    class="offline-banner"
+    [class]="'offline-banner--' + bannerConfig().type"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="offline-banner__content">
+      <div class="offline-banner__icon-wrap">
+        <lucide-icon
+          [name]="bannerConfig().icon"
+          [size]="16"
+          [class.offline-banner__icon--spin]="bannerConfig().type === 'syncing'"
+        />
+      </div>
+
+      <div class="offline-banner__text">
+        <span class="offline-banner__title">{{ bannerConfig().title }}</span>
+        <span class="offline-banner__subtitle">{{ bannerConfig().subtitle }}</span>
+      </div>
+
+      @if (bannerConfig().type === 'conflict') {
+        <div class="offline-banner__badge">
+          {{ conflicts().length }}
+        </div>
+      }
+
+      @if (bannerConfig().type === 'pending' || bannerConfig().type === 'offline-pending') {
+        <div class="offline-banner__count">
+          <span class="offline-banner__count-dot"></span>
+          {{ pendingCount() }} pendiente{{ pendingCount() !== 1 ? 's' : '' }}
+        </div>
+      }
+
+      @if (bannerConfig().type === 'offline' || bannerConfig().type === 'offline-pending') {
+        <button type="button" (click)="recomprobarConectividad()" class="offline-banner__btn">
+          <svg class="w-3.5 h-3.5" [class.animate-spin]="probandoConexion()" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73"></path>
+          </svg>
+          Probar conexión
+        </button>
+      }
+    </div>
+  </div>
+}

@@ -1,4 +1,4 @@
-<div class="designer-shell">
+﻿<div class="designer-shell">
 
   <!-- ════ TOP BAR ════════════════════════════════════════════ -->
   <header class="top-bar">
@@ -83,6 +83,14 @@
       }
     </div>
   </header>
+
+  <!-- ════ OFFLINE NOTICE ══════════════════════════════════════ -->
+  @if (isOfflineCanvas()) {
+    <div style="background:rgba(239,68,68,0.1);border-bottom:1px solid rgba(239,68,68,0.3);padding:6px 16px;display:flex;align-items:center;gap:8px;font-size:12px;color:#fca5a5;z-index:100;">
+      <lucide-icon name="wifi-off" [size]="14"></lucide-icon>
+      <span><strong>Sin conexión</strong> — La colaboración en tiempo real no está disponible. El canvas sigue visible con los últimos datos cargados. Los cambios locales se guardan como borrador automáticamente.</span>
+    </div>
+  }
 
   <!-- ════ MAIN AREA ════════════════════════════════════════════ -->
   <div class="main-area">

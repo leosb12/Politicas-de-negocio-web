@@ -9,6 +9,27 @@
       </div>
 
       <div class="app-header-actions">
+        <!-- Test connection button (visible at all times) -->
+        <div class="flex items-center gap-2 mr-4">
+          <span *ngIf="testMessage()" class="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-700 animate-pulse">
+            {{ testMessage() }}
+          </span>
+          <button type="button" (click)="checkConnection()" 
+                  class="text-xs font-medium text-slate-600 hover:text-blue-600 flex items-center gap-1 transition-colors px-2 py-1 border border-transparent hover:border-slate-200 rounded-md">
+            <svg class="w-4 h-4" [class.animate-spin]="probandoConexion()" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73"></path>
+            </svg>
+            <span class="desktop-only">Probar conexión</span>
+          </button>
+          
+          <div class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold"
+               [ngClass]="statusService.isOnline() ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'">
+            <span class="w-1.5 h-1.5 rounded-full mr-1"
+                  [ngClass]="statusService.isOnline() ? 'bg-green-500' : 'bg-amber-500 animate-pulse'"></span>
+            {{ statusService.isOnline() ? 'Online' : 'Offline' }}
+          </div>
+        </div>
+
         @if (session()) {
           <div class="app-header-user">
             <a

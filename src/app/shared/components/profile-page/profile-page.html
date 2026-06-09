@@ -78,5 +78,53 @@
         </div>
       </form>
     </app-card>
+
+    <!-- CARD DE DATOS OFFLINE -->
+    <app-card className="perfil-card">
+      <div class="perfil-card__header">
+        <div>
+          <p class="perfil-eyebrow">Almacenamiento Local</p>
+          <h2>Modo Offline y Datos</h2>
+        </div>
+        <app-badge variant="info">PWA Offline</app-badge>
+      </div>
+
+      <p class="perfil-card__description">
+        Gestiona los datos descargados en este equipo para trabajar sin conexión a internet.
+      </p>
+
+      <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6 space-y-3">
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-slate-500 font-medium">Última Sincronización:</span>
+          <span class="text-slate-800 font-semibold">
+            {{ syncService.lastSyncTime() || 'No sincronizado aún' }}
+          </span>
+        </div>
+        <div class="flex justify-between items-center text-sm" *ngIf="syncService.state() === 'SYNCING' || isSyncingNow()">
+          <span class="text-slate-500 font-medium">Estado Sync:</span>
+          <span class="text-blue-600 font-semibold animate-pulse">Sincronizando...</span>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button
+          type="button"
+          (click)="sincronizarAhora()"
+          [disabled]="isSyncingNow() || syncService.state() === 'SYNCING'"
+          class="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-xl transition flex items-center justify-center gap-2"
+        >
+          <span *ngIf="isSyncingNow() || syncService.state() === 'SYNCING'" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          Sincronizar ahora
+        </button>
+
+        <button
+          type="button"
+          (click)="eliminarDatosOffline()"
+          class="flex-1 py-3 px-4 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-semibold rounded-xl transition"
+        >
+          Eliminar datos offline
+        </button>
+      </div>
+    </app-card>
   </section>
 </div>

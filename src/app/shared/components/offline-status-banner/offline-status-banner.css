@@ -1,0 +1,222 @@
+/* ─────────────────────────────────────────
+   Offline Status Banner
+   Posicionado sticky en la parte superior del layout.
+   ───────────────────────────────────────── */
+
+.offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  animation: bannerSlideIn 0.3s ease-out;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid transparent;
+  transition: all 0.3s ease;
+}
+
+@keyframes bannerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Content layout ── */
+.offline-banner__content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 800px;
+  width: 100%;
+}
+
+.offline-banner__icon-wrap {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.offline-banner__icon--spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.offline-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.offline-banner__title {
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.offline-banner__subtitle {
+  font-weight: 400;
+  opacity: 0.8;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Badge ── */
+.offline-banner__badge {
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+/* ── Pending count ── */
+.offline-banner__count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.offline-banner__count-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ── Variantes de color ── */
+
+/* Offline sin pendientes */
+.offline-banner--offline {
+  background: rgba(30, 41, 59, 0.92);
+  color: #94a3b8;
+  border-bottom-color: rgba(100, 116, 139, 0.3);
+}
+
+/* Offline con pendientes */
+.offline-banner--pending,
+.offline-banner--offline-pending {
+  background: rgba(30, 41, 59, 0.95);
+  color: #fbbf24;
+  border-bottom-color: rgba(251, 191, 36, 0.3);
+}
+
+.offline-banner--pending .offline-banner__badge,
+.offline-banner--offline-pending .offline-banner__badge {
+  background: rgba(251, 191, 36, 0.2);
+}
+
+/* Sincronizando */
+.offline-banner--syncing {
+  background: rgba(14, 165, 233, 0.12);
+  color: #38bdf8;
+  border-bottom-color: rgba(56, 189, 248, 0.3);
+  backdrop-filter: blur(12px);
+}
+
+/* Sincronizado OK */
+.offline-banner--synced {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border-bottom-color: rgba(16, 185, 129, 0.3);
+  animation: bannerSlideIn 0.3s ease-out, bannerFadeOut 0.5s ease-in 2.5s forwards;
+}
+
+@keyframes bannerFadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+/* Conflicto */
+.offline-banner--conflict {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-bottom-color: rgba(239, 68, 68, 0.3);
+}
+
+.offline-banner--conflict .offline-banner__badge {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* ── Responsivo ── */
+@media (max-width: 640px) {
+  .offline-banner {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .offline-banner__subtitle {
+    display: none;
+  }
+}
+
+/* Botón Probar Conexión */
+.offline-banner__btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+
+.offline-banner__btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.offline-banner__btn:active {
+  transform: scale(0.95);
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

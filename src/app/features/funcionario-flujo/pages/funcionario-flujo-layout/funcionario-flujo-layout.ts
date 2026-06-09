@@ -2,10 +2,11 @@ import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AppHeaderComponent } from '../../../../shared/components/app-header/app-header';
+import { OfflineStatusBannerComponent } from '../../../../shared/components/offline-status-banner/offline-status-banner';
 
 @Component({
   selector: 'app-funcionario-flujo-layout',
-  imports: [AppHeaderComponent, RouterOutlet],
+  imports: [AppHeaderComponent, RouterOutlet, OfflineStatusBannerComponent],
   templateUrl: './funcionario-flujo-layout.html',
   styleUrl: './funcionario-flujo-layout.css',
 })

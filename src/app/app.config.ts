@@ -1,11 +1,13 @@
-import { ApplicationConfig, importProvidersFrom } from '@angular/core';
+import { ApplicationConfig, importProvidersFrom, isDevMode } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideServiceWorker } from '@angular/service-worker';
 import { routes } from './app.routes';
 import { adminUserHeaderInterceptor } from './core/interceptors/admin-user-header.interceptor';
 import { adminAuthErrorInterceptor } from './core/interceptors/admin-auth-error.interceptor';
 import { funcionarioUserHeaderInterceptor } from './core/interceptors/funcionario-user-header.interceptor';
 import { funcionarioAuthErrorInterceptor } from './core/interceptors/funcionario-auth-error.interceptor';
+import { offlineHttpInterceptor } from './core/offline/offline-http.interceptor';
 import {
   LucideAngularModule,
   Settings2,
@@ -76,12 +78,19 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(
       withInterceptors([
+        // Headers van primero para que el interceptor offline los vea ya incluidos
         adminUserHeaderInterceptor,
         funcionarioUserHeaderInterceptor,
         adminAuthErrorInterceptor,
         funcionarioAuthErrorInterceptor,
+        // Offline va último: intercepta errores de red y encola mutaciones
+        offlineHttpInterceptor,
       ])
     ),
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000',
+    }),
     importProvidersFrom(
       LucideAngularModule.pick({
         Settings2,

@@ -1,0 +1,42 @@
+@keyframes scaleUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes progressMove {
+  0% {
+    left: -100%;
+  }
+  50% {
+    left: 0%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.animate-scaleUp {
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-progressMove {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  animation: progressMove 1.5s infinite linear;
+}
+
+.bg-slate-350 {
+  background-color: #cbd5e1;
+}
+
+.hover\:bg-slate-350:hover {
+  background-color: #94a3b8;
+}

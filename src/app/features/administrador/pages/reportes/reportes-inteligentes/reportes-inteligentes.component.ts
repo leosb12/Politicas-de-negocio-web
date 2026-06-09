@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ReportesDinamicosService, ReporteVisualResponse } from '../../../services/reportes-dinamicos.service';
 import { BloqueReporteComponent } from './components/bloque-reporte/bloque-reporte.component';
 import { AdministradorGuiaContextService } from '../../../services/administrador-guia-context.service';
+import { AdministradorAnaliticasService } from '../../../services/administrador-analiticas.service';
 import { jsPDF } from 'jspdf';
 import * as echarts from 'echarts';
 import pptxgen from 'pptxgenjs';
@@ -18,6 +19,7 @@ import * as ExcelJS from 'exceljs';
 })
 export class ReportesInteligentesComponent implements OnInit, OnDestroy {
   private reportesService = inject(ReportesDinamicosService);
+  private analiticasService = inject(AdministradorAnaliticasService);
   private guideContext = inject(AdministradorGuiaContextService, { optional: true });
 
   ngOnInit(): void {
@@ -134,6 +136,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
         if (targetFormat === 'pantalla') {
           this.reporte.set(res);
           this.isProcessing.set(false);
+          this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente en formato Pantalla').subscribe();
         } else {
           // Iniciar proceso de exportación oculta
           this.exportReporte.set(res);
@@ -185,6 +188,8 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
       } else if (formato === 'powerpoint') {
         this.exportarAPowerPoint(reporte, chartImages);
       }
+      
+      this.analiticasService.logSystemAudit('DESCARGA_REPORTE', `Descargó reporte inteligente en formato ${formato.toUpperCase()}`).subscribe();
     } catch (err) {
       console.error('Error durante la exportación:', err);
       this.errorMessage.set("Ocurrió un error al exportar el reporte. Por favor, intente de nuevo.");
