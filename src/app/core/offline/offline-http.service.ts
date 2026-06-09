@@ -131,6 +131,7 @@ export class OfflineHttpService {
       switchMap((data) => of({ queued: false, data } as OfflineMutationResult<T>)),
       catchError(async (error) => {
         if (error?.status === 0) {
+          this.statusService.markOffline('HTTP_STATUS_0');
           const op = await this.enqueueOperation(method, url, body, options);
           return { queued: true, offlineId: op.id } as OfflineMutationResult<T>;
         }

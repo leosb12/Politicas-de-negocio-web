@@ -99,7 +99,7 @@ export class OfflineSyncService {
     result: SyncResult
   ): Promise<boolean> {
     try {
-      const headers = new HttpHeaders(op.headers);
+      const headers = new HttpHeaders(op.headers).set('X-Offline-Sync', 'true');
 
       let response: unknown;
 

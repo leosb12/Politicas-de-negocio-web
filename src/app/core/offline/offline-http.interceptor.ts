@@ -16,6 +16,7 @@ const BYPASS_PATTERNS = [
   '/api/pagos/',
   '/api/ia/',
   '/api/push',
+  '/api/health',
 ];
 
 /**
@@ -72,6 +73,14 @@ function isNetworkError(error: unknown): boolean {
  * de adminUserHeader y funcionarioUserHeader ya estén presentes.
  */
 export const offlineHttpInterceptor: HttpInterceptorFn = (request, next) => {
+  // Bypass si es una request de sincronización de la cola offline
+  if (request.headers.has('X-Offline-Sync')) {
+    const cleanRequest = request.clone({
+      headers: request.headers.delete('X-Offline-Sync')
+    });
+    return next(cleanRequest);
+  }
+
   const statusService = inject(OfflineStatusService);
   const cacheService = inject(OfflineCacheService);
   const queueService = inject(OfflineQueueService);
