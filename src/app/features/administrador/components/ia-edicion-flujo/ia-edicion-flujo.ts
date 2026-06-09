@@ -42,6 +42,7 @@ export class IaEdicionFlujoComponent {
   readonly applyError = signal<string | null>(null);
   readonly applyResultMessage = signal<string | null>(null);
   readonly confirmationAccepted = signal(false);
+  private lastPreviewPrompt: string | null = null;
 
   readonly hasPreview = computed(() => !!this.previewResponse());
   readonly previewTone = computed<PreviewTone>(() => {
@@ -101,7 +102,11 @@ export class IaEdicionFlujoComponent {
   );
   readonly compactStatus = computed(() => {
     if (this.previewLoading() || this.applyLoading()) {
-      return 'Guardando...';
+      return 'Procesando...';
+    }
+
+    if (this.applyResultMessage()) {
+      return 'Guardado';
     }
 
     const preview = this.previewResponse();
@@ -109,7 +114,7 @@ export class IaEdicionFlujoComponent {
       return null;
     }
 
-    return preview.valid && !preview.errors.length ? 'Guardado' : 'Error';
+    return preview.valid && !preview.errors.length ? 'Propuesta' : 'Error';
   });
 
   requestPreview(): void {
@@ -130,22 +135,21 @@ export class IaEdicionFlujoComponent {
     }
 
     this.previewLoading.set(true);
-    this.applyLoading.set(true);
     this.previewError.set(null);
     this.previewResponse.set(null);
     this.applyError.set(null);
     this.applyResultMessage.set(null);
     this.confirmationAccepted.set(false);
+    this.lastPreviewPrompt = null;
 
     this.iaEdicionFlujoService.previewChanges(policyId, { prompt }).subscribe({
       next: (response) => {
         this.previewResponse.set(response);
         this.previewLoading.set(false);
-        this.applyLoading.set(false);
+        this.lastPreviewPrompt = prompt;
       },
       error: (error: unknown) => {
         this.previewLoading.set(false);
-        this.applyLoading.set(false);
         this.previewError.set(
           getApiErrorMessage(
             error,
@@ -202,6 +206,17 @@ export class IaEdicionFlujoComponent {
     }
 
     event.preventDefault();
+
+    const currentPrompt = this.prompt().trim();
+    const preview = this.previewResponse();
+
+    if (preview && preview.valid && !preview.errors.length && this.lastPreviewPrompt === currentPrompt && !this.previewLoading() && !this.applyLoading()) {
+      if (!preview.requiresConfirmation || this.confirmationAccepted()) {
+        this.applyPreview();
+        return;
+      }
+    }
+
     if (this.canPreview()) {
       this.requestPreview();
     }

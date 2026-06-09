@@ -1,0 +1,21 @@
+<div class="table-container">
+  <table class="premium-table">
+    <thead>
+      <tr>
+        <th *ngFor="let col of getColumns()">{{ col }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of getRows()">
+        <td *ngFor="let cell of row; let i = index">
+          {{ formatearValor(cell, getColumns()[i]) }}
+        </td>
+      </tr>
+      <tr *ngIf="getRows().length === 0">
+        <td [attr.colspan]="getColumns().length || 1" class="empty-cell">
+          Sin registros en la consulta.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

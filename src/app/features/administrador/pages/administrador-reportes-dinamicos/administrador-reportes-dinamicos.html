@@ -1,153 +1,360 @@
 <div class="reportes-container">
+  <!-- Header -->
   <div class="header">
-    <h2>Reportes Inteligentes con IA</h2>
-    <p>Solicita reportes dinámicos en lenguaje natural sin configuración previa.</p>
+    <div class="header-content">
+      <div class="header-icon">
+        <i class="fa fa-brain"></i>
+      </div>
+      <div>
+        <h2>Reportes Inteligentes</h2>
+        <p>Motor Deep Learning · Interpretación semántica · Procesamiento de lenguaje natural</p>
+      </div>
+    </div>
   </div>
 
+  <!-- Tabs -->
+  <div class="tabs-bar">
+    <button class="tab-btn" [class.active]="activeTab() === 'reportes'" (click)="setTab('reportes')">
+      <i class="fa fa-chart-bar"></i> Reportes Inteligentes
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'asistente'" (click)="setTab('asistente')">
+      <i class="fa fa-comments"></i> Asistente de Datos
+    </button>
+  </div>
+
+  <!-- Input Section -->
   <div class="input-section card">
     <div class="input-wrapper">
-      <textarea 
-        class="query-input" 
-        [ngModel]="textoQuery()" 
+      <textarea
+        id="query-input"
+        class="query-input"
+        [ngModel]="textoQuery()"
         (ngModelChange)="textoQuery.set($event)"
-        placeholder="Describe el reporte que necesitas. Ejemplo: quiero ver la política más usada este mes en Excel."
+        [placeholder]="activeTab() === 'reportes'
+          ? 'Describe el reporte que necesitas. Ej: Cuál es la política más utilizada este mes?'
+          : 'Haz cualquier pregunta sobre los datos del sistema. Ej: Qué cliente inició más trámites este año?'"
         rows="3"
-        [disabled]="isProcessing()"></textarea>
-      
+        [disabled]="isProcessing()"
+        (keydown.enter)="$any($event).ctrlKey && procesarConsulta()">
+      </textarea>
+
       <div class="input-actions">
-        <button class="btn btn-mic" [class.recording]="isDictating()" (click)="dictarReporte()" [disabled]="isProcessing()">
+        <button id="btn-dictate" class="btn btn-mic" [class.recording]="isDictating()" (click)="toggleDictado()" [disabled]="isProcessing()">
           <i class="fa" [class.fa-microphone]="!isDictating()" [class.fa-stop-circle]="isDictating()"></i>
           {{ isDictating() ? 'Escuchando...' : 'Dictar' }}
         </button>
-        <button class="btn btn-clear" (click)="limpiar()" [disabled]="isProcessing() || !textoQuery()">
+        <button id="btn-clear" class="btn btn-clear" (click)="limpiar()" [disabled]="isProcessing() || !textoQuery()">
           <i class="fa fa-eraser"></i> Limpiar
         </button>
-        <button class="btn btn-primary" (click)="analizarTexto()" [disabled]="isProcessing() || !textoQuery()">
+        <div class="ia-plus-toggle-wrapper" *ngIf="activeTab() === 'reportes'">
+          <label class="ia-plus-toggle">
+            <input type="checkbox" [checked]="iaPlus()" (change)="iaPlus.set($any($event.target).checked)" [disabled]="isProcessing()">
+            <span class="ia-plus-toggle-text">IA+</span>
+          </label>
+        </div>
+        <button id="btn-analyze" class="btn btn-primary" (click)="procesarConsulta()" [disabled]="isProcessing() || !textoQuery()">
           <i class="fa" [class.fa-magic]="!isProcessing()" [class.fa-spinner]="isProcessing()" [class.fa-spin]="isProcessing()"></i>
-          Analizar con IA
+          {{ activeTab() === 'reportes' ? 'Analizar con IA' : 'Consultar Asistente' }}
         </button>
+      </div>
+
+      <div class="input-hint">
+        <i class="fa fa-info-circle"></i>
+        <span>Presiona <strong>Ctrl+Enter</strong> para enviar · Puedes usar voz con el botón "Dictar"</span>
       </div>
     </div>
   </div>
 
-  <div class="results-grid" *ngIf="interpretacion()">
-    <!-- Panel IA -->
-    <div class="panel-ia card">
-      <h3>Interpretación de IA</h3>
-      
-      <div class="aclaracion-alert" *ngIf="interpretacion()?.requiereAclaracion">
-        <i class="fa fa-exclamation-triangle"></i>
-        <div>
-          <strong>El pedido es ambiguo o incompleto.</strong>
-          <p>{{ interpretacion()?.preguntaAclaratoria }}</p>
+  <!-- ============ MODO REPORTES ============ -->
+  <ng-container *ngIf="activeTab() === 'reportes'">
+    <div class="results-grid" *ngIf="interpretacionActual()">
+      <!-- Panel IA -->
+      <div class="panel-ia card">
+        <div class="panel-header">
+          <h3><i class="fa fa-robot"></i> Interpretación de IA</h3>
+          <span class="motor-badge" [class]="getMotorClass(interpretacionActual()?.motor || '')">
+            {{ getMotorLabel(interpretacionActual()?.motor || '') }}
+          </span>
         </div>
-      </div>
 
-      <div class="ia-details" *ngIf="!interpretacion()?.requiereAclaracion">
-        <div class="detail-row">
-          <span class="label">Intención:</span>
-          <span class="value badge">{{ interpretacion()?.intencionDetectada }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="label">Entidad Principal:</span>
-          <span class="value">{{ interpretacion()?.entidadPrincipal }}</span>
-        </div>
-        <div class="detail-row" *ngIf="interpretacion()?.agrupaciones?.length">
-          <span class="label">Agrupado por:</span>
-          <span class="value">{{ interpretacion()?.agrupaciones?.join(', ') }}</span>
-        </div>
-        <div class="detail-row" *ngIf="interpretacion()?.filtros?.length">
-          <span class="label">Filtros:</span>
-          <ul class="value-list">
-            <li *ngFor="let f of interpretacion()?.filtros">
-              {{ f.campo }} {{ f.operador }} {{ f.valor || '' }}
-            </li>
-          </ul>
-        </div>
-        <div class="detail-row">
-          <span class="label">Formato:</span>
-          <span class="value badge badge-format">{{ interpretacion()?.formatoSalida }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="label">Confianza:</span>
-          <span class="value">{{ (interpretacion()?.confianza || 0) * 100 | number:'1.0-0' }}%</span>
-        </div>
-      </div>
-      
-      <div class="export-actions" *ngIf="!interpretacion()?.requiereAclaracion && previewData()">
-        <button class="btn btn-excel" (click)="exportar('excel')"><i class="fa fa-file-excel-o"></i> Excel</button>
-        <button class="btn btn-pdf" (click)="exportar('pdf')"><i class="fa fa-file-pdf-o"></i> PDF</button>
-        <button class="btn btn-word" (click)="exportar('word')"><i class="fa fa-file-word-o"></i> Word</button>
-      </div>
-      <div class="export-actions" *ngIf="!interpretacion()?.requiereAclaracion && !previewData()">
-        <button class="btn btn-primary w-100" (click)="generarPreview()"><i class="fa fa-eye"></i> Generar Vista Previa</button>
-      </div>
-    </div>
+        <!-- Aclaración -->
+        <div class="aclaracion-alert" *ngIf="interpretacionActual()?.requiereAclaracion">
+          <i class="fa fa-exclamation-triangle"></i>
+          <div>
+            <strong>Se necesita más información</strong>
+            <p>{{ interpretacionActual()?.preguntaAclaratoria }}</p>
 
-    <!-- Vista Previa -->
-    <div class="panel-preview card" *ngIf="previewData()">
-      <div class="preview-header">
-        <h3>Vista Previa del Reporte</h3>
-        <span class="badge">{{ previewData()?.resultados?.length }} resultados</span>
-      </div>
-
-      <div class="preview-content">
-        <!-- Tabla -->
-        <div class="table-responsive" *ngIf="interpretacion()?.visualizacion === 'tabla' || !chartData().length">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th *ngFor="let key of getKeys(previewData()?.resultados?.[0])">{{ key }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let row of previewData()?.resultados">
-                <td *ngFor="let key of getKeys(row)">{{ row[key] }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="empty-state" *ngIf="previewData()?.resultados?.length === 0">
-            No se encontraron resultados para los criterios indicados.
+            <div class="sugerencias" *ngIf="interpretacionActual()?.opcionesSugeridas?.length">
+              <span class="sugerencias-label">Sugerencias:</span>
+              <div class="sugerencias-list">
+                <button class="btn btn-sugerencia" *ngFor="let op of interpretacionActual()?.opcionesSugeridas" (click)="seleccionarSugerencia(op)">
+                  {{ op }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Gráficos -->
-        <div class="chart-container" *ngIf="interpretacion()?.visualizacion !== 'tabla' && chartData().length">
-          <ngx-charts-bar-vertical
-            *ngIf="interpretacion()?.visualizacion === 'grafico_barras'"
-            [view]="view"
-            [results]="chartData()"
-            [gradient]="true"
-            [xAxis]="true"
-            [yAxis]="true"
-            [legend]="true"
-            [showXAxisLabel]="true"
-            [showYAxisLabel]="true"
-            xAxisLabel="Grupos"
-            yAxisLabel="Valores">
-          </ngx-charts-bar-vertical>
+        <!-- Detalles de interpretación -->
+        <div class="ia-details" *ngIf="!interpretacionActual()?.requiereAclaracion">
+          <div class="detail-row">
+            <span class="label">Título</span>
+            <span class="value title-value">{{ interpretacionActual()?.titulo }}</span>
+          </div>
+          <div class="detail-row" *ngIf="interpretacionActual()?.descripcion">
+            <span class="label">Descripción</span>
+            <span class="value">{{ interpretacionActual()?.descripcion }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Intención</span>
+            <span class="value badge">{{ interpretacionActual()?.intencionDetectada }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Entidad Principal</span>
+            <span class="value">{{ interpretacionActual()?.entidadPrincipal }}</span>
+          </div>
+          <div class="detail-row" *ngIf="interpretacionActual()?.agrupaciones?.length">
+            <span class="label">Agrupado por</span>
+            <span class="value">{{ interpretacionActual()?.agrupaciones?.join(', ') }}</span>
+          </div>
+          <div class="detail-row" *ngIf="interpretacionActual()?.filtros?.length">
+            <span class="label">Filtros</span>
+            <ul class="value-list">
+              <li *ngFor="let f of interpretacionActual()?.filtros">
+                {{ f.campo }} {{ f.operador }} {{ f.valor || '' }}
+              </li>
+            </ul>
+          </div>
+          <div class="detail-row">
+            <span class="label">Formato</span>
+            <span class="value badge badge-format">{{ interpretacionActual()?.formatoSalida }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Confianza</span>
+            <span class="value confianza-bar">
+              <span class="confianza-fill" [class]="getConfianzaClass(interpretacionActual()?.confianza || 0)" [style.width.%]="(interpretacionActual()?.confianza || 0) * 100"></span>
+              <span class="confianza-text">{{ (interpretacionActual()?.confianza || 0) * 100 | number:'1.0-0' }}%</span>
+            </span>
+          </div>
 
-          <ngx-charts-pie-chart
-            *ngIf="interpretacion()?.visualizacion === 'grafico_pie'"
-            [view]="view"
-            [results]="chartData()"
-            [gradient]="true"
-            [legend]="true"
-            [labels]="true">
-          </ngx-charts-pie-chart>
+          <!-- Plan avanzado toggle -->
+          <button class="btn btn-outline btn-sm mt-12" (click)="togglePlanAvanzado()">
+            <i class="fa" [class.fa-chevron-down]="!showPlanAvanzado()" [class.fa-chevron-up]="showPlanAvanzado()"></i>
+            {{ showPlanAvanzado() ? 'Ocultar plan de consulta' : 'Ver plan de consulta' }}
+          </button>
+
+          <div class="plan-avanzado" *ngIf="showPlanAvanzado()">
+            <h4>Plan de Consulta (Vista Avanzada)</h4>
+            <pre class="json-block">{{ formatJson(interpretacionActual()) }}</pre>
+            <h4 class="mt-12" *ngIf="previewData()">Resultados con Metadata (Vista Avanzada)</h4>
+            <pre class="json-block" *ngIf="previewData()">{{ formatJson(previewData()?.filas) }}</pre>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="export-actions" *ngIf="!interpretacionActual()?.requiereAclaracion && previewData()">
+          <button id="btn-excel" class="btn btn-excel" (click)="exportar('excel')"><i class="fa fa-file-excel-o"></i> Excel</button>
+          <button id="btn-pdf" class="btn btn-pdf" (click)="exportar('pdf')"><i class="fa fa-file-pdf-o"></i> PDF</button>
+          <button id="btn-word" class="btn btn-word" (click)="exportar('word')"><i class="fa fa-file-word-o"></i> Word</button>
+        </div>
+        <div class="export-actions" *ngIf="!interpretacionActual()?.requiereAclaracion && !previewData()">
+          <button id="btn-preview" class="btn btn-primary w-100" (click)="generarPreview()"><i class="fa fa-eye"></i> Generar Vista Previa</button>
+        </div>
+      </div>
+
+      <div class="panel-preview card" *ngIf="previewData()">
+        <div class="preview-header">
+          <div class="title-with-badge">
+            <h3><i class="fa fa-table"></i> Vista Previa del Reporte</h3>
+            <span class="ia-plus-badge-sutil" *ngIf="previewData()?.asistido">IA+</span>
+          </div>
+          <span class="badge" *ngIf="!previewData()?.reporteCompuesto">{{ previewData()?.filas?.length }} resultados</span>
+          <span class="badge" *ngIf="previewData()?.reporteCompuesto">Resumen Ejecutivo</span>
+        </div>
+
+        <div class="preview-content">
+          <!-- Reporte Compuesto / Resumen Ejecutivo -->
+          <div *ngIf="previewData()?.reporteCompuesto" class="composite-report">
+            <div class="metrics-grid">
+              <div class="metric-card" *ngFor="let card of previewData()?.reporteCompuesto?.tarjetas">
+                <div class="metric-icon">
+                  <i class="fa {{ card.icono || 'fa-info-circle' }}"></i>
+                </div>
+                <div class="metric-info">
+                  <span class="metric-title">{{ card.titulo }}</span>
+                  <span class="metric-value">{{ card.valor }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="tables-section mt-24" *ngFor="let tab of previewData()?.reporteCompuesto?.tablas">
+              <div class="table-header-composite">
+                <h4><i class="fa fa-table"></i> {{ tab.titulo }}</h4>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let col of tab.columnas">{{ col }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of tab.filas">
+                      <td *ngFor="let col of tab.columnas">{{ formatearValor(row[col]) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <ng-container *ngIf="!previewData()?.reporteCompuesto">
+            <!-- Resumen analítico -->
+            <div class="report-summary-alert" *ngIf="previewData()?.mensaje && previewData()?.filas?.length">
+              <i class="fa fa-info-circle"></i>
+              <span>{{ previewData()?.mensaje }}</span>
+            </div>
+
+            <!-- Tabla -->
+            <div class="table-responsive" *ngIf="interpretacionActual()?.visualizacion === 'tabla' || !chartData().length">
+              <table class="data-table" *ngIf="previewData()?.filas?.length">
+                <thead>
+                  <tr>
+                    <th *ngFor="let key of getKeys(previewData()?.filas?.[0])">{{ key }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of previewData()?.filas">
+                    <td *ngFor="let key of getKeys(row)">{{ formatearValor(row[key]) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="empty-state" *ngIf="previewData()?.filas?.length === 0">
+                <i class="fa fa-inbox"></i>
+                <p>{{ previewData()?.mensaje || 'No se encontraron resultados para los criterios indicados.' }}</p>
+
+                <div class="sugerencias-container mt-16 text-left" *ngIf="previewData()?.sugerencias?.length">
+                  <h4 style="margin-bottom: 8px;"><i class="fa fa-lightbulb" style="color: #f59e0b;"></i> Sugerencias</h4>
+                  <ul style="list-style-type: disc; margin-left: 20px; line-height: 1.6; font-size: 0.95rem; color: #4b5563;">
+                    <li *ngFor="let sug of previewData()?.sugerencias">{{ sug }}</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="chart-container" *ngIf="interpretacionActual()?.visualizacion !== 'tabla' && chartData().length">
+              <ngx-charts-bar-vertical
+                *ngIf="interpretacionActual()?.visualizacion === 'grafico_barras'"
+                [view]="view"
+                [results]="chartData()"
+                [gradient]="true"
+                [xAxis]="true"
+                [yAxis]="true"
+                [legend]="true"
+                [showXAxisLabel]="true"
+                [showYAxisLabel]="true"
+                xAxisLabel="Grupos"
+                yAxisLabel="Valores">
+              </ngx-charts-bar-vertical>
+
+              <ngx-charts-pie-chart
+                *ngIf="interpretacionActual()?.visualizacion === 'grafico_pie'"
+                [view]="view"
+                [results]="chartData()"
+                [gradient]="true"
+                [legend]="true"
+                [labels]="true">
+              </ngx-charts-pie-chart>
+            </div>
+          </ng-container>
         </div>
       </div>
     </div>
-  </div>
+  </ng-container>
+
+  <!-- ============ MODO ASISTENTE ============ -->
+  <ng-container *ngIf="activeTab() === 'asistente'">
+    <div class="asistente-results" *ngIf="asistentResponse()">
+      <!-- Respuesta natural -->
+      <div class="card respuesta-card">
+        <div class="panel-header">
+          <h3><i class="fa fa-comment-dots"></i> Respuesta Inteligente</h3>
+          <span class="motor-badge" [class]="getMotorClass(asistentResponse()?.motor || '')">
+            {{ getMotorLabel(asistentResponse()?.motor || '') }}
+          </span>
+        </div>
+
+        <div class="respuesta-natural">
+          <p class="respuesta-texto">{{ asistentResponse()?.respuesta }}</p>
+          <p class="respuesta-resumen" *ngIf="asistentResponse()?.resumen">{{ asistentResponse()?.resumen }}</p>
+        </div>
+
+        <!-- Advertencias -->
+        <div class="advertencias" *ngIf="asistentResponse()?.advertencias?.length">
+          <div class="advertencia-item" *ngFor="let adv of asistentResponse()?.advertencias">
+            <i class="fa fa-exclamation-circle"></i> {{ adv }}
+          </div>
+        </div>
+
+        <!-- Fuentes consultadas -->
+        <div class="fuentes" *ngIf="asistentResponse()?.fuentesConsultadas?.length">
+          <span class="fuentes-label">Fuentes consultadas:</span>
+          <span class="badge badge-fuente" *ngFor="let f of asistentResponse()?.fuentesConsultadas">{{ f }}</span>
+        </div>
+
+        <!-- Plan avanzado -->
+        <button class="btn btn-outline btn-sm mt-12" (click)="togglePlanAvanzado()" *ngIf="asistentResponse()?.plan">
+          <i class="fa" [class.fa-chevron-down]="!showPlanAvanzado()" [class.fa-chevron-up]="showPlanAvanzado()"></i>
+          {{ showPlanAvanzado() ? 'Ocultar plan de consulta' : 'Ver plan de consulta' }}
+        </button>
+
+        <div class="plan-avanzado" *ngIf="showPlanAvanzado() && asistentResponse()?.plan">
+          <h4>Plan de Consulta (Vista Avanzada)</h4>
+          <pre class="json-block">{{ formatJson(asistentResponse()?.plan) }}</pre>
+        </div>
+
+        <!-- Exportación -->
+        <div class="export-actions" *ngIf="asistentResponse()?.datos?.length">
+          <button class="btn btn-excel" (click)="exportarAsistente('excel')"><i class="fa fa-file-excel-o"></i> Excel</button>
+          <button class="btn btn-pdf" (click)="exportarAsistente('pdf')"><i class="fa fa-file-pdf-o"></i> PDF</button>
+          <button class="btn btn-word" (click)="exportarAsistente('word')"><i class="fa fa-file-word-o"></i> Word</button>
+        </div>
+      </div>
+
+      <!-- Tabla de datos -->
+      <div class="card" *ngIf="asistentResponse()?.datos?.length">
+        <div class="preview-header">
+          <h3><i class="fa fa-database"></i> Datos Recuperados</h3>
+          <span class="badge">{{ asistentResponse()?.datos?.length }} registros</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th *ngFor="let col of asistentResponse()?.columnas || getKeys(asistentResponse()?.datos?.[0])">{{ col }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of asistentResponse()?.datos">
+                <td *ngFor="let col of asistentResponse()?.columnas || getKeys(row)">{{ row[col] }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </ng-container>
 
   <!-- Historial -->
-  <div class="historial-section card mt-4" *ngIf="historial().length > 0">
-    <h3>Historial Reciente</h3>
+  <div class="historial-section card mt-24" *ngIf="historial().length > 0">
+    <h3><i class="fa fa-history"></i> Historial Reciente</h3>
     <div class="historial-list">
       <div class="historial-item" *ngFor="let item of historial()" (click)="cargarHistorialItem(item)">
         <div class="h-text">"{{ item.textoOriginal }}"</div>
         <div class="h-meta">
-          <span class="badge">{{ item.intencionDetectada }}</span>
+          <span class="badge">{{ item.intencionDetectada || item.tipoConsulta }}</span>
+          <span class="motor-badge-sm" [class]="getMotorClass(item.motorUsado)">{{ getMotorLabel(item.motorUsado) }}</span>
           <span>{{ item.fechaGeneracion | date:'short' }}</span>
           <span class="badge badge-outline">{{ item.cantidadResultados }} res</span>
         </div>

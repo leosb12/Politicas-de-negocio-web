@@ -132,6 +132,13 @@ export const ADMINISTRADOR_ROUTES: Routes = [
             (module) => module.AdministradorReportesDinamicosPageComponent
           ),
       },
+      {
+        path: 'reportes-inteligentes',
+        loadComponent: () =>
+          import('./pages/reportes/reportes-inteligentes/reportes-inteligentes.component').then(
+            (module) => module.ReportesInteligentesComponent
+          ),
+      },
     ],
   },
   // Canvas designer — full-screen, outside the admin layout shell

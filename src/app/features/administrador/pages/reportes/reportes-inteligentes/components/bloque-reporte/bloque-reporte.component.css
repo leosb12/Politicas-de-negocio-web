@@ -1,0 +1,67 @@
+.block-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  box-sizing: border-box;
+}
+
+.block-card:hover {
+  border-color: #6366f1;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+}
+
+.block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.block-header h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+}
+
+.block-type-badge {
+  background: #334155;
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  letter-spacing: 0.05em;
+}
+
+.block-body {
+  width: 100%;
+}
+
+/* Error Card */
+.block-error-card {
+  background: #271414;
+  border: 1px solid #7f1d1d;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+}
+
+.error-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: #fca5a5;
+}
+
+.error-body p {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 0.925rem;
+  line-height: 1.4;
+  font-style: italic;
+}

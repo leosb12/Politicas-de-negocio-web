@@ -52,4 +52,5 @@ export const API_ENDPOINTS = {
   pushTokens: `${API_BASE_URL}/api/push/tokens`,
   ia: `${API_BASE_URL}/api/ia`,
   adminReportes: `${API_BASE_URL}/api/admin/reportes`,
+  asistenteDatos: `${API_BASE_URL}/api/admin/asistente-datos`,
 } as const;

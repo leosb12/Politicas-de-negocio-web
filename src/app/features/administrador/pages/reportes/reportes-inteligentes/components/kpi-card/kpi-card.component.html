@@ -1,0 +1,13 @@
+<div class="kpi-card-content">
+  <div class="kpi-info">
+    <span class="kpi-title">{{ bloque.titulo }}</span>
+    <span class="kpi-value">{{ getValor() }}</span>
+    <span class="kpi-label" *ngIf="getLabel() !== 'Total' && getLabel() !== 'promedio'">{{ getLabel() }}</span>
+  </div>
+  <div class="kpi-icon">
+    <span class="icon" *ngIf="bloque.titulo.toLowerCase().includes('pago') || bloque.titulo.toLowerCase().includes('recauda')">💵</span>
+    <span class="icon" *ngIf="bloque.titulo.toLowerCase().includes('usuario') || bloque.titulo.toLowerCase().includes('cliente')">👥</span>
+    <span class="icon" *ngIf="bloque.titulo.toLowerCase().includes('tiempo') || bloque.titulo.toLowerCase().includes('promedio')">⏱️</span>
+    <span class="icon" *ngIf="!bloque.titulo.toLowerCase().includes('pago') && !bloque.titulo.toLowerCase().includes('recauda') && !bloque.titulo.toLowerCase().includes('usuario') && !bloque.titulo.toLowerCase().includes('cliente') && !bloque.titulo.toLowerCase().includes('tiempo') && !bloque.titulo.toLowerCase().includes('promedio')">📊</span>
+  </div>
+</div>

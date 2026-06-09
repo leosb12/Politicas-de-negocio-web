@@ -92,6 +92,36 @@
             </div>
           }
 
+          @if (preview.requiresConfirmation) {
+            <div class="ia-inline-confirm">
+              <input
+                type="checkbox"
+                id="ia-confirm-check"
+                [checked]="confirmationAccepted()"
+                (change)="setConfirmationAccepted($any($event.target).checked)"
+              />
+              <label for="ia-confirm-check">
+                <span>Entiendo y confirmo los cambios propuestos por la IA.</span>
+              </label>
+            </div>
+          }
+
+          @if (preview.valid && !preview.errors.length) {
+            <button
+              type="button"
+              class="ia-compact-apply"
+              [disabled]="applyLoading() || (preview.requiresConfirmation && !confirmationAccepted())"
+              (click)="applyPreview()"
+            >
+              @if (applyLoading()) {
+                <span class="ia-inline-spinner"></span>
+                <span>Guardando...</span>
+              } @else {
+                <span>Aplicar cambios</span>
+              }
+            </button>
+          }
+
           @if (applyError()) {
             <app-alert
               variant="danger"

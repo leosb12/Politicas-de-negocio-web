@@ -1,0 +1,22 @@
+<div class="block-card" *ngIf="!isKpi() && !isError()">
+  <div class="block-header">
+    <h3>{{ bloque.titulo }}</h3>
+    <span class="block-type-badge">{{ bloque.tipo.toUpperCase() }}</span>
+  </div>
+  
+  <div class="block-body">
+    <app-grafico-dinamico *ngIf="isChart()" [bloque]="bloque"></app-grafico-dinamico>
+    <app-tabla-dinamica *ngIf="isTable()" [bloque]="bloque"></app-tabla-dinamica>
+  </div>
+</div>
+
+<app-kpi-card *ngIf="isKpi()" [bloque]="bloque"></app-kpi-card>
+
+<div class="block-error-card" *ngIf="isError()">
+  <div class="error-header">
+    <h3>{{ bloque.titulo }}</h3>
+  </div>
+  <div class="error-body">
+    <p>{{ bloque.mensajeError }}</p>
+  </div>
+</div>
