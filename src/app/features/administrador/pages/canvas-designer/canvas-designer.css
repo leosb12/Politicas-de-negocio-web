@@ -241,7 +241,8 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-activate:hover { background: rgba(74,222,128,0.25); }
+.btn-activate:hover:not(:disabled) { background: rgba(74,222,128,0.25); }
+.btn-activate:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-pause {
   display: inline-flex;
@@ -257,7 +258,8 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-pause:hover { background: rgba(251,146,60,0.25); }
+.btn-pause:hover:not(:disabled) { background: rgba(251,146,60,0.25); }
+.btn-pause:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .mini-spin {
   display: inline-block;

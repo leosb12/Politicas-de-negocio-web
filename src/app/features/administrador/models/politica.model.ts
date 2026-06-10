@@ -61,6 +61,14 @@ export interface CampoFormulario {
     };
     auditarCambios?: boolean;
     controlVersionesHabilitado?: boolean;
+    documentoPlantilla?: {
+      nombreOriginal: string;
+      extension: string;
+      mimeType: string;
+      url: string;
+      storageKey: string;
+      fechaSubida: string;
+    } | null;
   } | null;
 }
 

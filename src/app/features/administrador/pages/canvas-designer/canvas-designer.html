@@ -1,4 +1,4 @@
-﻿<div class="designer-shell">
+<div class="designer-shell">
 
   <!-- ════ TOP BAR ════════════════════════════════════════════ -->
   <header class="top-bar">
@@ -55,13 +55,21 @@
 
       <!-- State buttons -->
       @if (politicaEstado !== 'ACTIVA') {
-        <button class="btn-activate flex items-center gap-1.5" (click)="changeEstado('ACTIVA')" id="btn-activar">
-          <lucide-icon name="play-circle" [size]="16"></lucide-icon> Activar
+        <button class="btn-activate flex items-center gap-1.5" (click)="changeEstado('ACTIVA')" id="btn-activar" [disabled]="changingEstado()">
+          @if (changingEstado()) {
+            <span class="mini-spin"></span> Activando...
+          } @else {
+            <lucide-icon name="play-circle" [size]="16"></lucide-icon> Activar
+          }
         </button>
       }
       @if (politicaEstado === 'ACTIVA') {
-        <button class="btn-pause flex items-center gap-1.5" (click)="changeEstado('PAUSADA')" id="btn-pausar">
-          <lucide-icon name="pause-circle" [size]="16"></lucide-icon> Pausar
+        <button class="btn-pause flex items-center gap-1.5" (click)="changeEstado('PAUSADA')" id="btn-pausar" [disabled]="changingEstado()">
+          @if (changingEstado()) {
+            <span class="mini-spin"></span> Pausando...
+          } @else {
+            <lucide-icon name="pause-circle" [size]="16"></lucide-icon> Pausar
+          }
         </button>
       }
 
@@ -1660,6 +1668,53 @@
               <input type="checkbox" [(ngModel)]="collabModal.obligatorio" />
               <span>Campo obligatorio (El tramite no puede finalizar sin este documento)</span>
             </label>
+
+            <!-- Subir documento plantilla -->
+            <div class="document-field document-field-wide" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 1rem; margin-top: 0.5rem;">
+              <span>Subir documento plantilla</span>
+              <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 500; display: block; margin-top: 0.15rem; margin-bottom: 0.75rem;">Formatos permitidos: Word (.docx), Excel (.xlsx), PowerPoint (.pptx)</span>
+              
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                @if (collabModal.documentoPlantilla) {
+                  <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 0.5rem 0.75rem;">
+                    <lucide-icon name="file-text" [size]="16" style="color: #10b981;"></lucide-icon>
+                    <span style="color: #e2e8f0; font-size: 0.8rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">
+                      {{ collabModal.documentoPlantilla.nombreOriginal }}
+                    </span>
+                    <button type="button" (click)="removerPlantilla()" title="Remover plantilla" style="background: none; border: none; color: #f43f5e; cursor: pointer; display: flex; align-items: center; padding: 0.2rem; margin-left: 0.5rem; transition: color 0.2s;">
+                      <lucide-icon name="trash-2" [size]="16"></lucide-icon>
+                    </button>
+                  </div>
+                } @else {
+                  <div style="position: relative; display: inline-block;">
+                    <input 
+                      type="file" 
+                      id="input-plantilla" 
+                      style="display: none;" 
+                      accept=".docx,.xlsx,.pptx" 
+                      (change)="onPlantillaSelected($event)" 
+                      [disabled]="uploadingPlantilla()" 
+                    />
+                    <label 
+                      for="input-plantilla" 
+                      style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 0.5rem 1rem; color: #a5b4fc; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                      [style.opacity]="uploadingPlantilla() ? '0.5' : '1'"
+                      [style.cursor]="uploadingPlantilla() ? 'not-allowed' : 'pointer'"
+                      onmouseover="this.style.background='rgba(99, 102, 241, 0.2)'; this.style.borderColor='rgba(99, 102, 241, 0.5)';"
+                      onmouseout="this.style.background='rgba(99, 102, 241, 0.12)'; this.style.borderColor='rgba(99, 102, 241, 0.3)';"
+                    >
+                      @if (uploadingPlantilla()) {
+                        <span class="mini-spin"></span>
+                        <span>Subiendo...</span>
+                      } @else {
+                        <lucide-icon name="upload" [size]="15"></lucide-icon>
+                        <span>Seleccionar archivo</span>
+                      }
+                    </label>
+                  </div>
+                }
+              </div>
+            </div>
           </div>
         </section>
 

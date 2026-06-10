@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component,
   OnInit,
   OnDestroy,
@@ -15,6 +15,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { API_BASE_URL } from '../../../../core/config/api.config';
 import { firstValueFrom } from 'rxjs';
 import { PoliticaService } from '../../services/politica.service';
 import { AdministradorDepartamentosService } from '../../services/administrador-departamentos.service';
@@ -209,6 +211,14 @@ interface CollabDocumentModalState {
   };
   auditarCambios: boolean;
   controlVersionesHabilitado: boolean;
+  documentoPlantilla?: {
+    nombreOriginal: string;
+    extension: string;
+    mimeType: string;
+    url: string;
+    storageKey: string;
+    fechaSubida: string;
+  } | null;
 }
 
 interface DocumentFieldValidationConfig {
@@ -289,6 +299,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
   private readonly svc = inject(PoliticaService);
   private readonly deptSvc = inject(AdministradorDepartamentosService);
   private readonly userSvc = inject(AdministradorUsuariosService);
@@ -307,6 +318,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   politica = signal<PoliticaNegocio | null>(null);
   loading = signal(true);
   saving = signal(false);
+  changingEstado = signal(false);
   departamentos = signal<AdministradorDepartamento[]>([]);
   usuarios = signal<AdministradorUsuario[]>([]);
   roles = signal<AdministradorRol[]>([]);
@@ -420,6 +432,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
 
   // ── Collaborative Document Signals & Options ──────────────────
   readonly showCollabDocumentModal = signal(false);
+  readonly uploadingPlantilla = signal(false);
   collabDocumentModal: CollabDocumentModalState | null = null;
   private readonly requireCollabEditPermission = false;
   readonly collabDocumentTypeOptions = [
@@ -2413,6 +2426,8 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         return;
       }
 
+      this.changingEstado.set(true);
+
       // Backend valida contra el flujo persistido: guardamos antes de activar.
       this.svc.saveFlujo(p.id, this.buildFlujoPayload()).subscribe({
         next: (updated) => {
@@ -2420,6 +2435,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
           this.changeEstadoPersistido(p.id, estado);
         },
         error: (err) => {
+          this.changingEstado.set(false);
           const msg = err?.error?.message ?? 'No se pudo guardar el flujo antes de activar';
           this.toast.error('Error', msg);
         },
@@ -2427,16 +2443,19 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.changingEstado.set(true);
     this.changeEstadoPersistido(p.id, estado);
   }
 
   private changeEstadoPersistido(policyId: string, estado: EstadoPolitica): void {
     this.svc.changeEstado(policyId, estado).subscribe({
       next: (updated) => {
+        this.changingEstado.set(false);
         this.setPoliticaState(updated);
         this.toast.success('Estado actualizado', `Política ahora en estado ${estado}`);
       },
       error: (err) => {
+        this.changingEstado.set(false);
         const msg = err?.error?.message ?? 'No se pudo cambiar el estado';
         this.toast.error('Error', msg);
       },
@@ -5613,6 +5632,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       },
       auditarCambios: config?.auditarCambios === true,
       controlVersionesHabilitado: config?.controlVersionesHabilitado === true,
+      documentoPlantilla: config?.documentoPlantilla ?? null,
     };
     this.showCollabDocumentModal.set(true);
   }
@@ -5620,6 +5640,56 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   closeCollabDocumentModal(): void {
     this.showCollabDocumentModal.set(false);
     this.collabDocumentModal = null;
+  }
+
+  onPlantillaSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) {
+      return;
+    }
+    const file = input.files[0];
+    const allowedExtensions = ['docx', 'xlsx', 'pptx'];
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!allowedExtensions.includes(fileExtension)) {
+      this.toast.error('Documento plantilla', 'Solo se permiten archivos .docx, .xlsx o .pptx');
+      return;
+    }
+
+    const policyId = this.politica()?.id;
+    const campoId = this.collabDocumentModal?.campoId;
+    if (!policyId || !campoId) {
+      this.toast.error('Documento plantilla', 'No se pudo determinar el ID de la politica o del campo');
+      return;
+    }
+
+    this.uploadingPlantilla.set(true);
+    const formData = new FormData();
+    formData.append('archivo', file);
+    formData.append('campoId', campoId);
+
+    const uploadUrl = `${API_BASE_URL}/api/politicas/${policyId}/plantilla`;
+    this.http.post<any>(uploadUrl, formData).subscribe({
+      next: (res) => {
+        this.uploadingPlantilla.set(false);
+        if (this.collabDocumentModal) {
+          this.collabDocumentModal.documentoPlantilla = res;
+        }
+        this.toast.success('Documento plantilla', 'Plantilla subida correctamente');
+      },
+      error: (err) => {
+        this.uploadingPlantilla.set(false);
+        console.error(err);
+        const errorMsg = err.error?.message || 'Error al subir la plantilla';
+        this.toast.error('Documento plantilla', errorMsg);
+      }
+    });
+  }
+
+  removerPlantilla(): void {
+    if (this.collabDocumentModal) {
+      this.collabDocumentModal.documentoPlantilla = null;
+      this.toast.info('Documento plantilla', 'Se removio la plantilla.');
+    }
   }
 
   validateCollabDocumentModal(modal: CollabDocumentModalState): string | null {
@@ -5695,6 +5765,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         },
         auditarCambios: modal.auditarCambios,
         controlVersionesHabilitado: modal.controlVersionesHabilitado,
+        documentoPlantilla: modal.documentoPlantilla || null,
       }
     };
 
