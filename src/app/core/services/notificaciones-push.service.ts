@@ -156,13 +156,15 @@ export class NotificacionesPushService {
       return;
     }
 
-    const token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration,
-    }).catch((error) => {
+    let token: string | null = null;
+    try {
+      token = await getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration,
+      });
+    } catch (error) {
       console.warn('No se pudo obtener el token web de Firebase.', error);
-      return null;
-    });
+    }
 
     if (!token) {
       return;

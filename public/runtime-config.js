@@ -1,7 +1,7 @@
 globalThis.__APP_CONFIG__ = globalThis.__APP_CONFIG__ || {};
 globalThis.__APP_CONFIG__.apiBaseUrl = "";
 
-globalThis.__APP_CONFIG__.firebaseApiKey ="AIzaSyCPnZzU28bMdUtFlrkH05SWkmO8V4Ix860";
+globalThis.__APP_CONFIG__.firebaseApiKey ="AIzaSyDQBZa1Vh2uEkYqTIBtuk3P6Dy8tkhT_cE";
 globalThis.__APP_CONFIG__.firebaseAuthDomain ="workflow-46bf7.firebaseapp.com";
 globalThis.__APP_CONFIG__.firebaseProjectId = "workflow-46bf7";
 globalThis.__APP_CONFIG__.firebaseStorageBucket = "workflow-46bf7.firebasestorage.app";
