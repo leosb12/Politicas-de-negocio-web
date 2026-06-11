@@ -155,6 +155,42 @@ export class OfflineQueueService {
     this._pendingCount.set(pending);
   }
 
+  /**
+   * Actualiza todas las operaciones de la cola que hagan referencia al ID temporal
+   * reemplazándolo por el ID real.
+   */
+  async updatePendingQueueWithRealId(localId: string, realId: string): Promise<void> {
+    const all = await this.getAllOperations();
+    for (const op of all) {
+      let changed = false;
+
+      // 1. Reemplazar en la URL
+      if (op.url.includes(localId)) {
+        op.url = op.url.replaceAll(localId, realId);
+        changed = true;
+      }
+
+      // 2. Reemplazar en el body
+      if (op.body) {
+        try {
+          let bodyStr = JSON.stringify(op.body);
+          if (bodyStr.includes(localId)) {
+            bodyStr = bodyStr.replaceAll(localId, realId);
+            op.body = JSON.parse(bodyStr);
+            changed = true;
+          }
+        } catch (err) {
+          console.warn('[OfflineQueue] No se pudo parsear el body en la cola:', err);
+        }
+      }
+
+      if (changed) {
+        op.deduplicationKey = this.buildDeduplicationKey(op.method, op.url, op.body);
+        await this.db.put<OfflineOperation>('offlineQueue', op);
+      }
+    }
+  }
+
   private buildDeduplicationKey(
     method: string,
     url: string,

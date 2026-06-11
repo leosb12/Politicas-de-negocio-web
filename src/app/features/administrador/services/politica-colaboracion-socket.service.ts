@@ -26,7 +26,7 @@ export class PoliticaColaboracionSocketService {
     this.connectionStateSubject.next(nextState);
     this.manualDisconnect = false;
 
-    this.client = new Client({
+    const socketClient = new Client({
       reconnectDelay: 3000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
@@ -37,17 +37,22 @@ export class PoliticaColaboracionSocketService {
       },
     });
 
-    this.client.onConnect = () => {
+    this.client = socketClient;
+
+    socketClient.onConnect = () => {
+      if (this.client !== socketClient) return;
       this.connectionStateSubject.next('CONNECTED');
     };
 
-    this.client.onDisconnect = () => {
+    socketClient.onDisconnect = () => {
+      if (this.client !== socketClient) return;
       if (this.manualDisconnect) {
         this.connectionStateSubject.next('DISCONNECTED');
       }
     };
 
-    this.client.onWebSocketClose = () => {
+    socketClient.onWebSocketClose = () => {
+      if (this.client !== socketClient) return;
       if (this.manualDisconnect) {
         this.connectionStateSubject.next('DISCONNECTED');
         return;
@@ -56,15 +61,17 @@ export class PoliticaColaboracionSocketService {
       this.connectionStateSubject.next('RECONNECTING');
     };
 
-    this.client.onWebSocketError = (event) => {
+    socketClient.onWebSocketError = (event) => {
+      if (this.client !== socketClient) return;
       console.error('WebSocket error en colaboración', event);
     };
 
-    this.client.onStompError = (frame) => {
+    socketClient.onStompError = (frame) => {
+      if (this.client !== socketClient) return;
       console.error('STOMP error en colaboración', frame.headers['message'], frame.body);
     };
 
-    this.client.activate();
+    socketClient.activate();
   }
 
   isConnected(): boolean {
@@ -121,7 +128,11 @@ export class PoliticaColaboracionSocketService {
     }
 
     await activeClient.deactivate();
-    this.connectionStateSubject.next('DISCONNECTED');
+    
+    // Only emit DISCONNECTED if no new client was started in the meantime
+    if (this.client === null) {
+      this.connectionStateSubject.next('DISCONNECTED');
+    }
   }
 
   private unsubscribe(destination: string): void {

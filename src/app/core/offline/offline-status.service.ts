@@ -146,6 +146,10 @@ export class OfflineStatusService implements OnDestroy {
     this._lastCheckedAt.set(new Date());
     console.log(`[OfflineStatus] Estado marcado a ONLINE. Razón: ${reason}`);
 
+    if (this._isOfflineSession()) {
+      this.setOfflineSession(false);
+    }
+
     if (wasOffline && typeof window !== 'undefined') {
       this._reconnect$.next(new Event('online'));
     }

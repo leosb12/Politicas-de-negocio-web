@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, from, of, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { IndexedDbService } from '../../../core/offline/indexeddb.service';
 import { API_BASE_URL, API_ENDPOINTS } from '../../../core/config/api.config';
 import {
@@ -257,17 +257,96 @@ export class PoliticaService {
 
   /** POST /api/politicas */
   create(payload: CreatePoliticaRequest): Observable<PoliticaNegocio> {
-    return this.http.post<PoliticaNegocio>(this.url, payload);
+    const localId = `local_${Date.now()}`;
+    const mockPolicy: PoliticaNegocio = {
+      id: localId,
+      nombre: payload.nombre,
+      descripcion: payload.descripcion,
+      tipoPolitica: payload.tipoPolitica,
+      departamentoInicioId: payload.departamentoInicioId,
+      requierePago: payload.requierePago,
+      montoPago: payload.montoPago,
+      monedaPago: payload.monedaPago,
+      descripcionPago: payload.descripcionPago,
+      estado: 'BORRADOR',
+      nodos: [],
+      conexiones: [],
+      fechaCreacion: new Date().toISOString(),
+      fechaActualizacion: new Date().toISOString(),
+    };
+
+    return this.http.post<PoliticaNegocio>(this.url, payload, {
+      headers: { 'X-Local-Id': localId }
+    }).pipe(
+      map((res: any) => {
+        if (res && res.queued) {
+          this.db.put<PoliticaNegocio>('politicas', mockPolicy);
+          this.db.put<PoliticaNegocio>('politicaDetalles', mockPolicy);
+          return mockPolicy;
+        }
+        return res;
+      }),
+      catchError((err) => {
+        return throwError(() => err);
+      })
+    );
   }
 
   /** PATCH /api/politicas/:id */
   updateMetadata(id: string, payload: UpdatePoliticaRequest): Observable<PoliticaNegocio> {
-    return this.http.patch<PoliticaNegocio>(`${this.url}/${id}`, payload);
+    return this.http.patch<PoliticaNegocio>(`${this.url}/${id}`, payload).pipe(
+      switchMap((res: any) => {
+        if (res && res.queued) {
+          return from(this.db.get<PoliticaNegocio>('politicaDetalles', id).then((curr) => {
+            const currentPolicy = curr || { id } as unknown as PoliticaNegocio;
+            const updated: PoliticaNegocio = {
+              ...currentPolicy,
+              ...payload,
+              fechaActualizacion: new Date().toISOString()
+            };
+            return Promise.all([
+              this.db.put<PoliticaNegocio>('politicas', updated),
+              this.db.put<PoliticaNegocio>('politicaDetalles', updated)
+            ]).then(() => updated);
+          }));
+        }
+        return of(res);
+      })
+    );
   }
 
   /** PUT /api/politicas/:id/flujo */
   saveFlujo(id: string, payload: UpdateFlujoRequest): Observable<PoliticaNegocio> {
-    return this.http.put<PoliticaNegocio>(`${this.url}/${id}/flujo`, payload);
+    return this.http.put<PoliticaNegocio>(`${this.url}/${id}/flujo`, payload).pipe(
+      switchMap((res: any) => {
+        if (res && res.queued) {
+          return from(this.db.get<PoliticaNegocio>('politicaDetalles', id).then((curr) => {
+            const currentPolicy = curr || {
+              id,
+              nombre: 'Política Offline',
+              estado: 'BORRADOR',
+              nodos: [],
+              conexiones: [],
+            } as unknown as PoliticaNegocio;
+
+            const updated: PoliticaNegocio = {
+              ...currentPolicy,
+              nodos: payload.nodos,
+              conexiones: payload.conexiones,
+              laneOrientation: payload.laneOrientation ?? currentPolicy.laneOrientation,
+              laneWidth: payload.laneWidth ?? currentPolicy.laneWidth,
+              laneHeight: payload.laneHeight ?? currentPolicy.laneHeight,
+              fechaActualizacion: new Date().toISOString()
+            };
+            return Promise.all([
+              this.db.put<PoliticaNegocio>('politicas', updated),
+              this.db.put<PoliticaNegocio>('politicaDetalles', updated)
+            ]).then(() => updated);
+          }));
+        }
+        return of(res);
+      })
+    );
   }
 
   /** GET /api/politicas/:id/requisitos-iniciales */
@@ -290,24 +369,91 @@ export class PoliticaService {
   ): Observable<PoliticaNegocio> {
     return this.http.put<PoliticaNegocio>(`${this.url}/${id}/requisitos-iniciales`, {
       requisitosIniciales,
-    });
+    }).pipe(
+      switchMap((res: any) => {
+        if (res && res.queued) {
+          return from(this.db.get<PoliticaNegocio>('politicaDetalles', id).then((curr) => {
+            const currentPolicy = curr || { id } as unknown as PoliticaNegocio;
+            const updated: PoliticaNegocio = {
+              ...currentPolicy,
+              requisitosIniciales,
+              fechaActualizacion: new Date().toISOString()
+            };
+            return Promise.all([
+              this.db.put<PoliticaNegocio>('politicas', updated),
+              this.db.put<PoliticaNegocio>('politicaDetalles', updated),
+              this.db.put('formDrafts', { id: `requisitos-${id}`, campos: requisitosIniciales })
+            ]).then(() => updated);
+          }));
+        }
+        return of(res);
+      })
+    );
   }
 
   /** PATCH /api/politicas/:id/estado */
   changeEstado(id: string, estado: EstadoPolitica): Observable<PoliticaNegocio> {
-    return this.http.patch<PoliticaNegocio>(`${this.url}/${id}/estado`, { estado });
+    return this.http.patch<PoliticaNegocio>(`${this.url}/${id}/estado`, { estado }).pipe(
+      switchMap((res: any) => {
+        if (res && res.queued) {
+          return from(this.db.get<PoliticaNegocio>('politicaDetalles', id).then((curr) => {
+            const currentPolicy = curr || { id } as unknown as PoliticaNegocio;
+            const updated: PoliticaNegocio = {
+              ...currentPolicy,
+              estado,
+              fechaActualizacion: new Date().toISOString()
+            };
+            return Promise.all([
+              this.db.put<PoliticaNegocio>('politicas', updated),
+              this.db.put<PoliticaNegocio>('politicaDetalles', updated)
+            ]).then(() => updated);
+          }));
+        }
+        return of(res);
+      })
+    );
   }
 
   /** PATCH /api/politicas/:id/estado { estado: DESHABILITADA } */
   disable(id: string): Observable<PoliticaNegocio> {
     return this.http.patch<PoliticaNegocio>(`${this.url}/${id}/estado`, {
       estado: 'DESHABILITADA' as EstadoPolitica,
-    });
+    }).pipe(
+      switchMap((res: any) => {
+        if (res && res.queued) {
+          return from(this.db.get<PoliticaNegocio>('politicaDetalles', id).then((curr) => {
+            const currentPolicy = curr || { id } as unknown as PoliticaNegocio;
+            const updated: PoliticaNegocio = {
+              ...currentPolicy,
+              estado: 'DESHABILITADA',
+              fechaActualizacion: new Date().toISOString()
+            };
+            return Promise.all([
+              this.db.put<PoliticaNegocio>('politicas', updated),
+              this.db.put<PoliticaNegocio>('politicaDetalles', updated)
+            ]).then(() => updated);
+          }));
+        }
+        return of(res);
+      })
+    );
   }
 
   /** DELETE /api/politicas/:id */
   delete(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.url}/${id}`);
+    return this.http.delete<void>(`${this.url}/${id}`).pipe(
+      switchMap((res: any) => {
+        if (res && res.queued) {
+          return from(
+            Promise.all([
+              this.db.delete('politicas', id),
+              this.db.delete('politicaDetalles', id)
+            ]).then(() => undefined)
+          );
+        }
+        return of(res);
+      })
+    );
   }
 
   /** GET /api/politicas/:id/auditoria/general */

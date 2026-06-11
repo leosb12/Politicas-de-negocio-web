@@ -167,6 +167,11 @@
             <h3 class="card-title">{{ p.nombre }}</h3>
             <p class="card-desc">{{ p.descripcion || 'Sin descripcion' }}</p>
             <div class="mt-3 flex flex-wrap gap-2 text-xs">
+              @if (p.id.startsWith('local_')) {
+                <span class="rounded-full bg-orange-500/15 border border-orange-500/30 px-2.5 py-1 font-semibold text-orange-400 flex items-center gap-1">
+                  <lucide-icon name="wifi-off" [size]="12"></lucide-icon> Pendiente de sincronizar
+                </span>
+              }
               <span class="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
                 {{ getTipoPoliticaLabel(p.tipoPolitica) }}
               </span>

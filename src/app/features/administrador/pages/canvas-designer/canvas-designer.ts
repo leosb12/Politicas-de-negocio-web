@@ -25,6 +25,8 @@ import { AdministradorRolesService } from '../../services/administrador-roles.se
 import { ToastService } from '../../../../shared/services/toast.service';
 import { AuthService } from '../../../../core/auth/services/auth.service';
 import { OfflineStatusService } from '../../../../core/offline/offline-status.service';
+import { OfflineSyncService } from '../../../../core/offline/offline-sync.service';
+import { OfflineQueueService } from '../../../../core/offline/offline-queue.service';
 import {
   PoliticaNegocio,
   Nodo,
@@ -310,11 +312,16 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   private readonly guideContext = inject(AdministradorGuiaContextService);
   private readonly iaMapperService = inject(IaFlujoMapperService);
   private readonly documentPermissionService = inject(DocumentPermissionService);
+  private readonly syncService = inject(OfflineSyncService);
+  private readonly queueService = inject(OfflineQueueService);
   /** Expuesto al template para aviso offline */
   readonly offlineStatus = inject(OfflineStatusService);
   readonly isOfflineCanvas = this.offlineStatus.isOffline;
 
   // ── State ─────────────────────────────────────────────────────
+  designerState = signal<'OFFLINE' | 'SYNCING' | 'ONLINE'>('SYNCING');
+  private syncTimeoutTimer: any = null;
+
   politica = signal<PoliticaNegocio | null>(null);
   loading = signal(true);
   saving = signal(false);
@@ -654,6 +661,18 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
         availableActions,
       });
     });
+
+    effect(() => {
+      const offline = this.isOfflineCanvas();
+      const policy = this.politica();
+      if (policy) {
+        if (offline) {
+          this.handleOfflineMode();
+        } else {
+          this.handleOnlineRestored();
+        }
+      }
+    });
   }
 
   // ── Computed ──────────────────────────────────────────────────
@@ -685,6 +704,17 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) { this.router.navigate(['/admin/politicas']); return; }
+
+    this.syncService.idMapping$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ localId, realId }) => {
+        const p = this.politica();
+        if (p && p.id === localId) {
+          console.log(`[CanvasDesigner] ID temporal ${localId} sincronizado a real ${realId}. Redireccionando...`);
+          this.politica.update((current) => current ? { ...current, id: realId } : null);
+          this.router.navigate(['/admin/politicas', realId, 'canvas'], { replaceUrl: true });
+        }
+      });
 
     this.bindCollaborationStreams();
 
@@ -729,8 +759,6 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       next: (p) => {
         this.setPoliticaState(p);
         this.hydrateCanvas(p);
-        this.startCollaborationSession(p.id);
-        this.startPolicyEstadoSync();
         this.loading.set(false);
       },
       error: () => {
@@ -767,6 +795,111 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.pendingNodeNameGuards.clear();
 
     this.collabFacade.stopSession(true);
+
+    if (this.syncTimeoutTimer) {
+      clearTimeout(this.syncTimeoutTimer);
+      this.syncTimeoutTimer = null;
+    }
+  }
+
+  private handleOfflineMode(): void {
+    console.log('[CanvasDesigner] Offline detectado, deteniendo colaboración...');
+    this.designerState.set('OFFLINE');
+    this.collabFacade.stopSession(false);
+    this.stopPolicyEstadoSync();
+  }
+
+  private handleOnlineRestored(): void {
+    const policy = this.politica();
+    if (!policy) {
+      return;
+    }
+
+    console.log('[CanvasDesigner] Online detectado. Analizando reconexión para política:', policy.id);
+
+    // No intentar WebSocket para IDs temporales locales
+    if (policy.id.startsWith('local_')) {
+      console.log('[CanvasDesigner] Política local detectada. Esperando ID real tras sincronización...');
+      // No se detiene ni cambia designerState: sigue offline sin colaboración
+      return;
+    }
+
+    // Si ya está online y activo, no duplicar sesión
+    if (this.designerState() === 'ONLINE') {
+      console.log('[CanvasDesigner] Ya en modo ONLINE, omitiendo re-inicialización.');
+      return;
+    }
+
+    // Lectura sinócrona: ¿hay cambios offline pendientes?
+    const hasPendingChanges = this.queueService.hasPending();
+    const isSyncing = this.syncService.isSyncing();
+
+    if (!hasPendingChanges && !isSyncing) {
+      // Caso normal: no hay nada pendiente, iniciar colaboración inmediatamente
+      console.log('[CanvasDesigner] Sin cambios pendientes. Iniciando colaboración inmediatamente.');
+      this.activateOnlineMode(policy.id);
+    } else {
+      // Caso offline->online: esperar a que la sincronización termine
+      console.log('[CanvasDesigner] Cambios pendientes detectados. Esperando sincronización...');
+      this.designerState.set('SYNCING');
+      this.waitForSyncToCompleteAndRestartCollab(policy.id);
+    }
+  }
+
+  private waitForSyncToCompleteAndRestartCollab(policyId: string): void {
+    if (this.syncTimeoutTimer) {
+      clearTimeout(this.syncTimeoutTimer);
+      this.syncTimeoutTimer = null;
+    }
+
+    // Usar polling liviano en vez de toObservable() para evitar problemas
+    // con el injection context fuera del constructor.
+    const startedAt = Date.now();
+    const MAX_WAIT_MS = 8000;
+    const POLL_MS = 300;
+
+    const pollTimer = setInterval(() => {
+      // Si ya no somos el timer activo, salir
+      if (this.syncTimeoutTimer !== pollTimer) {
+        clearInterval(pollTimer);
+        return;
+      }
+
+      const timedOut = Date.now() - startedAt >= MAX_WAIT_MS;
+      const done = !this.syncService.isSyncing() && !this.queueService.hasPending();
+
+      if (done || timedOut) {
+        clearInterval(pollTimer);
+        this.syncTimeoutTimer = null;
+        if (timedOut && !done) {
+          console.warn('[CanvasDesigner] Timeout esperando sincronización. Forzando inicio de colaboración...');
+        }
+        if (!this.isOfflineCanvas()) {
+          this.activateOnlineMode(policyId);
+        }
+      }
+    }, POLL_MS);
+
+    this.syncTimeoutTimer = pollTimer;
+  }
+
+  private activateOnlineMode(policyId: string): void {
+    if (this.isOfflineCanvas()) {
+      console.log('[CanvasDesigner] Volvio a estar offline antes de activar. Abortando.');
+      return;
+    }
+
+    if (policyId.startsWith('local_')) {
+      console.log('[CanvasDesigner] No se inicia colaboración para ID local:', policyId);
+      return;
+    }
+
+    console.log('[CanvasDesigner] Activando modo ONLINE para política:', policyId);
+    this.designerState.set('ONLINE');
+    this.collabFacade.stopSession(false);
+    this.startCollaborationSession(policyId);
+    this.startPolicyEstadoSync();
+    this.loading.set(false);
   }
 
   private backupUnsavedDraftLocally(): void {
@@ -899,7 +1032,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.collaborationConnectionState() === 'DISCONNECTED') {
+    if (this.collaborationConnectionState() === 'DISCONNECTED' || this.isOfflineCanvas()) {
       return;
     }
 
@@ -2298,7 +2431,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     this.autoSaveTimer = setTimeout(() => {
       this.autoSaveTimer = null;
       this.flushAutoSave();
-    }, 200);
+    }, this.isOfflineCanvas() ? 1000 : 200);
   }
 
   private flushAutoSave(): void {
@@ -2351,6 +2484,11 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.saving.set(false);
+        if (this.isOfflineCanvas()) {
+          this.autoSaveQueued = false;
+          this.tryApplyDeferredCollaborativeFlow();
+          return;
+        }
         const msg = err?.error?.message ?? 'No se pudo guardar el borrador automáticamente';
         this.toast.error('Error', msg);
 

@@ -168,7 +168,7 @@ export const offlineHttpInterceptor: HttpInterceptorFn = (request, next) => {
       const headers: Record<string, string> = {};
 
       // Extraer headers importantes ya puestos por otros interceptores
-      const headerNames = ['X-Admin-User-Id', 'X-User-Id', 'Content-Type', 'Authorization'];
+      const headerNames = ['X-Admin-User-Id', 'X-User-Id', 'Content-Type', 'Authorization', 'X-Local-Id'];
       for (const name of headerNames) {
         const value = request.headers.get(name);
         if (value) {
@@ -215,7 +215,7 @@ export const offlineHttpInterceptor: HttpInterceptorFn = (request, next) => {
         if (isNetworkError(error)) {
           statusService.markOffline('HTTP_STATUS_0');
           const headers: Record<string, string> = {};
-          const headerNames = ['X-Admin-User-Id', 'X-User-Id', 'Content-Type', 'Authorization'];
+          const headerNames = ['X-Admin-User-Id', 'X-User-Id', 'Content-Type', 'Authorization', 'X-Local-Id'];
           for (const name of headerNames) {
             const value = request.headers.get(name);
             if (value) headers[name] = value;

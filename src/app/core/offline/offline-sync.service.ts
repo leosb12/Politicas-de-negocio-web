@@ -1,9 +1,11 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
 import { OfflineStatusService } from './offline-status.service';
 import { OfflineQueueService, OfflineOperation } from './offline-queue.service';
 import { OfflineConflictService } from './offline-conflict.service';
+import { IndexedDbService } from './indexeddb.service';
+import { ToastService } from '../../shared/services/toast.service';
 
 export interface SyncResult {
   synced: string[];
@@ -19,6 +21,11 @@ export class OfflineSyncService {
   private readonly statusService = inject(OfflineStatusService);
   private readonly queueService = inject(OfflineQueueService);
   private readonly conflictService = inject(OfflineConflictService);
+  private readonly db = inject(IndexedDbService);
+  private readonly toast = inject(ToastService);
+
+  private readonly idMappingSubject = new Subject<{ localId: string; realId: string }>();
+  readonly idMapping$ = this.idMappingSubject.asObservable();
 
   private readonly _isSyncing = signal(false);
   readonly isSyncing = this._isSyncing.asReadonly();
@@ -76,6 +83,10 @@ export class OfflineSyncService {
       // Limpiar operaciones sincronizadas residuales
       await this.queueService.clearSynced();
 
+      if (result.synced.length > 0) {
+        this.toast.success('Sincronización', 'Cambios sincronizados correctamente');
+      }
+
     } catch (err) {
       console.error('[OfflineSync] Error durante sincronización:', err);
     } finally {
@@ -129,6 +140,19 @@ export class OfflineSyncService {
           result.failed.push(op.id);
           await this.queueService.updateStatus(op.id, 'FAILED_PERMANENT');
           return false;
+      }
+
+      // Si fue una creación (POST) y tiene X-Local-Id, mapear el ID temporal al ID real
+      const localId = op.headers['X-Local-Id'];
+      const realId = (response as any)?.id;
+      if (op.method === 'POST' && localId && realId && localId !== realId) {
+        console.log(`[OfflineSync] Mapeando ID temporal ${localId} a ID real ${realId}`);
+        await this.queueService.updatePendingQueueWithRealId(localId, realId);
+        await this.db.renameKey('politicas', localId, realId);
+        await this.db.renameKey('politicaDetalles', localId, realId);
+        await this.db.renameKey('politicaFlujos', localId, realId);
+        await this.db.renameKey('formDrafts', `requisitos-${localId}`, `requisitos-${realId}`);
+        this.idMappingSubject.next({ localId, realId });
       }
 
       // Verificar conflictos si hay versión en la respuesta

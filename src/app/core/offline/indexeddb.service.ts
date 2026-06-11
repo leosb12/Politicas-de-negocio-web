@@ -373,4 +373,22 @@ export class IndexedDbService {
       }
     }
   }
+
+  /** Renombra una key en IndexedDB moviendo su contenido a la nueva key */
+  async renameKey(storeName: IDBStoreName, oldKey: string, newKey: string): Promise<void> {
+    const record = await this.get<any>(storeName, oldKey);
+    if (record) {
+      if (typeof record === 'object' && record !== null) {
+        if ('id' in record) {
+          record.id = newKey;
+        } else if ('cacheKey' in record) {
+          record.cacheKey = newKey;
+        } else if ('correo' in record) {
+          record.correo = newKey;
+        }
+      }
+      await this.put(storeName, record);
+      await this.delete(storeName, oldKey);
+    }
+  }
 }
