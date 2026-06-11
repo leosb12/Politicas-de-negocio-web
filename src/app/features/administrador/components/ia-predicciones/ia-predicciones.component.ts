@@ -96,8 +96,8 @@ export interface RichPredictionResponse {
                 <lucide-icon name="sparkles" [size]="32" class="text-violet-600 animate-pulse"></lucide-icon>
               </div>
               <div class="text-center max-w-md">
-                <p class="text-xl font-bold text-slate-800 tracking-tight">Analizando con Deep Learning...</p>
-                <p class="text-sm text-slate-500 mt-2 leading-relaxed">Procesando estructura de la política, historial de simulaciones y generando explicaciones lógicas mediante inteligencia artificial.</p>
+                <p class="text-xl font-bold text-slate-800 tracking-tight">{{ loadingText() }}</p>
+                <p class="text-sm text-slate-500 mt-2 leading-relaxed">{{ loadingSubtext() }}</p>
               </div>
             </div>
           } @else if (result()) {
@@ -436,6 +436,12 @@ export interface RichPredictionResponse {
                   <p class="leading-relaxed">{{ errorMsg() }}</p>
                 </div>
               }
+              @if (successMsg()) {
+                <div class="mt-8 p-4 bg-emerald-50 text-emerald-700 text-sm rounded-xl border border-emerald-200 flex items-start gap-3 font-medium shadow-sm">
+                  <lucide-icon name="check-circle" [size]="20" class="mt-0.5 flex-shrink-0 text-emerald-500"></lucide-icon>
+                  <p class="leading-relaxed">{{ successMsg() }}</p>
+                </div>
+              }
             </div>
           }
         </div>
@@ -461,7 +467,7 @@ export interface RichPredictionResponse {
                 (click)="submit()"
                 [disabled]="loading() || !hasSelection()"
               >
-                @if (loading()) {
+                @if (loading() && !isTraining()) {
                   <lucide-icon name="loader-2" [size]="18" class="animate-spin"></lucide-icon>
                   <span>Procesando...</span>
                 } @else {
@@ -539,6 +545,10 @@ export class IaPrediccionesComponent {
   applyingChanges = signal(false);
   result = signal<RichPredictionResponse | null>(null);
   errorMsg = signal<string | null>(null);
+  successMsg = signal<string | null>(null);
+  isTraining = signal(false);
+  loadingText = signal('Analizando con Deep Learning...');
+  loadingSubtext = signal('Procesando estructura de la política, historial de simulaciones y generando explicaciones lógicas mediante inteligencia artificial.');
 
   // Store what was requested to filter sections
   requestData = {
@@ -555,6 +565,7 @@ export class IaPrediccionesComponent {
   resetForm() {
     this.result.set(null);
     this.errorMsg.set(null);
+    this.successMsg.set(null);
   }
 
   submit() {
@@ -563,7 +574,11 @@ export class IaPrediccionesComponent {
     }
 
     this.loading.set(true);
+    this.isTraining.set(false);
+    this.loadingText.set('Analizando con Deep Learning...');
+    this.loadingSubtext.set('Procesando estructura de la política, historial de simulaciones y generando explicaciones lógicas mediante inteligencia artificial.');
     this.errorMsg.set(null);
+    this.successMsg.set(null);
 
     // Save requested preferences
     this.requestData = {
@@ -589,8 +604,37 @@ export class IaPrediccionesComponent {
         },
         error: (err) => {
           console.error(err);
-          this.errorMsg.set('Ocurrió un error al contactar al motor de IA y procesar el análisis. Asegúrate de que el backend y los servicios Python estén en ejecución.');
+          const rawErr = err.error?.error || err.error?.message || err.message || '';
+          if (rawErr.includes('Model artifacts not found. Please train first.') || JSON.stringify(err).includes('Model artifacts not found. Please train first.')) {
+            this.errorMsg.set('El modelo aún no fue entrenado. Presiona ‘Entrenar modelo’ antes de generar el informe.');
+          } else {
+            this.errorMsg.set('Ocurrió un error al contactar al motor de IA y procesar el análisis. Asegúrate de que el backend y los servicios Python estén en ejecución.');
+          }
           this.loading.set(false);
+        }
+      });
+  }
+
+  train() {
+    this.loading.set(true);
+    this.isTraining.set(true);
+    this.loadingText.set('Entrenando modelo, esto puede tardar unos minutos...');
+    this.loadingSubtext.set('Generando escenarios, estructurando dataset y entrenando red neuronal profunda en Keras. Esto no bloqueará tu navegador.');
+    this.errorMsg.set(null);
+    this.successMsg.set(null);
+
+    this.http.post(`${API_BASE_URL}/api/predicciones/train`, {})
+      .subscribe({
+        next: (res) => {
+          this.successMsg.set('Modelo entrenado correctamente. Ya puedes generar el informe predictivo.');
+          this.loading.set(false);
+          this.isTraining.set(false);
+        },
+        error: (err) => {
+          console.error(err);
+          this.errorMsg.set('No se pudo entrenar el modelo. Revisa los logs del servicio IA.');
+          this.loading.set(false);
+          this.isTraining.set(false);
         }
       });
   }
