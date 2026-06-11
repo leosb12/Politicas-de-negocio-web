@@ -17,6 +17,7 @@ import {
 import { getApiErrorMessage } from '../../../../core/utils/api-error.util';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { FuncionarioFlujoApiService } from '../../../funcionario-flujo/services/funcionario-flujo-api.service';
 
 type AuditoriaTab = 'general' | 'documental';
 
@@ -31,6 +32,7 @@ export class AdministradorPoliticaAuditoriaPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly politicaService = inject(PoliticaService);
+  private readonly funcionarioFlujoService = inject(FuncionarioFlujoApiService);
 
   readonly politicaId = this.route.snapshot.paramMap.get('id');
   readonly activeTab = signal<AuditoriaTab>('general');
@@ -397,5 +399,80 @@ export class AdministradorPoliticaAuditoriaPageComponent implements OnInit {
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank', 'noopener,noreferrer');
     window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
+
+  descargarDocumento(documento: DocumentoAuditoriaResponse): void {
+    if (!documento.id) return;
+    this.funcionarioFlujoService.descargarArchivo(documento.id).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = documento.nombre || 'archivo';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      },
+      error: (error: unknown) => {
+        alert(getApiErrorMessage(error, 'No se pudo descargar el archivo'));
+      }
+    });
+  }
+
+  editarDocumento(documento: DocumentoAuditoriaResponse): void {
+    if (!documento.id) return;
+    const nuevoNombre = prompt('Ingrese el nuevo nombre del archivo:', documento.nombre);
+    if (nuevoNombre === null) return;
+    const nombreSanitizado = nuevoNombre.trim();
+    if (!nombreSanitizado) {
+      alert('El nombre del archivo no puede estar vacío.');
+      return;
+    }
+
+    this.funcionarioFlujoService.editarArchivo(documento.id, { nombreOriginal: nombreSanitizado }).subscribe({
+      next: () => {
+        this.loadAuditoriaDocumental(true);
+      },
+      error: (error: unknown) => {
+        alert(getApiErrorMessage(error, 'No se pudo editar el archivo'));
+      }
+    });
+  }
+
+  reemplazarDocumento(documento: DocumentoAuditoriaResponse): void {
+    if (!documento.id) return;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      this.funcionarioFlujoService.reemplazarArchivo(documento.id, file).subscribe({
+        next: () => {
+          this.loadAuditoriaDocumental(true);
+        },
+        error: (error: unknown) => {
+          alert(getApiErrorMessage(error, 'No se pudo reemplazar el archivo'));
+        }
+      });
+    };
+    fileInput.click();
+  }
+
+  eliminarDocumento(documento: DocumentoAuditoriaResponse): void {
+    if (!documento.id) return;
+    if (!confirm(`¿Está seguro de que desea eliminar el archivo "${documento.nombre}"?`)) {
+      return;
+    }
+
+    this.funcionarioFlujoService.eliminarArchivo(documento.id).subscribe({
+      next: () => {
+        this.loadAuditoriaDocumental(true);
+      },
+      error: (error: unknown) => {
+        alert(getApiErrorMessage(error, 'No se pudo eliminar el archivo'));
+      }
+    });
   }
 }

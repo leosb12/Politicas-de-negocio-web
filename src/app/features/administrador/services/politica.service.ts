@@ -25,6 +25,12 @@ export interface DocumentoAuditoriaResponse {
   subidoOCreadoPor: string | null;
   subidoOCreadoPorNombre: string | null;
   fecha: string | null;
+  puedeLeer?: boolean | null;
+  puedeDescargar?: boolean | null;
+  puedeEditar?: boolean | null;
+  puedeReemplazar?: boolean | null;
+  puedeEliminar?: boolean | null;
+  puedeAuditar?: boolean | null;
 }
 
 export interface TareaDocumentoAuditoriaResponse {

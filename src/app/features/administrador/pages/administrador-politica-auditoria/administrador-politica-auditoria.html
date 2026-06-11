@@ -322,9 +322,31 @@
                       <div class="documento-card__side">
                         <span>{{ documento.estado || '-' }}</span>
                         <small>{{ formatBytes(documento.tamanoBytes) }}</small>
-                        <button type="button" class="audit-document-button" (click)="openDocumentAuditModal(documento, tarea)">
-                          Auditar
-                        </button>
+                        @if (documento.puedeAuditar) {
+                          <button type="button" class="audit-document-button" (click)="openDocumentAuditModal(documento, tarea)">
+                            Auditar
+                          </button>
+                        }
+                        @if (documento.puedeDescargar) {
+                          <button type="button" class="download-document-button" (click)="descargarDocumento(documento)">
+                            Descargar
+                          </button>
+                        }
+                        @if (documento.puedeEditar) {
+                          <button type="button" class="edit-document-button" (click)="editarDocumento(documento)">
+                            Editar
+                          </button>
+                        }
+                        @if (documento.puedeReemplazar) {
+                          <button type="button" class="replace-document-button" (click)="reemplazarDocumento(documento)">
+                            Reemplazar
+                          </button>
+                        }
+                        @if (documento.puedeEliminar) {
+                          <button type="button" class="delete-document-button" (click)="eliminarDocumento(documento)">
+                            Eliminar
+                          </button>
+                        }
                         @if (documento.tipoOrigen === 'DOCUMENTO_COLABORATIVO') {
                           <button type="button" class="open-document-button" (click)="abrirDocumentoColaborativo(documento.id)">
                             Abrir

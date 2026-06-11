@@ -440,7 +440,11 @@
 
 .audit-document-button,
 .versions-document-button,
-.open-document-button {
+.open-document-button,
+.download-document-button,
+.edit-document-button,
+.replace-document-button,
+.delete-document-button {
   border: 1px solid #c7d2fe;
   border-radius: 0.65rem;
   background: #eef2ff;
@@ -465,9 +469,37 @@
   color: #047857;
 }
 
+.download-document-button {
+  border-color: #bae6fd;
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.edit-document-button {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.replace-document-button {
+  border-color: #ddd6fe;
+  background: #faf5ff;
+  color: #6d28d9;
+}
+
+.delete-document-button {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
+
 .audit-document-button:hover,
 .versions-document-button:hover,
-.open-document-button:hover {
+.open-document-button:hover,
+.download-document-button:hover,
+.edit-document-button:hover,
+.replace-document-button:hover,
+.delete-document-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 20px rgba(67, 56, 202, 0.16);
 }
@@ -482,6 +514,22 @@
 
 .open-document-button:hover {
   background: #dcfce7;
+}
+
+.download-document-button:hover {
+  background: #e0f2fe;
+}
+
+.edit-document-button:hover {
+  background: #ffedd5;
+}
+
+.replace-document-button:hover {
+  background: #f3e8ff;
+}
+
+.delete-document-button:hover {
+  background: #ffe4e6;
 }
 
 .documental-state {
