@@ -198,7 +198,7 @@ function mapFormularioField(
     tipo,
     requerido: tipo === 'DOCUMENTO_COLABORATIVO'
       ? false
-      : field.requerido ?? field.required ?? true,
+      : field.requerido ?? field.required ?? false,
     placeholder: trimToNull(field.placeholder),
     ayuda: trimToNull(field.ayuda),
     orden: typeof field.orden === 'number' ? field.orden : index,
