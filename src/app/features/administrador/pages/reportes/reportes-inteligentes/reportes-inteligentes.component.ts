@@ -215,25 +215,32 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
     const code = error?.error?.code || error?.error?.codigo || error?.error?.errorCode;
     
     let bodyText = '';
-    if (error?.error) {
-      bodyText = typeof error.error === 'string' ? error.error : JSON.stringify(error.error);
+    try {
+      bodyText = typeof error?.error === 'string'
+        ? error.error
+        : JSON.stringify(error?.error || {});
+    } catch {
+      bodyText = '';
     }
 
     const esEndpointOfflineReportes =
       url.includes('/api/admin/reportes-visuales/generar-offline')
       || contexto === 'offline-reportes';
 
+    const esFalloInfraOffline =
+      esEndpointOfflineReportes
+      && [500, 502, 503, 504].includes(status);
+
     return status === 0
-        || status === 503
+        || message.includes('Unknown Error')
+        || message.includes('Network Error')
         || code === 'LOCAL_IA_UNAVAILABLE'
         || code === 'IA_DEEP_LEARNING_UNAVAILABLE'
         || code === 'SERVICE_UNAVAILABLE'
-        || message.includes('Unknown Error')
-        || message.includes('Network Error')
         || bodyText.includes('LOCAL_IA_UNAVAILABLE')
         || bodyText.includes('IA_DEEP_LEARNING_UNAVAILABLE')
         || bodyText.includes('SERVICE_UNAVAILABLE')
-        || (esEndpointOfflineReportes && status === 500);
+        || esFalloInfraOffline;
   }
 
   private ejecutarGeneracionFallbackLocal(promptVal: string, targetFormat: string) {
