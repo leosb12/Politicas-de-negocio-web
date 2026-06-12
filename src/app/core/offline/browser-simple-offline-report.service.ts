@@ -41,11 +41,30 @@ export class BrowserSimpleOfflineReportService {
       departamentos = await this.db.getAll<any>('departamentos') || [];
     }
 
+    // Helper to extract "YYYY-MM" format from date (epoch number or ISO string)
+    const getMonthStr = (fecha: string | number): string => {
+      if (!fecha) return '';
+      let date: Date;
+      if (typeof fecha === 'number') {
+        date = new Date(fecha);
+      } else {
+        const num = Number(fecha);
+        if (!isNaN(num)) {
+          date = new Date(num);
+        } else {
+          date = new Date(fecha);
+        }
+      }
+      if (isNaN(date.getTime())) return '';
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      return `${y}-${m}`;
+    };
+
     // 2. Filtrar por fecha obligatoria (abril 2026, mayo 2026, junio 2026)
-    const filterByDate = (fechaStr: string): boolean => {
-      if (!fechaStr) return false;
-      const prefix = fechaStr.substring(0, 7);
-      return prefix === '2026-04' || prefix === '2026-05' || prefix === '2026-06';
+    const filterByDate = (fecha: string | number): boolean => {
+      const mStr = getMonthStr(fecha);
+      return mStr === '2026-04' || mStr === '2026-05' || mStr === '2026-06';
     };
 
     const promptLower = prompt.toLowerCase();
@@ -54,7 +73,7 @@ export class BrowserSimpleOfflineReportService {
     const filteredInstancias = instancias.filter(inst => {
       if (!filterByDate(inst.fechaCreacion)) return false;
       if (isEsteMes) {
-        return inst.fechaCreacion && inst.fechaCreacion.startsWith('2026-06');
+        return getMonthStr(inst.fechaCreacion) === '2026-06';
       }
       return true;
     });
@@ -62,7 +81,7 @@ export class BrowserSimpleOfflineReportService {
     const filteredTareas = tareas.filter(task => {
       if (!filterByDate(task.fechaCreacion)) return false;
       if (isEsteMes) {
-        return task.fechaCreacion && task.fechaCreacion.startsWith('2026-06');
+        return getMonthStr(task.fechaCreacion) === '2026-06';
       }
       return true;
     });
@@ -242,7 +261,7 @@ export class BrowserSimpleOfflineReportService {
       };
       insts.forEach(inst => {
         if (inst.fechaCreacion) {
-          const prefix = inst.fechaCreacion.substring(0, 7);
+          const prefix = getMonthStr(inst.fechaCreacion);
           const match = months.find(m => m.key === prefix);
           if (match) {
             counts[match.label]++;

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportesDinamicosService, ReporteVisualResponse } from '../../../services/reportes-dinamicos.service';
@@ -25,6 +25,14 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
   private offlineStatusService = inject(OfflineStatusService);
   private browserOfflineReportService = inject(BrowserSimpleOfflineReportService);
   private guideContext = inject(AdministradorGuiaContextService, { optional: true });
+
+  constructor() {
+    effect(() => {
+      if (this.offlineStatusService.isOnline()) {
+        this.isBrowserSimpleFallbackActive.set(false);
+      }
+    });
+  }
 
   ngOnInit(): void {
     if (this.guideContext) {
@@ -64,6 +72,8 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
   // Estados para exportación offscreen
   isExporting = signal(false);
   exportReporte = signal<ReporteVisualResponse | null>(null);
+
+  isBrowserSimpleFallbackActive = signal(false);
 
   sugerencias = [
     "Quiero un gráfico de barras con los funcionarios más activos, abajo una torta con los usuarios que más inician políticas y debajo una tabla con las politicas mas usadas. en pantalla",
@@ -137,6 +147,38 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
     }
 
     const isOffline = this.offlineStatusService.isOffline();
+
+    if (!isOffline) {
+      this.isBrowserSimpleFallbackActive.set(false);
+    }
+
+    if (isOffline && this.isBrowserSimpleFallbackActive()) {
+      console.log('BROWSER_SIMPLE_OFFLINE_HTTP_SKIPPED: Omitiendo llamadas HTTP adicionales en modo fallback activo.');
+      this.browserOfflineReportService.generarReporteBrowserSimple(promptVal)
+        .then((res: ReporteVisualResponse) => {
+          this.isOfflineReport.set(true);
+          if (targetFormat === 'pantalla') {
+            this.reporte.set(res);
+            this.isProcessing.set(false);
+            this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente local de fallback en formato Pantalla').subscribe({
+              error: () => { }
+            });
+          } else {
+            this.exportReporte.set(res);
+            this.isExporting.set(true);
+            setTimeout(() => {
+              this.procesarExportacion(res, targetFormat);
+            }, 1200);
+          }
+        })
+        .catch((fallbackErr: any) => {
+          console.error(fallbackErr);
+          this.errorMessage.set(fallbackErr.message || "No hay datos offline suficientes para generar este reporte simple.");
+          this.isProcessing.set(false);
+        });
+      return;
+    }
+
     const requestObservable = isOffline
       ? this.reportesService.generarReporteVisualOffline({ prompt: promptVal, iaPlus: this.iaPlus() })
       : this.reportesService.generarReporteVisual({ prompt: promptVal, iaPlus: this.iaPlus() });
@@ -144,6 +186,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
     requestObservable.subscribe({
       next: (res: ReporteVisualResponse) => {
         this.isOfflineReport.set(isOffline);
+        this.isBrowserSimpleFallbackActive.set(false);
         if (targetFormat === 'pantalla') {
           this.reporte.set(res);
           this.isProcessing.set(false);
@@ -162,16 +205,17 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
       error: (err: any) => {
         console.error(err);
         const errorBody = err?.error;
-        const isLocalIaUnavailable = 
-          isOffline && 
-          errorBody && 
-          errorBody.code === 'LOCAL_IA_UNAVAILABLE' && 
-          errorBody.fallbackAllowed === true && 
+        const isLocalIaUnavailable =
+          isOffline &&
+          errorBody &&
+          errorBody.code === 'LOCAL_IA_UNAVAILABLE' &&
+          errorBody.fallbackAllowed === true &&
           errorBody.mode === 'OFFLINE_BROWSER_SIMPLE_FALLBACK_REQUIRED';
 
         if (isLocalIaUnavailable) {
           console.warn('OFFLINE_REPORT_SERVER_PIPELINE_FAILED_LOCAL_IA: El pipeline offline del backend falló porque ia-deep-learning-service no está disponible.');
-          
+          this.isBrowserSimpleFallbackActive.set(true);
+
           this.browserOfflineReportService.generarReporteBrowserSimple(promptVal)
             .then((res: ReporteVisualResponse) => {
               this.isOfflineReport.set(true);
@@ -179,7 +223,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
                 this.reporte.set(res);
                 this.isProcessing.set(false);
                 this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente local de fallback en formato Pantalla').subscribe({
-                  error: () => {}
+                  error: () => { }
                 });
               } else {
                 this.exportReporte.set(res);
@@ -240,7 +284,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
       } else if (formato === 'powerpoint') {
         this.exportarAPowerPoint(reporte, chartImages);
       }
-      
+
       this.analiticasService.logSystemAudit('DESCARGA_REPORTE', `Descargó reporte inteligente en formato ${formato.toUpperCase()}`).subscribe();
     } catch (err) {
       console.error('Error durante la exportación:', err);
@@ -850,6 +894,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
     this.isExporting.set(false);
     this.exportReporte.set(null);
     this.isOfflineReport.set(false);
+    this.isBrowserSimpleFallbackActive.set(false);
   }
 
   toggleDictado() {
