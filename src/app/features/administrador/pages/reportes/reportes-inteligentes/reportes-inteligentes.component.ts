@@ -148,37 +148,6 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
 
     const isOffline = this.offlineStatusService.isOffline();
 
-    if (!isOffline) {
-      this.isBrowserSimpleFallbackActive.set(false);
-    }
-
-    if (isOffline && this.isBrowserSimpleFallbackActive()) {
-      console.log('BROWSER_SIMPLE_OFFLINE_HTTP_SKIPPED: Omitiendo llamadas HTTP adicionales en modo fallback activo.');
-      this.browserOfflineReportService.generarReporteBrowserSimple(promptVal)
-        .then((res: ReporteVisualResponse) => {
-          this.isOfflineReport.set(true);
-          if (targetFormat === 'pantalla') {
-            this.reporte.set(res);
-            this.isProcessing.set(false);
-            this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente local de fallback en formato Pantalla').subscribe({
-              error: () => { }
-            });
-          } else {
-            this.exportReporte.set(res);
-            this.isExporting.set(true);
-            setTimeout(() => {
-              this.procesarExportacion(res, targetFormat);
-            }, 1200);
-          }
-        })
-        .catch((fallbackErr: any) => {
-          console.error(fallbackErr);
-          this.errorMessage.set(fallbackErr.message || "No hay datos offline suficientes para generar este reporte simple.");
-          this.isProcessing.set(false);
-        });
-      return;
-    }
-
     const requestObservable = isOffline
       ? this.reportesService.generarReporteVisualOffline({ prompt: promptVal, iaPlus: this.iaPlus() })
       : this.reportesService.generarReporteVisual({ prompt: promptVal, iaPlus: this.iaPlus() });
@@ -187,57 +156,44 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
       next: (res: ReporteVisualResponse) => {
         this.isOfflineReport.set(isOffline);
         this.isBrowserSimpleFallbackActive.set(false);
+        
+        let finalReport = res;
+        if (isOffline) {
+          finalReport = {
+            ...res,
+            offlineMessage: 'Reporte generado en modo offline usando ia-deep-learning local.'
+          };
+        }
+
         if (targetFormat === 'pantalla') {
-          this.reporte.set(res);
+          this.reporte.set(finalReport);
           this.isProcessing.set(false);
           this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente en formato Pantalla').subscribe();
         } else {
           // Iniciar proceso de exportación oculta
-          this.exportReporte.set(res);
+          this.exportReporte.set(finalReport);
           this.isExporting.set(true);
 
           // Esperar renderizado de ECharts
           setTimeout(() => {
-            this.procesarExportacion(res, targetFormat);
+            this.procesarExportacion(finalReport, targetFormat);
           }, 1200);
         }
       },
       error: (err: any) => {
-        console.error(err);
-        const errorBody = err?.error;
-        const isLocalIaUnavailable =
-          isOffline &&
-          errorBody &&
-          errorBody.code === 'LOCAL_IA_UNAVAILABLE' &&
-          errorBody.fallbackAllowed === true &&
-          errorBody.mode === 'OFFLINE_BROWSER_SIMPLE_FALLBACK_REQUIRED';
+        console.error('Error capturado en generarReporteVisual:', err);
+        console.log('error.status:', err?.status);
+        console.log('error.message:', err?.message);
+        console.log('error.error:', err?.error);
+        console.log('error.url:', err?.url);
 
-        if (isLocalIaUnavailable) {
-          console.warn('OFFLINE_REPORT_SERVER_PIPELINE_FAILED_LOCAL_IA: El pipeline offline del backend falló porque ia-deep-learning-service no está disponible.');
+        const usarFallback = this.debeUsarFallbackNavegador(err, isOffline ? 'offline-reportes' : 'online-reportes');
+        console.log('¿Entrando a fallback navegador?', usarFallback);
+        
+        if (usarFallback) {
+          console.warn('FALLBACK_NAVEGADOR_ACTIVADO: El backend o ia-deep-learning fallaron. Iniciando generador local.');
           this.isBrowserSimpleFallbackActive.set(true);
-
-          this.browserOfflineReportService.generarReporteBrowserSimple(promptVal)
-            .then((res: ReporteVisualResponse) => {
-              this.isOfflineReport.set(true);
-              if (targetFormat === 'pantalla') {
-                this.reporte.set(res);
-                this.isProcessing.set(false);
-                this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente local de fallback en formato Pantalla').subscribe({
-                  error: () => { }
-                });
-              } else {
-                this.exportReporte.set(res);
-                this.isExporting.set(true);
-                setTimeout(() => {
-                  this.procesarExportacion(res, targetFormat);
-                }, 1200);
-              }
-            })
-            .catch((fallbackErr: any) => {
-              console.error(fallbackErr);
-              this.errorMessage.set(fallbackErr.message || "No hay datos offline suficientes para generar este reporte simple.");
-              this.isProcessing.set(false);
-            });
+          this.ejecutarGeneracionFallbackLocal(promptVal, targetFormat);
         } else {
           let msg = "Ocurrió un error al generar el reporte visual inteligente. Por favor, intente de nuevo.";
           if (err && err.error && err.error.message) {
@@ -250,6 +206,61 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  private debeUsarFallbackNavegador(error: any, contexto?: 'offline-reportes' | 'online-reportes'): boolean {
+    const status = error?.status;
+    const url = String(error?.url || '');
+    const message = String(error?.message || '');
+    const code = error?.error?.code || error?.error?.codigo || error?.error?.errorCode;
+    
+    let bodyText = '';
+    if (error?.error) {
+      bodyText = typeof error.error === 'string' ? error.error : JSON.stringify(error.error);
+    }
+
+    const esEndpointOfflineReportes =
+      url.includes('/api/admin/reportes-visuales/generar-offline')
+      || contexto === 'offline-reportes';
+
+    return status === 0
+        || status === 503
+        || code === 'LOCAL_IA_UNAVAILABLE'
+        || code === 'IA_DEEP_LEARNING_UNAVAILABLE'
+        || code === 'SERVICE_UNAVAILABLE'
+        || message.includes('Unknown Error')
+        || message.includes('Network Error')
+        || bodyText.includes('LOCAL_IA_UNAVAILABLE')
+        || bodyText.includes('IA_DEEP_LEARNING_UNAVAILABLE')
+        || bodyText.includes('SERVICE_UNAVAILABLE')
+        || (esEndpointOfflineReportes && status === 500);
+  }
+
+  private ejecutarGeneracionFallbackLocal(promptVal: string, targetFormat: string) {
+    this.browserOfflineReportService.generarReporteBrowserSimple(promptVal)
+      .then((res: ReporteVisualResponse) => {
+        res.offlineMessage = 'ia-deep-learning no está disponible. Reporte generado localmente con datos cacheados.';
+        this.isOfflineReport.set(true);
+        this.errorMessage.set(null); // Limpiar error rojo anterior si existía
+        if (targetFormat === 'pantalla') {
+          this.reporte.set(res);
+          this.isProcessing.set(false);
+          this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente local de fallback en formato Pantalla').subscribe({
+            error: () => { }
+          });
+        } else {
+          this.exportReporte.set(res);
+          this.isExporting.set(true);
+          setTimeout(() => {
+            this.procesarExportacion(res, targetFormat);
+          }, 1200);
+        }
+      })
+      .catch((fallbackErr: any) => {
+        console.error(fallbackErr);
+        this.errorMessage.set(fallbackErr.message || "No hay datos offline suficientes para generar este reporte simple.");
+        this.isProcessing.set(false);
+      });
   }
 
   procesarExportacion(reporte: ReporteVisualResponse, formato: string) {

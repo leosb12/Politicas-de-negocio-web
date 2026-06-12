@@ -104,6 +104,20 @@ export class BrowserSimpleOfflineReportService {
       return p ? p.nombre : idOrName;
     };
 
+    // Mapeo dinámico de visualizaciones de gráficos según prompt (Fase 5)
+    const detectBlockType = (blockName: string, defaultType: 'bar' | 'pie' | 'doughnut' | 'line' | 'table' | 'matrix'): 'bar' | 'pie' | 'doughnut' | 'line' | 'table' | 'matrix' => {
+      if (promptLower.includes('tabla')) {
+        return 'table';
+      }
+      if (promptLower.includes('torta') || promptLower.includes('dona') || promptLower.includes('pie')) {
+        return 'pie';
+      }
+      if (promptLower.includes('barras') || promptLower.includes('barra')) {
+        return 'bar';
+      }
+      return defaultType;
+    };
+
     // 4. Seleccionar bloques a generar según prompt
     const blocks: BloqueReporte[] = [];
     let order = 1;
@@ -112,11 +126,11 @@ export class BrowserSimpleOfflineReportService {
     const hasEstado = promptLower.includes('estado');
     const hasMes = promptLower.includes('mes') || promptLower.includes('mensual') || promptLower.includes('tiempo') || promptLower.includes('evolución') || promptLower.includes('evolucion');
     const hasTotal = promptLower.includes('total') || promptLower.includes('cantidad') || promptLower.includes('kpi');
-    const hasActivo = promptLower.includes('activo') || promptLower.includes('funcionario') || promptLower.includes('responsable');
+    const hasActivo = promptLower.includes('activo') || promptLower.includes('funcionario') || promptLower.includes('responsable') || promptLower.includes('funcionarios más activos') || promptLower.includes('funcionarios mas activos');
     const hasFinalizado = promptLower.includes('finalizado') || promptLower.includes('completado') || promptLower.includes('terminado');
     const hasPolitica = promptLower.includes('tramites por politica') || promptLower.includes('trámites por política') || promptLower.includes('trámite por política') || promptLower.includes('tramite por politica');
-    const hasRankingPoliticas = promptLower.includes('utilizada') || promptLower.includes('usada') || promptLower.includes('ranking') || promptLower.includes('políticas más') || promptLower.includes('politicas mas');
-    const hasUsuarioIniciador = promptLower.includes('usuario') || promptLower.includes('inicia') || promptLower.includes('creador') || promptLower.includes('iniciador');
+    const hasRankingPoliticas = promptLower.includes('utilizada') || promptLower.includes('usada') || promptLower.includes('ranking') || promptLower.includes('políticas más') || promptLower.includes('politicas mas') || promptLower.includes('políticas más usadas') || promptLower.includes('politicas mas usadas');
+    const hasUsuarioIniciador = promptLower.includes('usuario') || promptLower.includes('inicia') || promptLower.includes('creador') || promptLower.includes('iniciador') || promptLower.includes('usuarios que más inician políticas') || promptLower.includes('usuarios que mas inician politicas');
 
     // KPI total de trámites
     const buildTotalBlock = (insts: any[], o: number): BloqueReporte => {
@@ -223,7 +237,7 @@ export class BrowserSimpleOfflineReportService {
       const rows = labels.map(lbl => [lbl, counts[lbl]]);
       return {
         id: `bloque_estado_${o}`,
-        tipo: 'doughnut',
+        tipo: detectBlockType('estado', 'doughnut'),
         titulo: 'Distribución de Trámites por Estado',
         orden: o,
         posicion: o,
@@ -270,10 +284,10 @@ export class BrowserSimpleOfflineReportService {
       });
       const labels = months.map(m => m.label);
       const values = labels.map(lbl => counts[lbl]);
-      const rows = labels.map(lbl => [lbl, counts[lbl]]);
+      const rows = months.map(m => [m.label, counts[m.label]]);
       return {
         id: `bloque_mes_${o}`,
-        tipo: 'line',
+        tipo: detectBlockType('mes', 'line'),
         titulo: 'Evolución Mensual de Trámites',
         orden: o,
         posicion: o,
@@ -324,7 +338,7 @@ export class BrowserSimpleOfflineReportService {
       const rows = sorted.map(x => [x[0], x[1]]);
       return {
         id: `bloque_func_activo_${o}`,
-        tipo: 'bar',
+        tipo: detectBlockType('activo', 'bar'),
         titulo: 'Funcionarios más Activos',
         orden: o,
         posicion: o,
@@ -369,7 +383,7 @@ export class BrowserSimpleOfflineReportService {
       const rows = sorted.map(x => [x[0], x[1]]);
       return {
         id: `bloque_finalizados_func_${o}`,
-        tipo: 'bar',
+        tipo: detectBlockType('finalizados_func', 'bar'),
         titulo: 'Trámites Finalizados por Funcionario',
         orden: o,
         posicion: o,
@@ -408,7 +422,7 @@ export class BrowserSimpleOfflineReportService {
       const rows = labels.map(lbl => [lbl, counts[lbl]]);
       return {
         id: `bloque_politica_${o}`,
-        tipo: 'pie',
+        tipo: detectBlockType('politica', 'pie'),
         titulo: 'Trámites por Política de Negocio',
         orden: o,
         posicion: o,
@@ -450,7 +464,7 @@ export class BrowserSimpleOfflineReportService {
       const rows = sorted.map(x => [x[0], x[1]]);
       return {
         id: `bloque_politica_ranking_${o}`,
-        tipo: 'bar',
+        tipo: detectBlockType('politica_ranking', 'bar'),
         titulo: 'Políticas de Negocio más Utilizadas',
         orden: o,
         posicion: o,
@@ -492,7 +506,7 @@ export class BrowserSimpleOfflineReportService {
       const rows = sorted.map(x => [x[0], x[1]]);
       return {
         id: `bloque_usuario_iniciador_${o}`,
-        tipo: 'bar',
+        tipo: detectBlockType('usuario_iniciador', 'bar'),
         titulo: 'Usuarios que más Inician Políticas',
         orden: o,
         posicion: o,
