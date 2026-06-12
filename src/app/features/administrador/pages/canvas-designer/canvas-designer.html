@@ -1033,6 +1033,21 @@
             <span>Formulario Dinámico</span>
           </div>
 
+          <!-- Editor Visual button -->
+          <button
+            class="btn-form-builder"
+            type="button"
+            (click)="openFormBuilderModal()"
+            [disabled]="isCanvasReadOnly()"
+            id="btn-abrir-editor-formulario"
+            title="Abrir el editor visual de formulario"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+            Editor Formulario
+          </button>
+
           <!-- Existing fields -->
           @for (campo of sidebarNode()!.formulario; track $index) {
             <div class="campo-row" [style.display]="(editingCampoNodeId() === sidebarNode()!.id && editingCampoIndex() === $index) ? 'block' : 'flex'">
@@ -1477,6 +1492,20 @@
     }
 
   </div>
+
+<!-- ═══ FORM BUILDER MODAL ═════════════════════════════════════════════ -->
+@if (showFormBuilderModal() && sidebarNode()) {
+  <app-dynamic-form-builder-modal
+    [fields]="sidebarNode()!.formulario"
+    [tipoCampoOptions]="tipoCampoOptions"
+    [nodeId]="sidebarNode()!.id"
+    [readonly]="isCanvasReadOnly()"
+    (save)="onFormBuilderSave($event)"
+    (cancel)="onFormBuilderCancel()"
+    (editAdvancedConfig)="onFormBuilderEditAdvancedConfig($event)"
+    id="editor-formulario-modal"
+  ></app-dynamic-form-builder-modal>
+}
 
 </div>
 

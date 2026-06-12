@@ -1,0 +1,380 @@
+<!-- ══════════════════════════════════════════════════════════════
+     DYNAMIC FORM BUILDER MODAL
+     Overlay → Modal shell → [Left Palette | Center Canvas] → Footer
+     ══════════════════════════════════════════════════════════════ -->
+<div class="dfb-overlay" (click)="onCancel()" id="modal-editor-formulario-overlay">
+  <div class="dfb-modal" (click)="$event.stopPropagation()" id="modal-editor-formulario">
+
+    <!-- ── HEADER ─────────────────────────────────────────────── -->
+    <div class="dfb-header">
+      <div class="dfb-header-left">
+        <div class="dfb-header-icon">
+          <lucide-icon name="layout-template" [size]="22"></lucide-icon>
+        </div>
+        <div>
+          <h2 class="dfb-title">Editor Visual de Formulario</h2>
+          <p class="dfb-subtitle">
+            Arrastra campos desde la paleta · Reordena · Edita · Guarda
+          </p>
+        </div>
+      </div>
+      <div class="dfb-header-right">
+        <span class="dfb-field-count">
+          {{ builderFields().length }} campo{{ builderFields().length !== 1 ? 's' : '' }}
+        </span>
+        <button class="dfb-close-btn" type="button" (click)="onCancel()" id="btn-cerrar-editor-formulario" title="Cerrar">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── BODY ───────────────────────────────────────────────── -->
+    <div class="dfb-body">
+
+      <!-- ── LEFT: PALETTE ─────────────────────────────────────── -->
+      <aside class="dfb-palette">
+        <div class="dfb-palette-header">
+          <lucide-icon name="layers" [size]="13"></lucide-icon>
+          <span>Tipos de campo</span>
+        </div>
+        <div class="dfb-palette-hint">
+          Arrastra al lienzo →
+        </div>
+
+        @for (item of palette; track item.tipo) {
+          <div
+            class="dfb-palette-item"
+            [class.dfb-palette-item--disabled]="readonly"
+            [attr.draggable]="!readonly"
+            (dragstart)="onPaletteDragStart($event, item.tipo)"
+            [id]="'palette-item-' + item.tipo.toLowerCase()"
+            [title]="'Arrastrar: ' + item.label"
+          >
+            <span class="dfb-palette-dot" [style.background]="item.color"></span>
+            <lucide-icon [name]="item.icon" [size]="14" class="dfb-palette-icon" [style.color]="item.color"></lucide-icon>
+            <span class="dfb-palette-label">{{ item.label }}</span>
+            <lucide-icon name="grip-vertical" [size]="12" class="dfb-palette-drag-hint"></lucide-icon>
+          </div>
+        }
+      </aside>
+
+      <!-- ── CENTER: CANVAS ────────────────────────────────────── -->
+      <section
+        class="dfb-canvas"
+        [class.dfb-canvas--drag-over]="isDragOverCanvas()"
+        (dragover)="onCanvasDragOver($event)"
+        (dragleave)="onCanvasDragLeave($event)"
+        (drop)="onCanvasDrop($event)"
+        id="dfb-canvas-area"
+      >
+
+        <!-- Empty state -->
+        @if (builderFields().length === 0) {
+          <div class="dfb-empty">
+            <div class="dfb-empty-icon">
+              <lucide-icon name="inbox" [size]="36"></lucide-icon>
+            </div>
+            <p class="dfb-empty-title">Lienzo vacío</p>
+            <p class="dfb-empty-hint">Arrastra un tipo de campo desde la paleta izquierda para comenzar</p>
+          </div>
+        }
+
+        <!-- Field cards -->
+        @for (field of builderFields(); track field._uid; let i = $index) {
+          <!-- Drop zone above the card -->
+          <div
+            class="dfb-drop-zone"
+            [class.dfb-drop-zone--active]="dragOverIdx() === i"
+            (dragover)="onCanvasDragOver($event, i); $event.stopPropagation()"
+            (drop)="onCanvasDrop($event, i); $event.stopPropagation()"
+          ></div>
+
+          <div
+            class="dfb-card"
+            [class.dfb-card--editing]="editingIdx() === i"
+            [class.dfb-card--special]="isSpecialType(field.tipo)"
+            [attr.draggable]="!readonly && editingIdx() !== i"
+            (dragstart)="onCanvasDragStart($event, i)"
+            [id]="'dfb-card-' + i"
+          >
+            <!-- Card top row -->
+            <div class="dfb-card-row">
+              <!-- Drag handle -->
+              <span
+                class="dfb-drag-handle"
+                title="Arrastrar para reordenar"
+                [class.dfb-drag-handle--disabled]="readonly"
+              >
+                <lucide-icon name="grip-vertical" [size]="14"></lucide-icon>
+              </span>
+
+              <!-- Type badge -->
+              <span class="dfb-type-badge" [style.background]="getFieldColor(field.tipo) + '22'" [style.color]="getFieldColor(field.tipo)" [style.border-color]="getFieldColor(field.tipo) + '55'">
+                <lucide-icon [name]="getFieldIcon(field.tipo)" [size]="11"></lucide-icon>
+                {{ getFieldLabel(field.tipo) }}
+              </span>
+
+              <!-- Field name (preview) -->
+              <span class="dfb-card-name" [class.dfb-card-name--empty]="!field.campo">
+                {{ field.campo || '(sin nombre)' }}
+              </span>
+
+              @if (field.etiqueta) {
+                <span class="dfb-card-etiqueta">{{ field.etiqueta }}</span>
+              }
+
+              <!-- Required badge -->
+              @if (field.requerido) {
+                <span class="dfb-required-badge">Requerido</span>
+              }
+
+              <!-- Spacer -->
+              <span class="dfb-card-spacer"></span>
+
+              <!-- Up/Down controls -->
+              <button class="dfb-icon-btn" type="button" (click)="moveFieldUp(i)" [disabled]="readonly || i === 0" title="Subir">
+                <lucide-icon name="chevron-up" [size]="13"></lucide-icon>
+              </button>
+              <button class="dfb-icon-btn" type="button" (click)="moveFieldDown(i)" [disabled]="readonly || i >= builderFields().length - 1" title="Bajar">
+                <lucide-icon name="chevron-down" [size]="13"></lucide-icon>
+              </button>
+
+              <!-- Edit toggle -->
+              <button
+                class="dfb-icon-btn dfb-icon-btn--edit"
+                [class.dfb-icon-btn--active]="editingIdx() === i"
+                type="button"
+                (click)="openEdit(i)"
+                [disabled]="readonly"
+                [id]="'btn-dfb-edit-' + i"
+                title="Editar campo"
+              >
+                <lucide-icon name="pencil" [size]="13"></lucide-icon>
+              </button>
+
+              <!-- Special type button (ARCHIVO / DOCUMENTO_COLABORATIVO) -->
+              @if (isSpecialType(field.tipo)) {
+                <button
+                  class="dfb-special-btn"
+                  type="button"
+                  (click)="onEditAdvancedConfig(i, field)"
+                  [disabled]="readonly || !field.campo?.trim()"
+                  [title]="field.campo?.trim() ? 'Configuración avanzada' : 'Asigna un nombre técnico primero'"
+                  [id]="'btn-dfb-advanced-' + i"
+                >
+                  <lucide-icon name="settings" [size]="12"></lucide-icon>
+                  Config. avanzada
+                </button>
+              }
+
+              <!-- Remove -->
+              <button
+                class="dfb-icon-btn dfb-icon-btn--remove"
+                type="button"
+                (click)="removeField(i)"
+                [disabled]="readonly"
+                [id]="'btn-dfb-remove-' + i"
+                title="Eliminar campo"
+              >
+                <lucide-icon name="trash-2" [size]="13"></lucide-icon>
+              </button>
+            </div>
+
+            <!-- ── Inline editor (expanded) ─────────────────────── -->
+            @if (editingIdx() === i) {
+              <div class="dfb-editor">
+                <div class="dfb-editor-grid">
+                  <!-- Campo (technical name) -->
+                  <label class="dfb-editor-field dfb-editor-field--wide">
+                    <span class="dfb-editor-label">Nombre técnico <span class="dfb-req-star">*</span></span>
+                    <input
+                      class="dfb-editor-input"
+                      type="text"
+                      placeholder="ej: nombre_cliente"
+                      [value]="field.campo"
+                      (input)="updateField(i, { campo: $any($event.target).value })"
+                      [disabled]="readonly"
+                      [id]="'dfb-input-campo-' + i"
+                    />
+                  </label>
+
+                  <!-- Tipo -->
+                  <label class="dfb-editor-field">
+                    <span class="dfb-editor-label">Tipo</span>
+                    <select
+                      class="dfb-editor-select"
+                      [ngModel]="field.tipo"
+                      (ngModelChange)="updateField(i, { tipo: $event })"
+                      [disabled]="readonly"
+                      [id]="'dfb-select-tipo-' + i"
+                    >
+                      @for (t of tipoCampoOptions; track t) {
+                        <option [value]="t">{{ getFieldLabel(t) }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <!-- Etiqueta -->
+                  <label class="dfb-editor-field dfb-editor-field--wide">
+                    <span class="dfb-editor-label">Etiqueta visible</span>
+                    <input
+                      class="dfb-editor-input"
+                      type="text"
+                      placeholder="Título visible al usuario"
+                      [value]="field.etiqueta ?? ''"
+                      (input)="updateField(i, { etiqueta: $any($event.target).value || null })"
+                      [disabled]="readonly"
+                      [id]="'dfb-input-etiqueta-' + i"
+                    />
+                  </label>
+
+                  <!-- Requerido -->
+                  <label class="dfb-editor-field dfb-editor-check">
+                    <input
+                      type="checkbox"
+                      [checked]="field.requerido ?? false"
+                      (change)="updateField(i, { requerido: $any($event.target).checked })"
+                      [disabled]="readonly || field.tipo === 'LABEL'"
+                      [id]="'dfb-check-req-' + i"
+                    />
+                    <span class="dfb-editor-label">Requerido</span>
+                  </label>
+
+                  <!-- Placeholder (conditional) -->
+                  @if (hasPlaceholder(field.tipo)) {
+                    <label class="dfb-editor-field dfb-editor-field--wide">
+                      <span class="dfb-editor-label">Placeholder</span>
+                      <input
+                        class="dfb-editor-input"
+                        type="text"
+                        placeholder="Texto de ayuda dentro del campo"
+                        [value]="field.placeholder ?? ''"
+                        (input)="updateField(i, { placeholder: $any($event.target).value || null })"
+                        [disabled]="readonly"
+                        [id]="'dfb-input-placeholder-' + i"
+                      />
+                    </label>
+                  }
+
+                  <!-- Grid rows (only for GRID) -->
+                  @if (isGridType(field.tipo)) {
+                    <label class="dfb-editor-field">
+                      <span class="dfb-editor-label">Número de filas</span>
+                      <input
+                        class="dfb-editor-input"
+                        type="number"
+                        min="1"
+                        placeholder="ej: 3"
+                        [value]="field.placeholder ?? ''"
+                        (input)="updateField(i, { placeholder: $any($event.target).value || null })"
+                        [disabled]="readonly"
+                        [id]="'dfb-input-filas-' + i"
+                      />
+                    </label>
+                  }
+
+                  <!-- Ayuda -->
+                  <label class="dfb-editor-field dfb-editor-field--wide">
+                    <span class="dfb-editor-label">Texto de ayuda</span>
+                    <input
+                      class="dfb-editor-input"
+                      type="text"
+                      placeholder="Descripción o instrucción para el usuario"
+                      [value]="field.ayuda ?? ''"
+                      (input)="updateField(i, { ayuda: $any($event.target).value || null })"
+                      [disabled]="readonly"
+                      [id]="'dfb-input-ayuda-' + i"
+                    />
+                  </label>
+
+                  <!-- Opciones (SELECCION / CHECKBOX / GRID columns) -->
+                  @if (hasOptions(field.tipo)) {
+                    <label class="dfb-editor-field dfb-editor-field--wide">
+                      <span class="dfb-editor-label">
+                        {{ isGridType(field.tipo) ? 'Columnas (separadas por coma)' : 'Opciones (separadas por coma)' }}
+                      </span>
+                      <input
+                        class="dfb-editor-input"
+                        type="text"
+                        [placeholder]="isGridType(field.tipo) ? 'ej: Nombre, Edad, Rol' : 'ej: Opción 1, Opción 2, Opción 3'"
+                        [value]="getOpcionesString(i)"
+                        (input)="updateFieldOpciones(i, $any($event.target).value)"
+                        [disabled]="readonly"
+                        [id]="'dfb-input-opciones-' + i"
+                      />
+                    </label>
+                  }
+                </div>
+
+                <!-- Close editor row -->
+                <div class="dfb-editor-actions">
+                  <button class="dfb-btn-done" type="button" (click)="openEdit(i)">
+                    <lucide-icon name="check" [size]="13"></lucide-icon>
+                    Listo
+                  </button>
+                </div>
+              </div>
+            }
+
+            <!-- Special type notice inside the card -->
+            @if (isSpecialType(field.tipo)) {
+              <div class="dfb-special-notice">
+                <lucide-icon name="info" [size]="13"></lucide-icon>
+                Usa el botón de configuración avanzada para gestionar permisos y configuración documental.
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Drop zone after last card -->
+        @if (builderFields().length > 0) {
+          <div
+            class="dfb-drop-zone dfb-drop-zone--last"
+            [class.dfb-drop-zone--active]="dragOverIdx() === builderFields().length"
+            (dragover)="onCanvasDragOver($event, builderFields().length); $event.stopPropagation()"
+            (drop)="onCanvasDrop($event, builderFields().length); $event.stopPropagation()"
+          ></div>
+        }
+
+      </section>
+    </div>
+
+    <!-- ── FOOTER ──────────────────────────────────────────────── -->
+    <div class="dfb-footer">
+      <!-- Validation error -->
+      @if (validationError()) {
+        <div class="dfb-validation-error">
+          <lucide-icon name="alert-circle" [size]="14"></lucide-icon>
+          {{ validationError() }}
+        </div>
+      } @else {
+        <div class="dfb-footer-info">
+          <lucide-icon name="info" [size]="13"></lucide-icon>
+          El panel clásico de Formulario Dinámico se actualiza automáticamente al guardar.
+        </div>
+      }
+
+      <div class="dfb-footer-actions">
+        <button
+          class="dfb-btn dfb-btn--cancel"
+          type="button"
+          (click)="onCancel()"
+          id="btn-dfb-cancelar"
+        >
+          Cancelar
+        </button>
+        <button
+          class="dfb-btn dfb-btn--save"
+          type="button"
+          (click)="onSave()"
+          [disabled]="readonly"
+          id="btn-dfb-guardar"
+        >
+          <lucide-icon name="save" [size]="15"></lucide-icon>
+          Guardar formulario
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>

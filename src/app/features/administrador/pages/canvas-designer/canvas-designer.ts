@@ -277,6 +277,7 @@ interface DecisionConditionDraft {
 }
 
 import { LucideAngularModule } from 'lucide-angular';
+import { DynamicFormBuilderModalComponent } from '../../components/dynamic-form-builder-modal/dynamic-form-builder-modal.component';
 
 @Component({
   selector: 'app-canvas-designer',
@@ -290,6 +291,7 @@ import { LucideAngularModule } from 'lucide-angular';
     IaGeneradorFlujoComponent,
     IaEdicionFlujoComponent,
     IaPrediccionesComponent,
+    DynamicFormBuilderModalComponent,
   ],
   templateUrl: './canvas-designer.html',
   styleUrl: './canvas-designer.css',
@@ -631,6 +633,10 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
   readonly editingCampoPlaceholder = signal('');
   readonly editingCampoAyuda = signal('');
   readonly editingCampoOpciones = signal('');
+
+  // ── Form Builder Modal ────────────────────────────────────────
+  readonly showFormBuilderModal = signal(false);
+
   private pendingLaneConfigGuard: PendingLaneConfigGuard | null = null;
   private readonly nodeNameSyncDebounceMs = 280;
   private readonly nodeNameGuardTtlMs = 1200;
@@ -6846,6 +6852,62 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
       updatedNode?.version
     );
     this.scheduleAutoSave();
+  }
+
+  // ── Form Builder Modal methods ────────────────────────────────
+
+  openFormBuilderModal(): void {
+    if (this.isCanvasEditBlocked(true)) {
+      return;
+    }
+    this.showFormBuilderModal.set(true);
+  }
+
+  onFormBuilderSave(fields: CampoFormulario[]): void {
+    const nodeId = this.sidebarNode()?.id;
+    if (!nodeId) {
+      this.showFormBuilderModal.set(false);
+      return;
+    }
+
+    this.nodos.update((ns) =>
+      ns.map((n) => (n.id === nodeId ? { ...n, formulario: fields } : n))
+    );
+
+    const updatedNode = this.nodos().find((n) => n.id === nodeId);
+    this.collabFacade.emitUpdateNode(
+      nodeId,
+      { formulario: updatedNode?.formulario ?? [] },
+      updatedNode?.version
+    );
+    this.scheduleAutoSave();
+    this.showFormBuilderModal.set(false);
+  }
+
+  onFormBuilderEditAdvancedConfig(event: { fields: CampoFormulario[]; index: number; type: TipoCampo }): void {
+    const nodeId = this.sidebarNode()?.id;
+    if (!nodeId) return;
+
+    this.nodos.update((ns) =>
+      ns.map((n) => (n.id === nodeId ? { ...n, formulario: event.fields } : n))
+    );
+
+    const updatedNode = this.nodos().find((n) => n.id === nodeId);
+    this.collabFacade.emitUpdateNode(
+      nodeId,
+      { formulario: updatedNode?.formulario ?? [] },
+      updatedNode?.version
+    );
+
+    if (event.type === 'ARCHIVO') {
+      this.openDocumentPermissionModal('edit', nodeId, event.index);
+    } else if (event.type === 'DOCUMENTO_COLABORATIVO') {
+      this.openCollabDocumentModal('edit', nodeId, event.index);
+    }
+  }
+
+  onFormBuilderCancel(): void {
+    this.showFormBuilderModal.set(false);
   }
 
   getNodeNameById(nodeId: string | null | undefined): string {
