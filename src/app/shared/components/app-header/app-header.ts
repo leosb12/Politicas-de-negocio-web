@@ -190,4 +190,9 @@ export class AppHeaderComponent {
     this.closeMenus();
     void this.router.navigate(['/login']);
   }
+
+  toggleManualOffline(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.statusService.setManualOfflineMode(input.checked);
+  }
 }

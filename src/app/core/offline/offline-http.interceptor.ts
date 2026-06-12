@@ -17,6 +17,7 @@ const BYPASS_PATTERNS = [
   '/api/ia/',
   '/api/push',
   '/api/health',
+  '/api/predicciones/',
 ];
 
 /**

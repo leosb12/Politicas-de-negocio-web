@@ -15,12 +15,18 @@ export class OfflineStatusService implements OnDestroy {
   private readonly _isOfflineSession = signal<boolean>(
     typeof window !== 'undefined' ? localStorage.getItem('isOfflineSession') === 'true' : false
   );
+  private readonly _manualOfflineMode = signal<boolean>(
+    typeof window !== 'undefined' ? localStorage.getItem('manualOfflineMode') === 'true' : false
+  );
 
-  /** Signal reactivo: true = backend responds and internet is active */
-  readonly isOnline = this._isOnline.asReadonly();
+  /** Signal reactivo: true = backend responds, internet is active, and manual offline mode is NOT active */
+  readonly isOnline = computed(() => this._isOnline() && !this._manualOfflineMode());
 
   /** Computed: true when we are offline */
-  readonly isOffline = computed(() => !this._isOnline());
+  readonly isOffline = computed(() => !this.isOnline());
+
+  /** Signal: manual offline mode state */
+  readonly manualOfflineMode = this._manualOfflineMode.asReadonly();
 
   /** Signal: true when backend is reachable */
   readonly backendReachable = this._backendReachable.asReadonly();
@@ -106,6 +112,23 @@ export class OfflineStatusService implements OnDestroy {
   }
 
   /**
+   * Sets manual offline mode state.
+   */
+  setManualOfflineMode(enabled: boolean): void {
+    this._manualOfflineMode.set(enabled);
+    if (typeof window !== 'undefined') {
+      if (enabled) {
+        localStorage.setItem('manualOfflineMode', 'true');
+        this.markOffline('MANUAL_OFFLINE_MODE');
+      } else {
+        localStorage.removeItem('manualOfflineMode');
+        // Trigger check to restore state based on actual backend availability
+        this.checkBackendNow();
+      }
+    }
+  }
+
+  /**
    * Forces system to offline state
    */
   setOfflineForcefully(): void {
@@ -146,7 +169,7 @@ export class OfflineStatusService implements OnDestroy {
     this._lastCheckedAt.set(new Date());
     console.log(`[OfflineStatus] Estado marcado a ONLINE. Razón: ${reason}`);
 
-    if (this._isOfflineSession()) {
+    if (this._isOfflineSession() && !this._manualOfflineMode()) {
       this.setOfflineSession(false);
     }
 
@@ -160,6 +183,12 @@ export class OfflineStatusService implements OnDestroy {
    */
   async checkBackendNow(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
+
+    // Do not ping backend health check if manual offline mode is active
+    if (this._manualOfflineMode()) {
+      this.markOffline('MANUAL_OFFLINE_MODE');
+      return false;
+    }
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       this.markOffline('NAVIGATOR_OFFLINE');

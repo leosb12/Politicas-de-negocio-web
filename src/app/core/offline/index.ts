@@ -13,6 +13,7 @@ export { OfflineConflictService } from './offline-conflict.service';
 export { OfflineHttpService } from './offline-http.service';
 export { offlineHttpInterceptor } from './offline-http.interceptor';
 export { OfflineInitialSyncService } from './offline-initial-sync.service';
+export { OfflineBasicPredictionService } from './offline-basic-prediction.service';
 
 export type { CachedHttpResponse } from './offline-cache.service';
 export type { OfflineOperation, OfflineOperationStatus } from './offline-queue.service';
@@ -20,3 +21,4 @@ export type { SyncResult } from './offline-sync.service';
 export type { SyncConflict } from './offline-conflict.service';
 export type { OfflineMutationResult } from './offline-http.service';
 export type { SyncState } from './offline-initial-sync.service';
+export type { RichPredictionResponse } from './offline-basic-prediction.service';

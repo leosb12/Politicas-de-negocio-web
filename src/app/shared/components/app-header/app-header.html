@@ -28,6 +28,16 @@
                   [ngClass]="statusService.isOnline() ? 'bg-green-500' : 'bg-amber-500 animate-pulse'"></span>
             {{ statusService.isOnline() ? 'Online' : 'Offline' }}
           </div>
+
+          <!-- Switch Modo Offline Manual -->
+          <label class="offline-switch-container">
+            <span class="desktop-only">Modo offline</span>
+            <input type="checkbox" [checked]="statusService.manualOfflineMode()" (change)="toggleManualOffline($event)" class="offline-switch-input" />
+            <div class="offline-switch-track"></div>
+            <span class="offline-switch-label-forced" *ngIf="statusService.manualOfflineMode()">
+              Forzado
+            </span>
+          </label>
         </div>
 
         @if (session()) {

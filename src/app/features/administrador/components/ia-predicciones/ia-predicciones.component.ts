@@ -4,60 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { HttpClient } from '@angular/common/http';
 import { API_BASE_URL } from '../../../../core/config/api.config';
-
-export interface RichPredictionResponse {
-  politicaId: string;
-  politicaNombre: string;
-  resumenEjecutivo: string;
-  mejorRuta: {
-    rutaRecomendada: string[];
-    explicacion: string;
-    confianza: number;
-    acciones: string[];
-  };
-  cuellosBotella: {
-    nodo: string;
-    riesgo: string;
-    probabilidad: number;
-    tiempoPromedio: string;
-    carga: string;
-    motivo: string;
-    impacto: string;
-    recomendacion: string;
-  }[];
-  anomalias: {
-    tipo: string;
-    nodo: string;
-    riesgo: string;
-    descripcion: string;
-    recomendacion: string;
-  }[];
-  prioridad: {
-    valor: string;
-    probabilidad: number;
-    motivo: string;
-    factores: string[];
-    prioridadPorNodo?: {
-      nodo: string;
-      prioridadSugerida: string;
-      motivo: string;
-    }[];
-  };
-  recomendaciones: {
-    tipo: string;
-    titulo: string;
-    descripcion: string;
-    impactoEsperado: string;
-    nodosAfectados: string[];
-  }[];
-  explicacionModelo: string;
-  datosUsados: {
-    simulaciones: number;
-    tiempoPromedio: string;
-    nodoMayorCarga: string;
-    porcentajeCarga: string;
-  };
-}
+import { IndexedDbService } from '../../../../core/offline/indexeddb.service';
+import { OfflineStatusService } from '../../../../core/offline/offline-status.service';
+import { OfflineBasicPredictionService, RichPredictionResponse } from '../../../../core/offline';
 
 @Component({
   selector: 'app-ia-predicciones',
@@ -102,6 +51,12 @@ export interface RichPredictionResponse {
             </div>
           } @else if (result()) {
             <div class="p-6 sm:p-8">
+              
+              <!-- Banner Offline Notice -->
+              <div *ngIf="statusService.manualOfflineMode()" class="mb-6 p-4 bg-amber-50 text-amber-800 rounded-2xl border border-amber-200 flex items-center gap-3 font-semibold text-sm">
+                <lucide-icon name="wifi-off" [size]="18" class="text-amber-600 flex-shrink-0"></lucide-icon>
+                <span>Informe generado en modo offline sincronizado usando modelos locales.</span>
+              </div>
               
               <!-- Resumen Ejecutivo Full Width -->
               <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm mb-6 flex gap-6 items-start relative overflow-hidden">
@@ -535,6 +490,9 @@ export class IaPrediccionesComponent {
   @Output() close = new EventEmitter<void>();
 
   private http = inject(HttpClient);
+  private db = inject(IndexedDbService);
+  readonly statusService = inject(OfflineStatusService);
+  private offlineBasicPrediction = inject(OfflineBasicPredictionService);
 
   predictMejorRuta = true;
   predictCuellosBotella = true;
@@ -568,7 +526,7 @@ export class IaPrediccionesComponent {
     this.successMsg.set(null);
   }
 
-  submit() {
+  async submit() {
     if (!this.hasSelection()) {
       return;
     }
@@ -588,31 +546,91 @@ export class IaPrediccionesComponent {
       predictPrioridad: this.predictPrioridad
     };
 
-    const payload = {
-      politicaId: this.policyId,
-      predictMejorRuta: this.predictMejorRuta,
-      predictCuellosBotella: this.predictCuellosBotella,
-      predictAnomalias: this.predictAnomalias,
-      predictPrioridad: this.predictPrioridad
-    };
-
-    this.http.post<RichPredictionResponse>(`${API_BASE_URL}/api/predicciones/policy-analysis`, payload)
-      .subscribe({
-        next: (res) => {
-          this.result.set(res);
+    if (this.statusService.manualOfflineMode()) {
+      console.log('[PREDICCIONES OFFLINE][FRONT] submit iniciado');
+      console.log('[PREDICCIONES OFFLINE][FRONT] manualOfflineMode=true');
+      console.log('[PREDICCIONES OFFLINE][FRONT] buscando política en IndexedDB');
+      // Offline prediction using IndexedDB cached data
+      try {
+        const cachedPolicy = await this.db.get<any>('politicaDetalles', this.policyId);
+        if (!cachedPolicy) {
+          console.log('[PREDICCIONES OFFLINE][FRONT] política encontrada: false');
+          this.errorMsg.set('No hay datos offline suficientes para generar el análisis. Sincroniza esta política antes de usar modo offline.');
           this.loading.set(false);
-        },
-        error: (err) => {
-          console.error(err);
-          const rawErr = err.error?.error || err.error?.message || err.message || '';
-          if (rawErr.includes('Model artifacts not found. Please train first.') || JSON.stringify(err).includes('Model artifacts not found. Please train first.')) {
-            this.errorMsg.set('El modelo aún no fue entrenado. Presiona ‘Entrenar modelo’ antes de generar el informe.');
-          } else {
-            this.errorMsg.set('Ocurrió un error al contactar al motor de IA y procesar el análisis. Asegúrate de que el backend y los servicios Python estén en ejecución.');
-          }
-          this.loading.set(false);
+          return;
         }
-      });
+        console.log('[PREDICCIONES OFFLINE][FRONT] política encontrada: true');
+
+        const nodosCount = cachedPolicy.nodos ? cachedPolicy.nodos.length : 0;
+        const conexionesCount = cachedPolicy.conexiones ? cachedPolicy.conexiones.length : 0;
+        console.log(`[PREDICCIONES OFFLINE][FRONT] nodos: ${nodosCount} conexiones: ${conexionesCount}`);
+
+        if (nodosCount === 0) {
+          this.errorMsg.set('No hay datos offline suficientes para generar el análisis. Sincroniza esta política antes de usar modo offline.');
+          this.loading.set(false);
+          return;
+        }
+
+        console.log('[PREDICCIONES OFFLINE][FRONT] llamando endpoint offline');
+        // Call the offline endpoint propagating local payload
+        this.http.post<RichPredictionResponse>(`${API_BASE_URL}/api/predicciones/policy-analysis/offline`, cachedPolicy)
+          .subscribe({
+            next: (res) => {
+              console.log('[PREDICCIONES OFFLINE][FRONT] respuesta recibida');
+              if (!res || !res.resumenEjecutivo) {
+                this.errorMsg.set('La respuesta del servicio de IA no contiene resultados predictivos.');
+                this.loading.set(false);
+                return;
+              }
+              this.result.set(res);
+              this.loading.set(false);
+            },
+            error: (err) => {
+              console.warn('[PREDICCIONES OFFLINE][FRONT] IA local no disponible, generando análisis local desde IndexedDB', err);
+              try {
+                const localReport = this.offlineBasicPrediction.generatePrediction(cachedPolicy);
+                console.log('[PREDICCIONES OFFLINE][FRONT] análisis local generado correctamente');
+                this.result.set(localReport);
+              } catch (localErr) {
+                console.error('[PREDICCIONES OFFLINE][FRONT] Error al generar análisis local básico:', localErr);
+                this.errorMsg.set('Modo offline activo, pero el backend local o el servicio de IA no está disponible.');
+              }
+              this.loading.set(false);
+            }
+          });
+      } catch (err) {
+        console.error('Error querying IndexedDB:', err);
+        this.errorMsg.set('Error al acceder a los datos locales sincronizados de la política.');
+        this.loading.set(false);
+      }
+    } else {
+      // Normal online flow
+      const payload = {
+        politicaId: this.policyId,
+        predictMejorRuta: this.predictMejorRuta,
+        predictCuellosBotella: this.predictCuellosBotella,
+        predictAnomalias: this.predictAnomalias,
+        predictPrioridad: this.predictPrioridad
+      };
+
+      this.http.post<RichPredictionResponse>(`${API_BASE_URL}/api/predicciones/policy-analysis`, payload)
+        .subscribe({
+          next: (res) => {
+            this.result.set(res);
+            this.loading.set(false);
+          },
+          error: (err) => {
+            console.error(err);
+            const rawErr = err.error?.error || err.error?.message || err.message || '';
+            if (rawErr.includes('Model artifacts not found. Please train first.') || JSON.stringify(err).includes('Model artifacts not found. Please train first.')) {
+              this.errorMsg.set('El modelo aún no fue entrenado. Presiona ‘Entrenar modelo’ antes de generar el informe.');
+            } else {
+              this.errorMsg.set('Ocurrió un error al contactar al motor de IA y procesar el análisis. Asegúrate de que el backend y los servicios Python estén en ejecución.');
+            }
+            this.loading.set(false);
+          }
+        });
+    }
   }
 
   train() {
