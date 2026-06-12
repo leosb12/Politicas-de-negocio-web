@@ -54,6 +54,7 @@ export class DynamicFormBuilderModalComponent implements OnInit, OnChanges {
   // ── Palette definition ──────────────────────────────────────────
   readonly palette: PaletteFieldItem[] = [
     { tipo: 'TEXTO',                  label: 'Texto',                  icon: 'type',               color: '#818cf8', bgClass: 'pal-indigo'  },
+    { tipo: 'TEXTAREA',               label: 'Área de texto',          icon: 'align-left',          color: '#6366f1', bgClass: 'pal-indigo-dark'  },
     { tipo: 'NUMERO',                 label: 'Número',                 icon: 'hash',               color: '#34d399', bgClass: 'pal-emerald' },
     { tipo: 'FECHA',                  label: 'Fecha',                  icon: 'calendar',            color: '#fbbf24', bgClass: 'pal-amber'   },
     { tipo: 'BOOLEANO',               label: 'Booleano',               icon: 'toggle-left',         color: '#60a5fa', bgClass: 'pal-blue'    },

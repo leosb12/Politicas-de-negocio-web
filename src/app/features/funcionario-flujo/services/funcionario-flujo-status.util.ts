@@ -88,6 +88,7 @@ export function isFormularioTipoSoportado(
   const normalized = normalizeEstado(tipo);
   return (
     normalized === 'TEXTO' ||
+    normalized === 'TEXTAREA' ||
     normalized === 'NUMERO' ||
     normalized === 'BOOLEANO' ||
     normalized === 'ARCHIVO' ||

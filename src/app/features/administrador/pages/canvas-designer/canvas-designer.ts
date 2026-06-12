@@ -437,7 +437,7 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     { tipo: 'FIN', label: 'Fin', icon: 'stop-circle', color: '#f43f5e', description: 'Punto de cierre del flujo' },
   ];
 
-  tipoCampoOptions: TipoCampo[] = ['TEXTO', 'NUMERO', 'BOOLEANO', 'ARCHIVO', 'FECHA', 'CHECKBOX', 'SELECCION', 'GRID', 'LABEL', 'DOCUMENTO_COLABORATIVO'];
+  tipoCampoOptions: TipoCampo[] = ['TEXTO', 'TEXTAREA', 'NUMERO', 'BOOLEANO', 'ARCHIVO', 'FECHA', 'CHECKBOX', 'SELECCION', 'GRID', 'LABEL', 'DOCUMENTO_COLABORATIVO'];
 
   // ── Collaborative Document Signals & Options ──────────────────
   readonly showCollabDocumentModal = signal(false);
@@ -471,6 +471,16 @@ export class CanvasDesignerComponent implements OnInit, OnDestroy {
     DecisionOperatorOption[]
   > = {
     TEXTO: [
+      { value: 'IGUAL', label: 'Es igual a', requiresValue: true },
+      { value: 'DISTINTO', label: 'Es distinto de', requiresValue: true },
+      { value: 'CONTIENE', label: 'Contiene', requiresValue: true },
+      { value: 'NO_CONTIENE', label: 'No contiene', requiresValue: true },
+      { value: 'INICIA_CON', label: 'Inicia con', requiresValue: true },
+      { value: 'TERMINA_CON', label: 'Termina con', requiresValue: true },
+      { value: 'ESTA_VACIO', label: 'Esta vacio', requiresValue: false },
+      { value: 'NO_ESTA_VACIO', label: 'No esta vacio', requiresValue: false },
+    ],
+    TEXTAREA: [
       { value: 'IGUAL', label: 'Es igual a', requiresValue: true },
       { value: 'DISTINTO', label: 'Es distinto de', requiresValue: true },
       { value: 'CONTIENE', label: 'Contiene', requiresValue: true },

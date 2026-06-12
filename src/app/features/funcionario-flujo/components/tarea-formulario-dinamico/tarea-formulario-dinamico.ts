@@ -619,7 +619,7 @@ export class TareaFormularioDinamicoComponent {
   private mapFieldTypeForIa(
     campo: FlujoFormularioCampo
   ): FormularioInteligenteFieldSchema['type'] {
-    if (campo.tipo === 'TEXTO') {
+    if (campo.tipo === 'TEXTO' || campo.tipo === 'TEXTAREA') {
       return 'text';
     }
 

@@ -1,5 +1,6 @@
 export type FlujoFormularioCampoTipoDto =
   | 'TEXTO'
+  | 'TEXTAREA'
   | 'NUMERO'
   | 'BOOLEANO'
   | 'ARCHIVO'

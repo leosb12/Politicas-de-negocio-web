@@ -5,7 +5,7 @@
 
 // ── Enums ────────────────────────────────────────
 export type TipoNodo = 'INICIO' | 'ACTIVIDAD' | 'DECISION' | 'FORK' | 'JOIN' | 'FIN';
-export type TipoCampo = 'TEXTO' | 'NUMERO' | 'BOOLEANO' | 'ARCHIVO' | 'FECHA' | 'CHECKBOX' | 'SELECCION' | 'GRID' | 'LABEL' | 'DOCUMENTO_COLABORATIVO';
+export type TipoCampo = 'TEXTO' | 'TEXTAREA' | 'NUMERO' | 'BOOLEANO' | 'ARCHIVO' | 'FECHA' | 'CHECKBOX' | 'SELECCION' | 'GRID' | 'LABEL' | 'DOCUMENTO_COLABORATIVO';
 export type EstadoPolitica = 'BORRADOR' | 'ACTIVA' | 'PAUSADA' | 'DESHABILITADA';
 export type TipoPolitica = 'INTERNA' | 'EXTERNA' | 'AMBAS';
 export type LaneOrientation = 'HORIZONTAL' | 'VERTICAL';

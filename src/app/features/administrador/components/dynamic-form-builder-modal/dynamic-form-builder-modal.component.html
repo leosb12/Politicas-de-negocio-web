@@ -180,6 +180,116 @@
               </button>
             </div>
 
+            <!-- ── Real visual preview (Fase 2) ────────────────── -->
+            @if (editingIdx() !== i) {
+              <div class="dfb-preview">
+                @switch (field.tipo) {
+                  @case ('TEXTO') {
+                    <input type="text" class="dfb-preview-input" disabled [placeholder]="field.placeholder || field.etiqueta || field.campo || 'Texto'" />
+                  }
+
+                  @case ('TEXTAREA') {
+                    <textarea class="dfb-preview-textarea" disabled rows="2" [placeholder]="field.placeholder || field.etiqueta || field.campo || 'Área de texto'"></textarea>
+                  }
+
+                  @case ('NUMERO') {
+                    <input type="number" class="dfb-preview-input" disabled [placeholder]="field.placeholder || '0'" />
+                  }
+
+                  @case ('FECHA') {
+                    <input type="date" class="dfb-preview-input" disabled />
+                  }
+
+                  @case ('BOOLEANO') {
+                    <div class="dfb-preview-boolean">
+                      <span>No</span>
+                      <span class="dfb-preview-switch"></span>
+                      <span>Sí</span>
+                    </div>
+                  }
+
+                  @case ('SELECCION') {
+                    <select class="dfb-preview-select" disabled>
+                      <option>{{ field.placeholder || 'Seleccione una opción' }}</option>
+                      @for (opcion of field.opciones || []; track opcion) {
+                        <option>{{ opcion }}</option>
+                      }
+                    </select>
+                  }
+
+                  @case ('CHECKBOX') {
+                    <div class="dfb-preview-options">
+                      @for (opcion of field.opciones || []; track opcion) {
+                        <label class="dfb-preview-option-label">
+                          <input type="checkbox" disabled />
+                          <span>{{ opcion }}</span>
+                        </label>
+                      }
+                      @if (!field.opciones?.length) {
+                        <label class="dfb-preview-option-label">
+                          <input type="checkbox" disabled />
+                          <span>Opción</span>
+                        </label>
+                      }
+                    </div>
+                  }
+
+                  @case ('GRID') {
+                    <div class="dfb-preview-grid-container">
+                      <table class="dfb-preview-grid-table">
+                        <thead>
+                          <tr>
+                            <th class="dfb-preview-grid-th">#</th>
+                            @for (col of field.opciones || []; track col) {
+                              <th class="dfb-preview-grid-th">{{ col }}</th>
+                            }
+                            @if (!field.opciones?.length) {
+                              <th class="dfb-preview-grid-th">Columna 1</th>
+                              <th class="dfb-preview-grid-th">Columna 2</th>
+                            }
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (rowIdx of [1]; track rowIdx) {
+                            <tr>
+                              <td class="dfb-preview-grid-td">{{ rowIdx }}</td>
+                              @for (col of field.opciones || []; track col) {
+                                <td class="dfb-preview-grid-td"><input type="text" disabled class="dfb-preview-grid-input" /></td>
+                              }
+                              @if (!field.opciones?.length) {
+                                <td class="dfb-preview-grid-td"><input type="text" disabled class="dfb-preview-grid-input" /></td>
+                                <td class="dfb-preview-grid-td"><input type="text" disabled class="dfb-preview-grid-input" /></td>
+                              }
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+
+                  @case ('ARCHIVO') {
+                    <div class="dfb-preview-file">
+                      <lucide-icon name="upload" [size]="14"></lucide-icon>
+                      <span>Seleccionar o arrastrar archivo aquí</span>
+                    </div>
+                  }
+
+                  @case ('DOCUMENTO_COLABORATIVO') {
+                    <div class="dfb-preview-document">
+                      <lucide-icon name="file-text" [size]="14"></lucide-icon>
+                      <span>Documento Colaborativo: {{ field.etiqueta || field.campo || 'Documento sin título' }}</span>
+                    </div>
+                  }
+
+                  @case ('LABEL') {
+                    <div class="dfb-preview-label">
+                      {{ field.etiqueta || 'Texto informativo / etiqueta' }}
+                    </div>
+                  }
+                }
+              </div>
+            }
+
             <!-- ── Inline editor (expanded) ─────────────────────── -->
             @if (editingIdx() === i) {
               <div class="dfb-editor">
