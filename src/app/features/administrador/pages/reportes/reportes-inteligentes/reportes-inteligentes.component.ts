@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportesDinamicosService, ReporteVisualResponse } from '../../../services/reportes-dinamicos.service';
 import { OfflineStatusService } from '../../../../../core/offline/offline-status.service';
+import { BrowserSimpleOfflineReportService } from '../../../../../core/offline';
 import { BloqueReporteComponent } from './components/bloque-reporte/bloque-reporte.component';
 import { AdministradorGuiaContextService } from '../../../services/administrador-guia-context.service';
 import { AdministradorAnaliticasService } from '../../../services/administrador-analiticas.service';
@@ -22,6 +23,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
   private reportesService = inject(ReportesDinamicosService);
   private analiticasService = inject(AdministradorAnaliticasService);
   private offlineStatusService = inject(OfflineStatusService);
+  private browserOfflineReportService = inject(BrowserSimpleOfflineReportService);
   private guideContext = inject(AdministradorGuiaContextService, { optional: true });
 
   ngOnInit(): void {
@@ -159,14 +161,49 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         console.error(err);
-        let msg = "Ocurrió un error al generar el reporte visual inteligente. Por favor, intente de nuevo.";
-        if (err && err.error && err.error.message) {
-          msg = err.error.message;
-        } else if (err && err.message) {
-          msg = err.message;
+        const errorBody = err?.error;
+        const isLocalIaUnavailable = 
+          isOffline && 
+          errorBody && 
+          errorBody.code === 'LOCAL_IA_UNAVAILABLE' && 
+          errorBody.fallbackAllowed === true && 
+          errorBody.mode === 'OFFLINE_BROWSER_SIMPLE_FALLBACK_REQUIRED';
+
+        if (isLocalIaUnavailable) {
+          console.warn('OFFLINE_REPORT_SERVER_PIPELINE_FAILED_LOCAL_IA: El pipeline offline del backend falló porque ia-deep-learning-service no está disponible.');
+          
+          this.browserOfflineReportService.generarReporteBrowserSimple(promptVal)
+            .then((res: ReporteVisualResponse) => {
+              this.isOfflineReport.set(true);
+              if (targetFormat === 'pantalla') {
+                this.reporte.set(res);
+                this.isProcessing.set(false);
+                this.analiticasService.logSystemAudit('GENERACION_REPORTE', 'Generó reporte inteligente local de fallback en formato Pantalla').subscribe({
+                  error: () => {}
+                });
+              } else {
+                this.exportReporte.set(res);
+                this.isExporting.set(true);
+                setTimeout(() => {
+                  this.procesarExportacion(res, targetFormat);
+                }, 1200);
+              }
+            })
+            .catch((fallbackErr: any) => {
+              console.error(fallbackErr);
+              this.errorMessage.set(fallbackErr.message || "No hay datos offline suficientes para generar este reporte simple.");
+              this.isProcessing.set(false);
+            });
+        } else {
+          let msg = "Ocurrió un error al generar el reporte visual inteligente. Por favor, intente de nuevo.";
+          if (err && err.error && err.error.message) {
+            msg = err.error.message;
+          } else if (err && err.message) {
+            msg = err.message;
+          }
+          this.errorMessage.set(msg);
+          this.isProcessing.set(false);
         }
-        this.errorMessage.set(msg);
-        this.isProcessing.set(false);
       }
     });
   }

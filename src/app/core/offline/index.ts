@@ -14,6 +14,8 @@ export { OfflineHttpService } from './offline-http.service';
 export { offlineHttpInterceptor } from './offline-http.interceptor';
 export { OfflineInitialSyncService } from './offline-initial-sync.service';
 export { OfflineBasicPredictionService } from './offline-basic-prediction.service';
+export { BrowserSimpleOfflineReportService } from './browser-simple-offline-report.service';
+
 
 export type { CachedHttpResponse } from './offline-cache.service';
 export type { OfflineOperation, OfflineOperationStatus } from './offline-queue.service';
