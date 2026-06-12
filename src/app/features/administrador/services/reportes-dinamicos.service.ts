@@ -195,6 +195,11 @@ export class ReportesDinamicosService {
     const visualUrl = `${this.reportesUrl.replace('/reportes', '/reportes-visuales')}/generar`;
     return this.http.post<ReporteVisualResponse>(visualUrl, request);
   }
+
+  generarReporteVisualOffline(request: { prompt: string; usuarioId?: string; iaPlus?: boolean }): Observable<ReporteVisualResponse> {
+    const visualUrl = `${this.reportesUrl.replace('/reportes', '/reportes-visuales')}/generar-offline`;
+    return this.http.post<ReporteVisualResponse>(visualUrl, request);
+  }
 }
 
 // ============================================================
@@ -233,4 +238,5 @@ export interface ReporteVisualResponse {
   fechaGeneracion: string;
   bloques: BloqueReporte[];
   asistido?: boolean;
+  offlineMessage?: string;
 }

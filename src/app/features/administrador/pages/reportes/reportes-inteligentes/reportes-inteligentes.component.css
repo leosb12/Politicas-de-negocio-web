@@ -576,4 +576,52 @@
   }
 }
 
+/* ===== OFFLINE STYLES ===== */
+.offline-banner {
+  background: #271c10;
+  border: 1.5px solid #d97706;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.offline-banner-content {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.offline-icon {
+  font-size: 1.75rem;
+}
+
+.offline-text h3 {
+  margin: 0 0 0.15rem 0;
+  color: #f59e0b;
+  font-size: 1.1rem;
+}
+
+.offline-text p {
+  margin: 0;
+  color: #fbbf24;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.offline-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f59e0b;
+  background-color: rgba(217, 119, 6, 0.2);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+
 

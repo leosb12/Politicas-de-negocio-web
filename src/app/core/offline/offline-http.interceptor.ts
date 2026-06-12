@@ -18,6 +18,8 @@ const BYPASS_PATTERNS = [
   '/api/push',
   '/api/health',
   '/api/predicciones/',
+  '/api/admin/reportes-visuales/generar-offline',
+  '/api/admin/reportes-visuales/sync-offline',
 ];
 
 /**

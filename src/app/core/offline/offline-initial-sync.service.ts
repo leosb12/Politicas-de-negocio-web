@@ -228,8 +228,18 @@ export class OfflineInitialSyncService {
         historial,
         catalogo,
       });
-    } catch {
-      // Ignorar leve
+
+      // Sincronizar datos reales de reportes offline
+      this.message.set('Sincronizando snapshot de reportes offline...');
+      const syncUrl = `${API_ENDPOINTS.adminReportes.replace('/reportes', '/reportes-visuales')}/sync-offline`;
+      const offlineSnapshot = await firstValueFrom(this.http.post<any>(syncUrl, {}));
+      if (offlineSnapshot) {
+        offlineSnapshot.id = 'offline_snapshot';
+        await this.db.put('reportesCacheados', offlineSnapshot);
+      }
+    } catch (err) {
+      console.warn('Error al sincronizar snapshot de reportes offline:', err);
+      this.failedModules.update((m) => [...m, 'Snapshot de Reportes Offline']);
     }
 
     // Guardar snapshot timestamp

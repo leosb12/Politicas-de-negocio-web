@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReportesDinamicosService, ReporteVisualResponse } from '../../../services/reportes-dinamicos.service';
+import { OfflineStatusService } from '../../../../../core/offline/offline-status.service';
 import { BloqueReporteComponent } from './components/bloque-reporte/bloque-reporte.component';
 import { AdministradorGuiaContextService } from '../../../services/administrador-guia-context.service';
 import { AdministradorAnaliticasService } from '../../../services/administrador-analiticas.service';
@@ -20,6 +21,7 @@ import * as ExcelJS from 'exceljs';
 export class ReportesInteligentesComponent implements OnInit, OnDestroy {
   private reportesService = inject(ReportesDinamicosService);
   private analiticasService = inject(AdministradorAnaliticasService);
+  private offlineStatusService = inject(OfflineStatusService);
   private guideContext = inject(AdministradorGuiaContextService, { optional: true });
 
   ngOnInit(): void {
@@ -55,6 +57,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
   errorMessage = signal<string | null>(null);
   iaPlus = signal(false);
   showFormatModal = signal(false);
+  isOfflineReport = signal(false);
 
   // Estados para exportación offscreen
   isExporting = signal(false);
@@ -131,8 +134,14 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
       targetFormat = 'powerpoint';
     }
 
-    this.reportesService.generarReporteVisual({ prompt: promptVal, iaPlus: this.iaPlus() }).subscribe({
+    const isOffline = this.offlineStatusService.isOffline();
+    const requestObservable = isOffline
+      ? this.reportesService.generarReporteVisualOffline({ prompt: promptVal, iaPlus: this.iaPlus() })
+      : this.reportesService.generarReporteVisual({ prompt: promptVal, iaPlus: this.iaPlus() });
+
+    requestObservable.subscribe({
       next: (res: ReporteVisualResponse) => {
+        this.isOfflineReport.set(isOffline);
         if (targetFormat === 'pantalla') {
           this.reporte.set(res);
           this.isProcessing.set(false);
@@ -150,7 +159,13 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         console.error(err);
-        this.errorMessage.set("Ocurrió un error al generar el reporte visual inteligente. Por favor, intente de nuevo.");
+        let msg = "Ocurrió un error al generar el reporte visual inteligente. Por favor, intente de nuevo.";
+        if (err && err.error && err.error.message) {
+          msg = err.error.message;
+        } else if (err && err.message) {
+          msg = err.message;
+        }
+        this.errorMessage.set(msg);
         this.isProcessing.set(false);
       }
     });
@@ -797,6 +812,7 @@ export class ReportesInteligentesComponent implements OnInit, OnDestroy {
     this.showFormatModal.set(false);
     this.isExporting.set(false);
     this.exportReporte.set(null);
+    this.isOfflineReport.set(false);
   }
 
   toggleDictado() {

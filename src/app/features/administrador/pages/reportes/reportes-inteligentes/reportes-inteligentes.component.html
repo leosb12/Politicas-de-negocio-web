@@ -65,15 +65,27 @@
 
   <!-- Generated Report Preview -->
   <div class="report-preview" *ngIf="reporte() && !isProcessing()">
+    <!-- Banner de Advertencia/Información Offline -->
+    <div class="offline-banner" *ngIf="isOfflineReport() && reporte()?.offlineMessage">
+      <div class="offline-banner-content">
+        <span class="offline-icon">🔌</span>
+        <div class="offline-text">
+          <h3>{{ (reporte()?.offlineMessage?.includes('Demo') || reporte()?.offlineMessage?.includes('simulado')) ? 'Modo Demo Offline' : 'Modo Offline Activo' }}</h3>
+          <p>{{ reporte()?.offlineMessage }}</p>
+        </div>
+      </div>
+    </div>
+
     <div class="report-meta card">
       <div class="title-with-badge">
         <h2>{{ reporte()?.titulo }}</h2>
         <span class="ia-plus-badge-sutil" *ngIf="reporte()?.asistido">IA+</span>
+        <span class="offline-badge" *ngIf="isOfflineReport()">OFFLINE</span>
       </div>
       <p>{{ reporte()?.descripcion }}</p>
       <div class="report-meta-footer">
         <span>Generado el: {{ reporte()?.fechaGeneracion | date:'dd/MM/yyyy HH:mm' }}</span>
-        <span>Modo: Inteligente / Multibloque <span *ngIf="reporte()?.asistido">/ IA+</span></span>
+        <span>Modo: Inteligente / Multibloque <span *ngIf="reporte()?.asistido">/ IA+</span> <span *ngIf="isOfflineReport()">/ Local Deep Learning</span></span>
       </div>
     </div>
 
